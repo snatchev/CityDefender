@@ -50,6 +50,30 @@ body,
   margin-bottom: 10px;
 }
 
+.hud-integrity {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.hud-integrity strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--defense);
+}
+
+.hud-spawn {
+  margin-bottom: 8px;
+}
+
+.hud select {
+  min-height: 32px;
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  font: inherit;
+}
+
 .hud-stats {
   display: grid;
   grid-template-columns: auto 1fr;

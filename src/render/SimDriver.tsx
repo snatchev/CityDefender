@@ -1,7 +1,9 @@
 import { useFrame } from '@react-three/fiber';
 import { game, publish } from '../game';
-import { TICK_HZ } from '../sim/constants';
 import { tickWorld } from '../sim/world';
+
+/** HUD refresh interval in ticks (4 Hz): event rate, never per frame. */
+const PUBLISH_EVERY_TICKS = 5;
 
 /**
  * Bridges the render loop to the fixed-step simulation. Renders nothing.
@@ -10,10 +12,12 @@ import { tickWorld } from '../sim/world';
 export function SimDriver() {
   useFrame((_, delta) => {
     const steps = game.stepper.advance(delta);
+    let due = false;
     for (let i = 0; i < steps; i++) {
       tickWorld(game.world);
-      if (game.world.tick % TICK_HZ === 0) publish();
+      if (game.world.tick % PUBLISH_EVERY_TICKS === 0) due = true;
     }
+    if (due) publish();
   });
   return null;
 }

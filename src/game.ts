@@ -1,7 +1,8 @@
 import { loadCityFile } from './loadCity';
 import { cityToTileMap, type CityFileV0 } from './sim/cityFile';
 import { FixedStepper } from './sim/stepper';
-import { createWorld, resetWorld, type World } from './sim/world';
+import { queueWave } from './sim/mobs';
+import { createWorld, resetWorld, setMap, type World } from './sim/world';
 import { useHud } from './ui/store';
 
 /** 1682: the year of Penn's plan for Philadelphia. */
@@ -37,16 +38,22 @@ export function setTimeScale(scale: number): void {
   publish();
 }
 
+/** Send `count` crawlers from a station (default: the outermost one). */
+export function spawnWave(count: number, spawnIndex = 0): void {
+  queueWave(game.world, count, spawnIndex);
+  publish();
+}
+
 export async function loadCity(name: string): Promise<void> {
   const city = await loadCityFile(name);
   game.city = city;
-  game.world.map = cityToTileMap(city);
+  setMap(game.world, cityToTileMap(city));
   useHud.getState().setCity({
     name: city.meta.city,
     title: city.meta.title,
     width: city.meta.width,
     height: city.meta.height,
-    spawns: city.spawns.length,
+    stations: city.spawns.map((s) => s.name),
   });
   publish();
 }

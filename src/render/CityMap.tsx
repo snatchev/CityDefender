@@ -4,7 +4,7 @@ import mapData from '../data/map.json';
 import { cityHeights, compressHeight, type CityFileV0 } from '../sim/cityFile';
 import { TILE_M } from '../sim/constants';
 import { Tile, type TileMap } from '../sim/map';
-import { tileFrame, tileToWorld, type TileFrame } from './coords';
+import { tileToWorld, type TileFrame } from './coords';
 import { LabelLayer, type MapLabel } from './LabelLayer';
 
 const COLORS = {
@@ -38,8 +38,15 @@ interface TileBox {
  * as low slabs, the goal block as a white plinth, stations as orange discs, and HTML labels.
  * TODO(pass-6): merged extruded footprints, lane lines, slots.
  */
-export function CityMap({ city, map }: { city: CityFileV0; map: TileMap }) {
-  const frame = useMemo(() => tileFrame(map), [map]);
+export function CityMap({
+  city,
+  map,
+  frame,
+}: {
+  city: CityFileV0;
+  map: TileMap;
+  frame: TileFrame;
+}) {
   const { buildings, lots, goal } = useMemo(() => classifyTiles(city, map), [city, map]);
   const labels = useMemo(() => mapLabels(city, frame, buildings), [city, frame, buildings]);
 

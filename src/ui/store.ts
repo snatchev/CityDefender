@@ -6,15 +6,19 @@ export interface CityInfo {
   title: string;
   width: number;
   height: number;
-  spawns: number;
+  /** Station names, outermost first (index = spawn index). */
+  stations: string[];
 }
 
-/** UI-facing snapshot of the sim. Updated at event rate (≈1 Hz or on user action), not per frame. */
+/** UI-facing snapshot of the sim. Updated at event rate (4 Hz or on user action), not per frame. */
 interface HudState {
   tick: number;
   simTime: number;
   seed: number;
   timeScale: number;
+  integrity: number;
+  mobs: number;
+  leaked: number;
   /** Set once the WebGL renderer is up (Canvas onCreated). */
   renderer: string | null;
   /** Set once the city file has loaded; the scene renders the map from `game.city` after that. */
@@ -32,6 +36,9 @@ export const useHud = create<HudState>()((set) => ({
   simTime: 0,
   seed: 0,
   timeScale: 1,
+  integrity: 0,
+  mobs: 0,
+  leaked: 0,
   renderer: null,
   city: null,
   errors: [],
@@ -39,5 +46,13 @@ export const useHud = create<HudState>()((set) => ({
   setCity: (city) => set({ city }),
   pushError: (message) => set((s) => ({ errors: [...s.errors, message].slice(-5) })),
   publishSim: (world, timeScale) =>
-    set({ tick: world.tick, simTime: simTimeSeconds(world), seed: world.seed, timeScale }),
+    set({
+      tick: world.tick,
+      simTime: simTimeSeconds(world),
+      seed: world.seed,
+      timeScale,
+      integrity: world.integrity,
+      mobs: world.mobs.length + world.spawners.reduce((n, s) => n + s.remaining, 0),
+      leaked: world.stats.leaked,
+    }),
 }));

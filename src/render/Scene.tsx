@@ -1,8 +1,11 @@
 import { MapControls, Stats } from '@react-three/drei';
+import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { game } from '../game';
 import { useHud } from '../ui/store';
 import { CityMap } from './CityMap';
+import { tileFrame } from './coords';
+import { Mobs } from './Mobs';
 import { SimDriver } from './SimDriver';
 
 export function Scene() {
@@ -10,6 +13,7 @@ export function Scene() {
   const cityName = useHud((s) => s.city?.name);
   const city = cityName ? game.city : null;
   const map = game.world.map;
+  const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
 
   return (
     <Canvas
@@ -29,7 +33,12 @@ export function Scene() {
       <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
       <directionalLight position={[300, 600, 200]} intensity={1.8} />
 
-      {city && map && <CityMap city={city} map={map} />}
+      {city && map && frame && (
+        <>
+          <CityMap city={city} map={map} frame={frame} />
+          <Mobs frame={frame} />
+        </>
+      )}
 
       <CityHallPlaceholder />
 
