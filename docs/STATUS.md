@@ -13,7 +13,8 @@
 - Implementation plan v0.1 ([IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md))
 - Pass 0: scaffold (tag `pass-00`).
 - Pass 1: map generator v0 (tag `pass-01`). `npm run map:build -- philly` fetches OSM streets and stations once (cached in `tools/map/cache/`), rotates the grid by −9.35° onto Penn's streets, cuts the level at Vine / Spruce / 18th / 8th, and writes `public/cities/philly/city.json` (183×162 tiles, 12 stations, 102 street labels). The game renders it with instanced buildings, the City Hall block as the goal, orange station discs and street/station labels.
-- 28 agent skills installed in `.agents/skills` (symlinked into `.claude/skills`). See [TOOLING.md](TOOLING.md) for which to keep.
+- Real building heights (pulled forward from Pass 6 at Stefan's request, D019): per-tile heights from City of Philadelphia footprints, with OSM buildings filling the gaps (the Convention Center and Comcast Technology Center are missing from the city data). Drawn with the √ height curve from DESIGN §4. Open lots show as low grey slabs.
+- 28 agent skills installed in `.agents/skills` (symlinked into `.claude/skills`). All kept (D018); see [TOOLING.md](TOOLING.md).
 
 ## In progress
 - Nothing. Pass 2 is next.
@@ -26,13 +27,10 @@
 - Git: one commit per pass, tagged `pass-NN` (see D011).
 
 ## Open questions for Stefan
-- Target machine and browser for the performance budget? (Assumed: this iMac Pro, Chrome.)
-- Prep timer: untimed by default (current design). Confirm.
-- Remove the 6 skills flagged in TOOLING.md?
-- OK to keep the sim/render split (`src/sim` plain TS) with only occasional tests? (Stefan: "don't want simulation code", which Claude read as "don't fake/simulate test runs"; confirm.)
+- None right now.
 
 ## Deferred from Pass 1 (planned for Pass 6 unless noted)
-- Real footprints and heights, street widths from lanes, alleys, slots, street graph.
+- Footprint meshes (heights are per tile for now), street widths from lanes, alleys, slots, street graph.
 - The goal block is ~180 m square (City Hall plus Dilworth Park), because the west side of Penn Square has no mapped road. Pass 6 can use the real City Hall footprint.
 - Diagonal streets (the Parkway) rasterize as stair-steps and a bit fat.
 - Camera isn't clamped to the level bounds (camera work is Pass 4–5).
@@ -49,3 +47,4 @@
 |---|---|---|---|---|
 | 0 | 2026-09-26 | ✅ typecheck, lint, 14/14 tests, build. Renders at 60 fps in Chrome (Vega 56). Controls, pause, step and restart verified | [pass-00.png](screenshots/pass-00.png) | drei Stats instead of r3f-perf; leva deferred to Pass 5 |
 | 1 | 2026-09-26 | ✅ typecheck, lint, 19/19 tests. `map:build` reproducible from cache (identical hash). 60 fps in Chrome, no errors. Single-file preview checked | [pass-01.png](screenshots/pass-01.png) | Replaced 114 drei `<Html>` labels (26 fps, React root warnings) with one DOM label layer |
+| 1b | 2026-09-26 | ✅ real building heights; 60 fps, no errors | [pass-01b-heights.png](screenshots/pass-01b-heights.png) | Stefan asked for it before Pass 2 (D019) |

@@ -24,7 +24,7 @@ Owner: **Stefan**, an experienced software engineer who is new to React/three.js
 - **Dev debug hook:** `window.__cd` exposes world state and commands (spawnWave, setSeed, placeBarricade…) for inspection via Chrome DevTools MCP.
 - **Attribution:** keep "© OpenStreetMap contributors" visible in‑game.
 - TypeScript strict. Small modules. Prefer pure functions in `sim/`.
-- **Testing policy (Stefan):** write the *occasional* unit test for logic that is important or tricky (pathfinding, siege costs, the fixed-step timer, damage math). Don't write tests for every change. The codebase will churn a lot. Never fake or simulate a test run: run the real tools.
+- **Testing policy (Stefan):** write the *occasional* unit test for logic that is important or tricky (pathfinding, siege costs, the fixed-step timer, damage math). Don't write tests for every change. The codebase will churn a lot. Never fake or simulate a test run: run the real tools. Simulation code and ASCII fixtures are fine *inside unit tests*, but develop and verify features in the real local dev environment (`npm run dev`, real Chrome) with the real city data, not stand-ins (D017).
 - **Seeing the game:** `npm run dev` → check `http://localhost:5173` with Chrome DevTools MCP. At the end of a pass, `npm run build:preview` and republish the live preview artifact. See the "How Claude builds and checks things" section in docs/STATUS.md.
 
 ## Commands

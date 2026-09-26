@@ -90,7 +90,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 **Deliverable:** you can win or lose.
 - **MG Nest** on any building tile adjacent to a street. Hitscan with fire rate, damage and range. Targeting = First (furthest along the flow field). Tracer line + hit flash.
 - **Economy:** starting cash, tower and barricade costs, bounty per kill, wave clear bonus.
-- **Phase state machine:** `PREP → ASSAULT → DEBRIEF → PREP…` with a "Start wave" button. Barricades only in PREP.
+- **Phase state machine:** `PREP → ASSAULT → DEBRIEF → PREP…`. PREP has a countdown (30 s to start with, in `src/data/`, D016) and a "Start wave" button that ends it early. Barricades only in PREP.
 - Waves from `src/data/waves.json` (5 waves, one mob type, growing count and HP).
 - Lose at Integrity 0, win after the last wave. Simple end screen with restart.
 **Accept:** a new player can finish a 5‑wave run in about 5 minutes, and it's possible to lose. Sim test: scripted run on a fixture is deterministic for a given seed.
@@ -110,7 +110,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 
 ### Pass 6: Map generator v1 · timebox 2–3 days
 **Deliverable:** real Center City. Buildings at real (compressed) heights, correct street widths, precomputed slots.
-- Add the City of Philadelphia building footprints (OpenDataPhilly / ArcGIS, fields `max_hgt`, `approx_hgt`, `building_name`). Overture buildings as a height fallback.
+- ✅ *Done early (D019):* City of Philadelphia footprints (`approx_hgt`) rasterized to per-tile heights, with OSM buildings as the fallback, drawn with the √ curve. Remaining here: footprint meshes, and Overture if OSM gaps show up.
 - Clip and simplify with mapshaper. Drop footprints under 40 m². Merge rowhouse runs.
 - Street width from `lanes` / `width` tags, with sensible defaults per highway class.
 - Rasterize footprints to `building` tiles with per‑tile height (the max of overlapping footprints). Height compression curve.

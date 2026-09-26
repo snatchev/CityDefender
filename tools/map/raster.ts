@@ -122,3 +122,85 @@ export function nearestStreet(
   }
   return null;
 }
+
+/** A footprint in tile units: rings (outer + holes, any winding) and its height in metres. */
+export interface Footprint {
+  rings: UV[][];
+  heightM: number;
+}
+
+/** Even-odd point-in-polygon over all rings, so holes work without caring about winding. */
+function insideRings(rings: readonly UV[][], u: number, v: number): boolean {
+  let inside = false;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i]!;
+      const b = ring[j]!;
+      if (a.v > v !== b.v > v && u < ((b.u - a.u) * (v - a.v)) / (b.v - a.v) + a.u)
+        inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Per-tile building height (metres, row-major). Each tile is sampled on a `sub`×`sub` grid; a tile is
+ * built if footprints cover at least `minCoverage` of its samples, and then takes the tallest height
+ * among them. Uncovered tiles get 0 (open lot).
+ */
+export function rasterizeHeights(
+  width: number,
+  height: number,
+  footprints: readonly Footprint[],
+  minCoverage: number,
+  sub = 4,
+): Float32Array {
+  const sw = width * sub;
+  const sh = height * sub;
+  const samples = new Float32Array(sw * sh);
+  for (const fp of footprints) {
+    let u0 = Infinity;
+    let v0 = Infinity;
+    let u1 = -Infinity;
+    let v1 = -Infinity;
+    for (const r of fp.rings) {
+      for (const p of r) {
+        u0 = Math.min(u0, p.u);
+        v0 = Math.min(v0, p.v);
+        u1 = Math.max(u1, p.u);
+        v1 = Math.max(v1, p.v);
+      }
+    }
+    const si0 = Math.max(0, Math.floor(u0 * sub));
+    const si1 = Math.min(sw - 1, Math.ceil(u1 * sub));
+    const sj0 = Math.max(0, Math.floor(v0 * sub));
+    const sj1 = Math.min(sh - 1, Math.ceil(v1 * sub));
+    for (let sj = sj0; sj <= sj1; sj++) {
+      for (let si = si0; si <= si1; si++) {
+        const k = sj * sw + si;
+        if (samples[k]! >= fp.heightM) continue;
+        if (insideRings(fp.rings, (si + 0.5) / sub, (sj + 0.5) / sub)) samples[k] = fp.heightM;
+      }
+    }
+  }
+
+  const out = new Float32Array(width * height);
+  const need = minCoverage * sub * sub;
+  for (let ty = 0; ty < height; ty++) {
+    for (let tx = 0; tx < width; tx++) {
+      let covered = 0;
+      let max = 0;
+      for (let dy = 0; dy < sub; dy++) {
+        for (let dx = 0; dx < sub; dx++) {
+          const h = samples[(ty * sub + dy) * sw + tx * sub + dx]!;
+          if (h > 0) {
+            covered++;
+            max = Math.max(max, h);
+          }
+        }
+      }
+      out[ty * width + tx] = covered >= need ? max : 0;
+    }
+  }
+  return out;
+}

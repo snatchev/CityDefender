@@ -48,11 +48,11 @@ Use these to settle design arguments. If a feature doesn't serve one of them, it
 - **Ghost paths** are drawn from every active spawn to City Hall and update live while the player edits barricades. This is the most important UI in the game.
 - Telegraph for next wave: "Tremors under 15th St" means that station opens next wave.
 
-**2. Prep (untimed by default)**
+**2. Prep (30 s timer to start with; tune in playtests, see D016)**
 - Place, upgrade and sell towers. Place, upgrade and repair barricades.
 - **Undo is free during prep**: anything built this prep sells back at 100%. After the wave starts, selling refunds 70%.
 - Barricade preview shows the new path and the change in route length (`+340 m detour`).
-- A **"Call wave early"** button pays a bonus. Timed prep is a mutator, not the default.
+- A **"Call wave early"** button ends prep immediately and pays a bonus for the time skipped.
 
 **3. Assault**
 - Mobs leave stations in bursts. Towers fire automatically. Speed controls: pause, 1×, 2×, 3×.
@@ -72,7 +72,7 @@ Use these to settle design arguments. If a feature doesn't serve one of them, it
 - **Bounty** per kill, scaled by mob type.
 - **Wave clear bonus**, flat plus a wave‑number scale.
 - **Interest:** 5% of banked cash at debrief, capped (for example at 50). This sets up a save‑vs‑spend tension.
-- **Early call bonus** grows with the prep time skipped (if prep is timed) or is a flat amount.
+- **Early call bonus** grows with the prep time skipped.
 - Balance target: the player *almost* affords the ideal answer to every wave. HP grows about 1.12–1.18× per wave, and income grows slightly slower.
 
 ## 4. The map

@@ -3,24 +3,36 @@
  *
  *   cached Overpass JSON → project to metres around the goal → rotate so the street grid is axis-aligned
  *   → cut the level at the boundary streets → rasterize centerlines onto tiles → mark the goal block
- *   → snap stations to streets → public/cities/<city>/city.json
+ *   → snap stations to streets → rasterize building footprints to per-tile heights
+ *   → public/cities/<city>/city.json
  *
- * Pass 6 replaces the uniform buildings with real footprints and heights. See docs/IMPLEMENTATION_PLAN.md.
+ * Pass 6 adds footprint meshes, street widths from lanes, slots and the street graph. See docs/IMPLEMENTATION_PLAN.md.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CityFileV0, CityLabel, CitySpawn } from '../../src/sim/cityFile';
-import { cachePath, loadConfig, type OverpassElement, type OverpassResponse } from './config';
-import { fetchCity } from './fetch';
+import {
+  buildingsCachePath,
+  cachePath,
+  osmBuildingsCachePath,
+  loadConfig,
+  type FootprintCollection,
+  type OverpassElement,
+  type OverpassResponse,
+} from './config';
+import { fetchBuildings, fetchCity, fetchOsmBuildings } from './fetch';
 import { dominantGridAngle, project, rotate, type Pt } from './geo';
 import {
   Grid,
   markGoalBlock,
+  rasterizeHeights,
   nearestStreet,
   paintStreet,
   samplePolyline,
   T_GOAL,
   T_STREET,
+  T_BUILDING,
+  type Footprint,
   type UV,
 } from './raster';
 
@@ -48,6 +60,8 @@ function median(xs: number[]): number {
 export async function buildCity(city: string): Promise<CityFileV0> {
   const cfg = loadConfig(city);
   await fetchCity(city);
+  await fetchBuildings(city);
+  await fetchOsmBuildings(city);
   const osm = JSON.parse(readFileSync(cachePath(city), 'utf8')) as OverpassResponse;
   const origin = { lat: cfg.goal.lat, lon: cfg.goal.lon };
 
@@ -157,13 +171,64 @@ export async function buildCity(city: string): Promise<CityFileV0> {
     }
   }
 
+  // 7. Building heights: city footprints first, OSM building outlines where the city data has gaps.
+  //    Streets and the goal block stay 0.
+  const b = cfg.buildings;
+  const toTile = ([lon, lat]: number[]) =>
+    toUV(rotate(project({ lat: lat!, lon: lon! }, origin), -angle));
+  const fc = JSON.parse(readFileSync(buildingsCachePath(city), 'utf8')) as FootprintCollection;
+  const footprints: Footprint[] = [];
+  for (const f of fc.features) {
+    if (!f.geometry) continue;
+    const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+    const raw =
+      Number(f.properties[b.heightField]) || Number(f.properties[b.fallbackHeightField]) || 0;
+    const heightM = raw > 0 ? raw * b.heightUnitM : b.defaultHeightM;
+    for (const poly of polys)
+      footprints.push({ heightM, rings: poly.map((ring) => ring.map(toTile)) });
+  }
+  const osmB = JSON.parse(readFileSync(osmBuildingsCachePath(city), 'utf8')) as OverpassResponse;
+  const osmFootprints: Footprint[] = [];
+  for (const e of osmB.elements) {
+    if (e.type !== 'way' || !e.geometry || e.geometry.length < 4) continue;
+    const t = e.tags ?? {};
+    const heightM =
+      parseFloat(t.height ?? '') ||
+      (parseFloat(t['building:levels'] ?? '') || 0) * b.osmLevelM ||
+      b.defaultHeightM;
+    osmFootprints.push({ heightM, rings: [e.geometry.map((p) => toTile([p.lon, p.lat]))] });
+  }
+  const cityHeights = rasterizeHeights(width, height, footprints, b.minTileCoverage);
+  const osmHeights = rasterizeHeights(width, height, osmFootprints, b.minTileCoverage);
+  let fromOsm = 0;
+  const tileHeights = cityHeights.map((h, i) => {
+    if (h > 0) return h;
+    if (osmHeights[i]! > 0) fromOsm++;
+    return osmHeights[i]!;
+  });
+  const heightRows: string[] = [];
+  let built = 0;
+  let tallest = 0;
+  for (let ty = 0; ty < height; ty++) {
+    const row: number[] = [];
+    for (let tx = 0; tx < width; tx++) {
+      const h = grid.get(tx, ty) === T_BUILDING ? Math.round(tileHeights[ty * width + tx]!) : 0;
+      if (h > 0) built++;
+      tallest = Math.max(tallest, h);
+      row.push(h);
+    }
+    heightRows.push(row.join(','));
+  }
+
   const rows = grid.rows();
   const streetTiles = grid.cells.filter((c) => c === T_STREET).length;
   console.log(
     `[map:build] ${city}: grid rotated ${angle.toFixed(2)}°, ${width}×${height} tiles ` +
       `(${((width * cfg.tileM) / 1000).toFixed(2)} × ${((height * cfg.tileM) / 1000).toFixed(2)} km), ` +
       `${((100 * streetTiles) / grid.cells.length).toFixed(0)}% street, goal ${goalTiles} tiles, ` +
-      `${spawns.length} spawns, ${labels.length} labels`,
+      `${spawns.length} spawns, ${labels.length} labels, ` +
+      `${footprints.length} city + ${osmFootprints.length} OSM footprints → ${built} built tiles ` +
+      `(${fromOsm} from OSM, tallest ${tallest} m)`,
   );
   for (const s of spawns)
     console.log(`  spawn ${s.name.padEnd(22)} (${s.tx}, ${s.ty})  ${s.goalDistM} m`);
@@ -177,11 +242,11 @@ export async function buildCity(city: string): Promise<CityFileV0> {
       width,
       height,
       gridRotationDeg: Number(angle.toFixed(3)),
-      buildingHeightM: cfg.buildingHeightM,
       attribution: '© OpenStreetMap contributors',
       osmTimestamp: osm.osm3s.timestamp_osm_base,
     },
     rows,
+    heightRows,
     goal: { name: cfg.goal.name, tx: goalTx, ty: goalTy },
     spawns,
     labels,

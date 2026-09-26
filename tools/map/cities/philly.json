@@ -1,8 +1,17 @@
 {
   "name": "philly",
   "title": "Philadelphia",
-  "fetchBbox": { "south": 39.944, "west": -75.174, "north": 39.961, "east": -75.1505 },
-  "goal": { "name": "City Hall", "lat": 39.95258, "lon": -75.16358 },
+  "fetchBbox": {
+    "south": 39.944,
+    "west": -75.174,
+    "north": 39.961,
+    "east": -75.1505
+  },
+  "goal": {
+    "name": "City Hall",
+    "lat": 39.95258,
+    "lon": -75.16358
+  },
   "bounds": {
     "north": "Vine Street",
     "south": "Spruce Street",
@@ -12,7 +21,19 @@
   },
   "tileM": 8,
   "highways": ["trunk", "primary", "secondary", "tertiary", "residential", "unclassified"],
-  "streetWidthTiles": { "default": 2, "trunk": 3, "primary": 3 },
-  "buildingHeightM": 18,
-  "stationSnapMaxTiles": 12
+  "streetWidthTiles": {
+    "default": 2,
+    "trunk": 3,
+    "primary": 3
+  },
+  "stationSnapMaxTiles": 12,
+  "buildings": {
+    "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/LI_BUILDING_FOOTPRINTS/FeatureServer/0/query",
+    "heightField": "approx_hgt",
+    "fallbackHeightField": "max_hgt",
+    "heightUnitM": 0.3048,
+    "defaultHeightM": 10,
+    "minTileCoverage": 0.25,
+    "osmLevelM": 3.5
+  }
 }

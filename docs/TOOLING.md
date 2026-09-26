@@ -6,15 +6,10 @@ Use **Claude Code in the `CityDefender` folder** (the main tool since 2026-09-26
 ## Skills (28 installed via `npx skills`, see `skills-lock.json`)
 Sources: `EnzeD/r3f-skills` (r3f‑*), `gamedev-skills/awesome-gamedev-agent-skills` (the rest).
 
-**Keep (22):**
-- R3F: `r3f-fundamentals`, `r3f-geometry`, `r3f-interaction`, `r3f-animation`, `r3f-materials`, `r3f-lighting`, `r3f-loaders`, `r3f-textures`, `r3f-shaders`, `r3f-postprocessing`
-- Game: `tower-defense`, `game-ai`, `game-feel`, `level-design`, `procedural-gen`, `performance-optimization`, `game-ui-ux`, `camera-systems`, `input-systems`, `audio-design`, `save-systems`, `create-game-assets`
-
-**Recommend removing (6):** pending Stefan's OK.
-- `threejs-scene-setup`, `threejs-gltf-loading`, `threejs-materials-lighting` teach vanilla three.js (import maps, manual render loop) that conflict with R3F.
-- `shader-programming` duplicates `r3f-shaders`.
-- `r3f-physics`: no Rapier needed, since mobs follow flow fields.
-- `ai-behavior-trees-utility-ai` is overkill. `game-ai` FSMs cover bug behavior.
+**All 28 are kept** (D018). Prefer the R3F skills; the others are for background knowledge.
+- R3F: `r3f-fundamentals`, `r3f-geometry`, `r3f-interaction`, `r3f-animation`, `r3f-materials`, `r3f-lighting`, `r3f-loaders`, `r3f-textures`, `r3f-shaders`, `r3f-postprocessing`, `r3f-physics`
+- Game: `tower-defense`, `game-ai`, `game-feel`, `level-design`, `procedural-gen`, `performance-optimization`, `game-ui-ux`, `camera-systems`, `input-systems`, `audio-design`, `save-systems`, `create-game-assets`, `ai-behavior-trees-utility-ai`
+- Background: `threejs-scene-setup`, `threejs-gltf-loading`, `threejs-materials-lighting` (vanilla three.js: use their material, lighting and loading knowledge, not their setup, since `<Canvas>` and `useFrame` replace the manual renderer and loop), `shader-programming` (shader fundamentals behind `r3f-shaders`).
 
 **Add:**
 - `npx skills add vercel-labs/agent-skills` → use `react-best-practices` (and optionally `composition-patterns`).
