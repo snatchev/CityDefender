@@ -112,3 +112,56 @@ body,
     monospace;
   white-space: pre-wrap;
 }
+
+.attribution {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--paper) 85%, transparent);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.attribution a {
+  color: inherit;
+}
+
+/* Map labels (render/LabelLayer.tsx). pointer-events off so they never block camera drags. */
+.label-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.map-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  user-select: none;
+  will-change: transform;
+}
+
+.street-label {
+  color: #f4f1ea;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 3px #000;
+}
+
+.street-label.vertical > span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+}
+
+.station-label {
+  padding: 1px 5px;
+  background: #f28c28;
+  border-radius: 3px;
+  color: #1f1206;
+  font-size: 11px;
+  font-weight: 600;
+}

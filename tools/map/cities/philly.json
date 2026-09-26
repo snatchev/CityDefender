@@ -1,0 +1,18 @@
+{
+  "name": "philly",
+  "title": "Philadelphia",
+  "fetchBbox": { "south": 39.944, "west": -75.174, "north": 39.961, "east": -75.1505 },
+  "goal": { "name": "City Hall", "lat": 39.95258, "lon": -75.16358 },
+  "bounds": {
+    "north": "Vine Street",
+    "south": "Spruce Street",
+    "west": "18th Street",
+    "east": "8th Street",
+    "marginM": 20
+  },
+  "tileM": 8,
+  "highways": ["trunk", "primary", "secondary", "tertiary", "residential", "unclassified"],
+  "streetWidthTiles": { "default": 2, "trunk": 3, "primary": 3 },
+  "buildingHeightM": 18,
+  "stationSnapMaxTiles": 12
+}

@@ -46,3 +46,15 @@ Consequences: no scratch copy. The single-file preview artifact stays, but only 
 **D011 · 2026-09-26 · Git from Pass 0: one commit per pass, tagged `pass-NN`.**
 Why: Stefan approved it. Tags give a known-good snapshot of every pass to diff against or roll back to.
 Consequences: commit only at the end of a pass (or when Stefan asks). `node_modules/`, `dist*/` and `tools/map/cache/` stay out of git.
+
+**D012 · 2026-09-26 · The goal is the whole block containing the landmark's coordinate, found by flood fill.**
+Why: the plan's "tiles within ~40 m of City Hall" sits inside the building, so it isn't adjacent to any street and mobs could never reach it. The flood-filled block always borders the ring road.
+Consequences: `map:build` fails loudly if the block exceeds 1,600 tiles (ring road not closed). Stations inside the goal block (City Hall station) are dropped.
+
+**D013 · 2026-09-26 · Level bounds are given as street names; generated city data lives in `public/cities/<city>/` and is fetched at runtime.**
+Why: naming the boundary streets (Vine, Spruce, 18th, 8th) puts the level edges exactly on streets after rotation, which a lat/lon box can't. Keeping data in `public/` matches the plan for later GLB assets.
+Consequences: per-city settings live in `tools/map/cities/<city>.json`. The single-file preview inlines the city JSON as `window.__CD_INLINE__` (`scripts/inline-build.mjs`, read by `src/loadCity.ts`).
+
+**D014 · 2026-09-26 · Many map labels go through one DOM layer (`render/LabelLayer.tsx`), not one drei `<Html>` each.**
+Why: 114 `<Html>` labels dropped the scene to 26 fps and each created its own React root (StrictMode unmount warnings). One layer that updates transforms only when the camera moves runs at 60 fps.
+Consequences: use `<Html>` only for a handful of interactive overlays. Flat ground text (troika `Text`) is an option later if we bundle a font.

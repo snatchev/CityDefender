@@ -1,19 +1,21 @@
-import { Grid, MapControls, Stats } from '@react-three/drei';
+import { MapControls, Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { TILE_M } from '../sim/constants';
+import { game } from '../game';
 import { useHud } from '../ui/store';
+import { CityMap } from './CityMap';
 import { SimDriver } from './SimDriver';
 
-/** Planned level size (DESIGN §4): ~160 × 150 tiles around City Hall. Replaced by map data in Pass 1. */
-const LEVEL_W = 160 * TILE_M;
-const LEVEL_D = 150 * TILE_M;
-
 export function Scene() {
+  // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
+  const cityName = useHud((s) => s.city?.name);
+  const city = cityName ? game.city : null;
+  const map = game.world.map;
+
   return (
     <Canvas
       className="scene"
       dpr={[1, 2]}
-      camera={{ position: [0, 520, 640], fov: 45, near: 1, far: 5000 }}
+      camera={{ position: [120, 720, 820], fov: 45, near: 1, far: 6000 }}
       onCreated={({ gl }) => {
         const ctx = gl.getContext();
         const kind =
@@ -27,31 +29,16 @@ export function Scene() {
       <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
       <directionalLight position={[300, 600, 200]} intensity={1.8} />
 
-      <mesh rotation-x={-Math.PI / 2}>
-        <planeGeometry args={[LEVEL_W, LEVEL_D]} />
-        <meshStandardMaterial color="#b9b2a3" />
-      </mesh>
-      <Grid
-        position={[0, 0.05, 0]}
-        args={[LEVEL_W, LEVEL_D]}
-        cellSize={TILE_M}
-        cellThickness={0.5}
-        cellColor="#8f887b"
-        sectionSize={TILE_M * 8}
-        sectionThickness={1}
-        sectionColor="#5a5f68"
-        fadeDistance={3000}
-        fadeStrength={1}
-      />
+      {city && map && <CityMap city={city} map={map} />}
 
       <CityHallPlaceholder />
 
       <MapControls
         makeDefault
-        target={[0, 0, 0]}
+        target={[120, 0, 60]}
         enableDamping
         minDistance={80}
-        maxDistance={1800}
+        maxDistance={2200}
         maxPolarAngle={Math.PI * 0.42}
       />
       <SimDriver />

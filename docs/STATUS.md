@@ -3,24 +3,26 @@
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
 **Last updated:** 2026-09-26
-**Current pass:** Pass 0 (Scaffold): **done**, committed and tagged `pass-00`
-**Next up:** Pass 1 (map generator v0)
+**Current pass:** Pass 1 (Map generator v0): **done**, tagged `pass-01`
+**Next up:** Pass 2 (one mob)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
 - Research: map sources and formats → decision D001 ([research/map-sources.md](research/map-sources.md))
 - Design doc v0.1 ([DESIGN.md](DESIGN.md))
 - Implementation plan v0.1 ([IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md))
+- Pass 0: scaffold (tag `pass-00`).
+- Pass 1: map generator v0 (tag `pass-01`). `npm run map:build -- philly` fetches OSM streets and stations once (cached in `tools/map/cache/`), rotates the grid by −9.35° onto Penn's streets, cuts the level at Vine / Spruce / 18th / 8th, and writes `public/cities/philly/city.json` (183×162 tiles, 12 stations, 102 street labels). The game renders it with instanced buildings, the City Hall block as the goal, orange station discs and street/station labels.
 - 28 agent skills installed in `.agents/skills` (symlinked into `.claude/skills`). See [TOOLING.md](TOOLING.md) for which to keep.
 
 ## In progress
-- Nothing. Pass 1 is next.
+- Nothing. Pass 2 is next.
 
 ## How Claude builds and checks things (Claude Code on the Mac, since 2026-09-26)
 - Development moved from Cowork to **Claude Code running directly on Stefan's Mac** (see D010). npm, vitest, eslint and the dev server run natively in the project folder. The Cowork workarounds (a scratch copy of the project for Linux builds, checking the game through a published artifact) are no longer needed.
 - Checking the game: `npm run dev`, then Chrome DevTools MCP against `http://localhost:5173` (console, screenshots, `window.__cd`, performance traces).
 - The HUD shows runtime errors on screen (red panel) and a Renderer line, so problems show up in screenshots.
-- Sharing: `npm run build:preview` still writes a single self-contained HTML (`dist-preview/city-defender-preview.html`, dev mode, with `window.__cd` and the error panel). Claude republishes it to the live preview artifact at the end of each pass so Stefan has a link to try.
+- Sharing: `npm run build:preview` still writes a single self-contained HTML (`dist-preview/city-defender-preview.html`, dev mode, with `window.__cd` and the error panel). Claude republishes it to the live preview artifact at the end of each pass so Stefan has a link to try: the artifact page is `scripts/preview-artifact.html`, which iframes the build published beside it as `game.html`.
 - Git: one commit per pass, tagged `pass-NN` (see D011).
 
 ## Open questions for Stefan
@@ -29,9 +31,15 @@
 - Remove the 6 skills flagged in TOOLING.md?
 - OK to keep the sim/render split (`src/sim` plain TS) with only occasional tests? (Stefan: "don't want simulation code", which Claude read as "don't fake/simulate test runs"; confirm.)
 
+## Deferred from Pass 1 (planned for Pass 6 unless noted)
+- Real footprints and heights, street widths from lanes, alleys, slots, street graph.
+- The goal block is ~180 m square (City Hall plus Dilworth Park), because the west side of Penn Square has no mapped road. Pass 6 can use the real City Hall footprint.
+- Diagonal streets (the Parkway) rasterize as stair-steps and a bit fat.
+- Camera isn't clamped to the level bounds (camera work is Pass 4–5).
+- Street labels are dense when zoomed out; no label culling or level-of-detail yet.
+
 ## Known issues / tech debt
 - Stepper needed an epsilon for float drift (fixed, covered by test).
-- `tools/map/build.ts` is a stub that exits 1 until Pass 1.
 - Console warning from @react-three/fiber 9.8: `THREE.Clock ... deprecated, use THREE.Timer`. Upstream and harmless. Revisit when R3F updates.
 - Vite warns the bundle is >500 kB (it's three.js, 1.15 MB / 317 kB gzip). Ignore until Pass 10's perf pass.
 - Fixed in Pass 0 check: the FPS meter overlapped the HUD (moved bottom-right), and eslint was linting build output and scripts without node globals.
@@ -40,3 +48,4 @@
 | Pass | Date | Result | Screenshot | Notes |
 |---|---|---|---|---|
 | 0 | 2026-09-26 | ✅ typecheck, lint, 14/14 tests, build. Renders at 60 fps in Chrome (Vega 56). Controls, pause, step and restart verified | [pass-00.png](screenshots/pass-00.png) | drei Stats instead of r3f-perf; leva deferred to Pass 5 |
+| 1 | 2026-09-26 | ✅ typecheck, lint, 19/19 tests. `map:build` reproducible from cache (identical hash). 60 fps in Chrome, no errors. Single-file preview checked | [pass-01.png](screenshots/pass-01.png) | Replaced 114 drei `<Html>` labels (26 fps, React root warnings) with one DOM label layer |

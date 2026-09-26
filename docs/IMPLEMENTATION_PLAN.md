@@ -60,7 +60,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
   1. Project lat/lon to local metres (equirectangular around City Hall is fine at this scale).
   2. **Auto‑rotate:** histogram the street segment bearings mod 90° and rotate by the dominant angle so Penn's grid is axis‑aligned.
   3. Rasterize each street centerline onto 8 m tiles with a fixed width (2 tiles, or 3 for primary). Everything else becomes `building` with one constant height.
-  4. Mark the goal: tiles within ~40 m of City Hall's coordinate. Keep the ring road around it as `street`.
+  4. Mark the goal: the block containing City Hall's coordinate (flood fill, see D012). Keep the ring road around it as `street`.
   5. Snap each station to its nearest street tile and record it as a spawn.
   6. Write `public/cities/philly/city.json` (v0 schema: `meta`, `tiles`, `spawns`, `goal`).
 - Render: street tiles as one flat plane or instanced quads, building tiles as instanced boxes, goal as a white box, stations as orange discs. Show OSM attribution in a corner.

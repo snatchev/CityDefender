@@ -15,12 +15,19 @@ export function Hud() {
   const timeScale = useHud((s) => s.timeScale);
   const renderer = useHud((s) => s.renderer);
   const errors = useHud((s) => s.errors);
+  const city = useHud((s) => s.city);
 
   return (
     <div className="hud">
       <div className="hud-title">City Defender</div>
-      <div className="hud-sub">Pass 0 · scaffold</div>
+      <div className="hud-sub">Pass 1 · map v0</div>
       <dl className="hud-stats">
+        <dt>City</dt>
+        <dd>{city ? city.title : 'loading…'}</dd>
+        <dt>Map</dt>
+        <dd>{city ? `${city.width}×${city.height} tiles` : '–'}</dd>
+        <dt>Stations</dt>
+        <dd>{city ? city.spawns : '–'}</dd>
         <dt>Sim time</dt>
         <dd>{simTime.toFixed(0)} s</dd>
         <dt>Tick</dt>
