@@ -3,10 +3,40 @@ import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { game } from '../game';
 import { useHud } from '../ui/store';
-import { CityMap } from './CityMap';
-import { tileFrame } from './coords';
+import { hoverTile, placeBarricadeAt, removeBarricadeAt } from '../planning';
+import { Barricades } from './Barricades';
+import { CityMap, type GroundHandlers } from './CityMap';
+import { DevCamera } from './DevCamera';
+import { tileFrame, worldToTile, type TileFrame } from './coords';
 import { Mobs } from './Mobs';
+import { PlanOverlay } from './PlanOverlay';
 import { SimDriver } from './SimDriver';
+
+/** Pointer movement (px) above which a click counts as a camera drag, not a placement. */
+const CLICK_SLOP_PX = 5;
+
+/**
+ * Ground picking: hover previews a barricade, left-click places one, right-click removes one.
+ * Clicks that end a camera drag are ignored.
+ */
+function groundHandlers(frame: TileFrame): GroundHandlers {
+  const tileAt = (p: { x: number; z: number }) => worldToTile(frame, p.x, p.z);
+  return {
+    onPointerMove: (e) => hoverTile(tileAt(e.point)),
+    onPointerOut: () => hoverTile(null),
+    onClick: (e) => {
+      if (e.delta > CLICK_SLOP_PX) return;
+      const [tx, ty] = tileAt(e.point);
+      placeBarricadeAt(tx, ty);
+    },
+    onContextMenu: (e) => {
+      e.nativeEvent.preventDefault();
+      if (e.delta > CLICK_SLOP_PX) return;
+      const [tx, ty] = tileAt(e.point);
+      removeBarricadeAt(tx, ty);
+    },
+  };
+}
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
@@ -14,10 +44,14 @@ export function Scene() {
   const city = cityName ? game.city : null;
   const map = game.world.map;
   const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
+  const ground = useMemo(() => (frame ? groundHandlers(frame) : null), [frame]);
 
   return (
     <Canvas
       className="scene"
+      role="application"
+      aria-label="City map"
+      tabIndex={0}
       dpr={[1, 2]}
       camera={{ position: [120, 720, 820], fov: 45, near: 1, far: 6000 }}
       onCreated={({ gl }) => {
@@ -33,10 +67,13 @@ export function Scene() {
       <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
       <directionalLight position={[300, 600, 200]} intensity={1.8} />
 
-      {city && map && frame && (
+      {city && map && frame && ground && (
         <>
-          <CityMap city={city} map={map} frame={frame} />
+          <CityMap city={city} map={map} frame={frame} ground={ground} />
+          <Barricades frame={frame} />
           <Mobs frame={frame} />
+          <PlanOverlay frame={frame} />
+          {import.meta.env.DEV && <DevCamera frame={frame} />}
         </>
       )}
 

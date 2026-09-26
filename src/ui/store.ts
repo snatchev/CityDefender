@@ -23,11 +23,15 @@ interface HudState {
   renderer: string | null;
   /** Set once the city file has loaded; the scene renders the map from `game.city` after that. */
   city: CityInfo | null;
+  /** Short feedback line for the player (e.g. why a placement failed). */
+  notice: string | null;
+  barricades: number;
   /** Runtime errors surfaced on screen (so they show up in screenshots, not just the console). */
   errors: string[];
   publishSim: (world: World, timeScale: number) => void;
   setRenderer: (info: string) => void;
   setCity: (city: CityInfo) => void;
+  setNotice: (notice: string | null) => void;
   pushError: (message: string) => void;
 }
 
@@ -41,9 +45,12 @@ export const useHud = create<HudState>()((set) => ({
   leaked: 0,
   renderer: null,
   city: null,
+  notice: null,
+  barricades: 0,
   errors: [],
   setRenderer: (renderer) => set({ renderer }),
   setCity: (city) => set({ city }),
+  setNotice: (notice) => set({ notice }),
   pushError: (message) => set((s) => ({ errors: [...s.errors, message].slice(-5) })),
   publishSim: (world, timeScale) =>
     set({
@@ -54,5 +61,6 @@ export const useHud = create<HudState>()((set) => ({
       integrity: world.integrity,
       mobs: world.mobs.length + world.spawners.reduce((n, s) => n + s.remaining, 0),
       leaked: world.stats.leaked,
+      barricades: world.barricades.length,
     }),
 }));

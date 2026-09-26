@@ -1,5 +1,6 @@
-import { useState } from 'react';
 import { restart, setTimeScale, spawnWave } from '../game';
+import { refreshPlanning, selectStation } from '../planning';
+import { usePlan } from './planStore';
 import { useHud } from './store';
 
 const SPEEDS = [
@@ -22,12 +23,15 @@ export function Hud() {
   const integrity = useHud((s) => s.integrity);
   const mobs = useHud((s) => s.mobs);
   const leaked = useHud((s) => s.leaked);
-  const [station, setStation] = useState(0);
+  const barricades = useHud((s) => s.barricades);
+  const notice = useHud((s) => s.notice);
+  const station = usePlan((s) => s.selectedStation);
+  const route = usePlan((s) => s.route);
 
   return (
     <div className="hud">
       <div className="hud-title">City Defender</div>
-      <div className="hud-sub">Pass 2 · one mob</div>
+      <div className="hud-sub">Pass 3 · barricades{city ? ` · ${city.title}` : ''}</div>
       <div className="hud-integrity" aria-label="City Hall integrity">
         City Hall <strong>{integrity}</strong>
       </div>
@@ -36,8 +40,12 @@ export function Hud() {
         <dd>{mobs}</dd>
         <dt>Reached City Hall</dt>
         <dd>{leaked}</dd>
-        <dt>City</dt>
-        <dd>{city ? `${city.title}, ${city.width}×${city.height} tiles` : 'loading…'}</dd>
+        <dt>Barricades</dt>
+        <dd>{barricades}</dd>
+        <dt>Route</dt>
+        <dd>
+          {route ? `${Math.round(route.lengthM)} m${route.siege ? ', via barricade' : ''}` : '–'}
+        </dd>
         <dt>Sim time</dt>
         <dd>{simTime.toFixed(0)} s</dd>
         <dt>Tick</dt>
@@ -52,7 +60,7 @@ export function Hud() {
           <select
             aria-label="Station"
             value={station}
-            onChange={(e) => setStation(Number(e.target.value))}
+            onChange={(e) => selectStation(Number(e.target.value))}
           >
             {city.stations.map((name, i) => (
               <option key={name} value={i}>
@@ -77,10 +85,20 @@ export function Hud() {
             {s.label}
           </button>
         ))}
-        <button type="button" onClick={() => restart()}>
+        <button
+          type="button"
+          onClick={() => {
+            restart();
+            refreshPlanning(true);
+          }}
+        >
           Restart
         </button>
       </div>
+      <p className="hud-hint">
+        Click a street to drop a sawhorse. Right-click removes it. Hover to preview the new route.
+      </p>
+      {notice && <p className="hud-notice">{notice}</p>}
       {errors.length > 0 && (
         <ul className="hud-errors" role="alert">
           {errors.map((e, i) => (

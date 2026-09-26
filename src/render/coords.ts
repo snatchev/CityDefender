@@ -31,3 +31,8 @@ export function tileFrame(map: TileMap): TileFrame {
 export function tileToWorld(f: TileFrame, tx: number, ty: number): [x: number, z: number] {
   return [(tx + 0.5 - f.cx) * TILE_M, (ty + 0.5 - f.cy) * TILE_M];
 }
+
+/** Tile under a world-space point (inverse of `tileToWorld`). */
+export function worldToTile(f: TileFrame, x: number, z: number): [tx: number, ty: number] {
+  return [Math.floor(x / TILE_M + f.cx), Math.floor(z / TILE_M + f.cy)];
+}

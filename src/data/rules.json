@@ -1,4 +1,8 @@
 {
   "startIntegrity": 100,
-  "spawnIntervalS": 0.4
+  "spawnIntervalS": 0.4,
+  "tileCost": 1,
+  "barricadeCostPerHp": 0.5,
+  "barricadeHpBands": 4,
+  "maxBarricadeSpanTiles": 6
 }

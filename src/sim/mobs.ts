@@ -1,7 +1,8 @@
 import { TICK_DT, TICK_HZ, TILE_M } from './constants';
 import mobsData from '../data/mobs.json';
 import rulesData from '../data/rules.json';
-import { N4, UNREACHABLE } from './flow';
+import { damageBarricade } from './barricades';
+import { cheapestNeighbours } from './flow';
 import type { World } from './world';
 
 export type MobType = keyof typeof mobsData;
@@ -77,27 +78,37 @@ export function tickSpawners(world: World): void {
 }
 
 /**
- * Advance every mob one tick along the distance field. A mob that arrives on a goal tile damages
- * City Hall and is removed. Ties between equally good next tiles are broken with the seeded RNG,
- * so a swarm spreads over the street's lanes but a seed always replays the same.
+ * Advance every mob one tick along the flow field. A mob whose cheapest next tile is a barricade stops
+ * and attacks it (siege rule, DESIGN §5.2). A mob that arrives on a goal tile damages City Hall and
+ * is removed. Ties between equally cheap next tiles are broken with the seeded RNG, so a swarm spreads
+ * over the street's lanes but a seed always replays the same.
  */
 export function stepMobs(world: World): void {
   const map = world.map;
-  const dist = world.goalDist;
-  if (!map || !dist) return;
+  if (!map || !world.field) return;
   const survivors: Mob[] = [];
   for (const m of world.mobs) {
-    let budget = (mobsData[m.type].speedMps * TICK_DT) / TILE_M; // tiles this tick
-    const arrived = () => m.t >= 1 && dist[m.toY * map.width + m.toX] === 0;
+    const stats = mobsData[m.type];
+    const fullBudget = (stats.speedMps * TICK_DT) / TILE_M; // tiles per tick
+    let budget = fullBudget;
+    const arrived = () => m.t >= 1 && world.field![m.toY * map.width + m.toX] === 0;
     let reached = arrived(); // only if it spawned on a goal tile
     while (budget > 0 && !reached) {
       if (m.t >= 1) {
-        const next = nextTile(world, m.toX, m.toY);
-        if (!next) break; // stranded (unreachable): wait in place
+        const next = nextTile(world, m.toY * map.width + m.toX);
+        if (next === null) break; // stranded (unreachable): wait in place
+        const bId = world.barricadeAt[next]!;
+        if (bId !== 0) {
+          // Siege: spend the rest of this tick hitting the barricade instead of moving.
+          const b = world.barricades.find((x) => x.id === bId)!;
+          // Damage scales with the part of the tick left after walking up to the barricade.
+          damageBarricade(world, b, stats.barricadeDps * TICK_DT * (budget / fullBudget));
+          break;
+        }
         m.fromX = m.toX;
         m.fromY = m.toY;
-        m.toX = next[0];
-        m.toY = next[1];
+        m.toX = next % map.width;
+        m.toY = (next - m.toX) / map.width;
         m.t = 0;
       }
       const used = Math.min(budget, 1 - m.t);
@@ -106,7 +117,7 @@ export function stepMobs(world: World): void {
       reached = arrived(); // counts the tick the mob steps onto the goal
     }
     if (reached) {
-      world.integrity = Math.max(0, world.integrity - mobsData[m.type].goalDamage);
+      world.integrity = Math.max(0, world.integrity - stats.goalDamage);
       world.stats.leaked++;
     } else {
       survivors.push(m);
@@ -115,17 +126,7 @@ export function stepMobs(world: World): void {
   world.mobs = survivors;
 }
 
-function nextTile(world: World, tx: number, ty: number): [number, number] | null {
-  const map = world.map!;
-  const dist = world.goalDist!;
-  const d = dist[ty * map.width + tx]!;
-  if (d === UNREACHABLE) return null;
-  const options: [number, number][] = [];
-  for (const [dx, dy] of N4) {
-    const nx = tx + dx;
-    const ny = ty + dy;
-    if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
-    if (dist[ny * map.width + nx] === d - 1) options.push([nx, ny]);
-  }
+function nextTile(world: World, here: number): number | null {
+  const options = cheapestNeighbours(world.map!, world.field!, world.extraCost!, here);
   return options.length === 0 ? null : world.rng.pick(options);
 }

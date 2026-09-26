@@ -2,6 +2,7 @@
   "skitterling": {
     "hp": 10,
     "speedMps": 10,
-    "goalDamage": 1
+    "goalDamage": 1,
+    "barricadeDps": 2
   }
 }

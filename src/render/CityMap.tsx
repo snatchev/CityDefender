@@ -1,3 +1,4 @@
+import type { ThreeEvent } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Color, Object3D, type InstancedMesh } from 'three';
 import mapData from '../data/map.json';
@@ -38,14 +39,24 @@ interface TileBox {
  * as low slabs, the goal block as a white plinth, stations as orange discs, and HTML labels.
  * TODO(pass-6): merged extruded footprints, lane lines, slots.
  */
+/** Pointer handlers for the ground plane (street picking for barricades). */
+export interface GroundHandlers {
+  onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerOut: (e: ThreeEvent<PointerEvent>) => void;
+  onClick: (e: ThreeEvent<MouseEvent>) => void;
+  onContextMenu: (e: ThreeEvent<MouseEvent>) => void;
+}
+
 export function CityMap({
   city,
   map,
   frame,
+  ground,
 }: {
   city: CityFileV0;
   map: TileMap;
   frame: TileFrame;
+  ground: GroundHandlers;
 }) {
   const { buildings, lots, goal } = useMemo(() => classifyTiles(city, map), [city, map]);
   const labels = useMemo(() => mapLabels(city, frame, buildings), [city, frame, buildings]);
@@ -55,7 +66,7 @@ export function CityMap({
 
   return (
     <group>
-      <mesh rotation-x={-Math.PI / 2} position={[gx, 0, gz]}>
+      <mesh rotation-x={-Math.PI / 2} position={[gx, 0, gz]} {...ground}>
         <planeGeometry args={[map.width * TILE_M, map.height * TILE_M]} />
         <meshStandardMaterial color={COLORS.asphalt} />
       </mesh>
