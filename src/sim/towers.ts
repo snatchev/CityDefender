@@ -2,6 +2,7 @@ import mobsData from '../data/mobs.json';
 import towersData from '../data/towers.json';
 import { TICK_DT, TILE_M } from './constants';
 import { Tile } from './map';
+import { builtNow, sellValue, type BuiltAt } from './economy';
 import type { Mob } from './mobs';
 import type { World } from './world';
 
@@ -16,6 +17,8 @@ export interface Tower {
   cooldown: number;
   /** Most recent shot, for tracers: target position in tile coordinates. */
   lastShot: { tick: number; x: number; y: number } | null;
+  built: BuiltAt;
+  kills: number;
 }
 
 /** Why a tower can't go on (tx, ty), or null if it can. MVP rule (DESIGN §4.1): a building tile touching a street. */
@@ -51,10 +54,34 @@ export function placeTower(
   const cost = towersData[type].cost;
   if (world.cash < cost) return `needs $${cost}`;
   world.cash -= cost;
-  const t: Tower = { id: world.nextTowerId++, type, tx, ty, cooldown: 0, lastShot: null };
+  const t: Tower = {
+    id: world.nextTowerId++,
+    type,
+    tx,
+    ty,
+    cooldown: 0,
+    lastShot: null,
+    built: builtNow(world),
+    kills: 0,
+  };
   world.towers.push(t);
   world.towerAt[ty * world.map!.width + tx] = t.id;
   return t;
+}
+
+export function towerSellValue(world: World, t: Tower): number {
+  return sellValue(world, towersData[t.type].cost, t.built);
+}
+
+/** Sell a tower (any phase): 100% if built this prep, else 70%. */
+export function sellTower(world: World, id: number): string | null {
+  if (world.phase === 'won' || world.phase === 'lost') return 'the run is over';
+  const t = world.towers.find((x) => x.id === id);
+  if (!t) return 'no tower here';
+  world.cash += towerSellValue(world, t);
+  world.towers = world.towers.filter((x) => x.id !== id);
+  world.towerAt[t.ty * world.map!.width + t.tx] = 0;
+  return null;
 }
 
 /** Mob position in (continuous) tile coordinates. */
@@ -97,7 +124,9 @@ export function fireTowers(world: World): void {
         t.cooldown = 0; // stay ready
         break;
       }
+      const wasAlive = target.hp > 0;
       target.hp -= stats.damage;
+      if (wasAlive && target.hp <= 0) t.kills++;
       target.lastHitTick = world.tick;
       const [x, y] = mobPos(target);
       t.lastShot = { tick: world.tick, x, y };
@@ -111,6 +140,8 @@ export function fireTowers(world: World): void {
     } else {
       world.cash += mobsData[m.type].bounty;
       world.stats.kills++;
+      const [x, y] = mobPos(m);
+      world.fx.kills.push({ tick: world.tick, x, y });
     }
   }
   world.mobs = alive;

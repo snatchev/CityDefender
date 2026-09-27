@@ -1,5 +1,5 @@
 import { callWave, game, publish, restart, setTimeScale, spawnWave } from '../game';
-import { buildAt, dismantleAt, refreshPlanning } from '../planning';
+import { buildAt, refreshPlanning, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
 import { tickWorld, type World } from '../sim/world';
 
@@ -18,8 +18,8 @@ export interface DevHook {
   spawnWave(count?: number, spawnIndex?: number): void;
   /** Build at (tx, ty) as a click would: sawhorse on a street, MG Nest on a rooftop. Error or null. */
   build(tx: number, ty: number): string | null;
-  /** Dismantle the barricade at (tx, ty) as a right-click would. Error or null. */
-  dismantle(tx: number, ty: number): string | null;
+  /** Sell the tower or barricade at (tx, ty) as a right-click would. Error or null. */
+  sell(tx: number, ty: number): string | null;
   /** "Start wave" (ends prep early). */
   callWave(): void;
   /** Centre the camera on a tile (so a real click at the canvas centre hits it). */
@@ -64,7 +64,7 @@ export function installDevHook(): void {
       refreshPlanning(true);
     },
     build: buildAt,
-    dismantle: dismantleAt,
+    sell: sellAt,
     callWave,
     focusTile: (tx, ty, view) => focus?.(tx, ty, view),
     setTimeScale,

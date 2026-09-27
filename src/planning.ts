@@ -1,6 +1,7 @@
 import towersData from './data/towers.json';
 import { game, publish } from './game';
 import {
+  barricadeSellValue,
   barricadeSpan,
   canEditBarricades,
   dismantleBarricade,
@@ -10,15 +11,15 @@ import {
 import { TILE_M } from './sim/constants';
 import { tracePath } from './sim/flow';
 import { Tile } from './sim/map';
-import { placeTower, towerSiteError } from './sim/towers';
+import { placeTower, sellTower, towerSellValue, towerSiteError } from './sim/towers';
 import { usePlan, type Route } from './ui/planStore';
 import { useHud } from './ui/store';
 
 /**
  * Planning glue between input and the sim: hover previews (ghost barricade + ghost routes + detour
- * meter on streets, ghost tower + range on rooftops), placing and dismantling, and the routes from
- * the stations active this wave. Recomputes only when the hovered tile, the wave or the flow field
- * changes.
+ * meter on streets, ghost tower + range on rooftops, sell value on existing builds), building,
+ * selling, tower selection, and the routes from the stations active this wave. Recomputes only when
+ * the hovered tile, the wave or the flow field changes.
  */
 
 let hovered: [number, number] | null = null;
@@ -57,19 +58,24 @@ function refreshGhost(): void {
     return;
   }
   const [tx, ty] = hovered;
-  const tile = w.map.tiles[ty * w.map.width + tx];
-  if (tile === Tile.Building) {
+  const i = ty * w.map.width + tx;
+
+  if (w.map.tiles[i] === Tile.Building) {
+    const existing = w.towers.find((t) => t.id === w.towerAt[i]);
     usePlan.setState({
       ghost: {
         kind: 'tower',
         tx,
         ty,
-        error: towerSiteError(w, tx, ty),
-        rangeM: towersData.mgNest.rangeM,
+        error: existing ? null : towerSiteError(w, tx, ty),
+        rangeM: towersData[existing?.type ?? 'mgNest'].rangeM,
+        sellValue: existing ? towerSellValue(w, existing) : null,
       },
     });
     return;
   }
+
+  const existing = w.barricades.find((b) => b.id === w.barricadeAt[i]);
   const span = canEditBarricades(w)
     ? barricadeSpan(w, tx, ty)
     : 'barricades go up during prep only';
@@ -82,6 +88,7 @@ function refreshGhost(): void {
         tiles: [],
         axis: 'x',
         error: span,
+        sellValue: existing && canEditBarricades(w) ? barricadeSellValue(w, existing) : null,
         routes: [],
         detourM: 0,
       },
@@ -100,6 +107,7 @@ function refreshGhost(): void {
       tiles: span.tiles,
       axis: span.axis,
       error: null,
+      sellValue: null,
       routes,
       detourM: len(routes) - len(now),
     },
@@ -117,6 +125,12 @@ export function refreshPlanning(force = false): void {
   refreshGhost();
 }
 
+/** Refresh the selected tower's stats (kills, sell value); call at event rate. */
+export function refreshSelection(): void {
+  const sel = usePlan.getState().selected;
+  if (sel) selectTower(game.world.towers.some((t) => t.id === sel.id) ? sel.id : null);
+}
+
 export function hoverTile(tile: [number, number] | null): void {
   if (tile && hovered && tile[0] === hovered[0] && tile[1] === hovered[1]) return;
   if (!tile && !hovered) return;
@@ -124,27 +138,67 @@ export function hoverTile(tile: [number, number] | null): void {
   refreshGhost();
 }
 
-/** Left click: barricade on a street, MG Nest on a rooftop. Returns an error, or null. */
+/**
+ * Left click: select an existing tower, or build (barricade on a street, MG Nest on a rooftop).
+ * Returns an error, or null.
+ */
 export function buildAt(tx: number, ty: number): string | null {
   const w = game.world;
   if (!w.map) return 'no map';
-  const tile = w.map.tiles[ty * w.map.width + tx];
-  const result = tile === Tile.Building ? placeTower(w, tx, ty) : placeBarricade(w, tx, ty);
-  return afterEdit(typeof result === 'string' ? result : null);
+  const i = ty * w.map.width + tx;
+  if (w.towerAt[i]) {
+    selectTower(w.towerAt[i]!);
+    return null;
+  }
+  selectTower(null);
+  const result =
+    w.map.tiles[i] === Tile.Building ? placeTower(w, tx, ty) : placeBarricade(w, tx, ty);
+  return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
 }
 
-/** Right click: take a barricade down (prep only, full refund). */
-export function dismantleAt(tx: number, ty: number): string | null {
+/** Right click: sell the tower or dismantle the barricade on this tile. */
+export function sellAt(tx: number, ty: number): string | null {
   const w = game.world;
   if (!w.map) return 'no map';
-  const id = w.barricadeAt[ty * w.map.width + tx];
+  const i = ty * w.map.width + tx;
+  if (w.towerAt[i]) return sellTowerById(w.towerAt[i]!);
+  const id = w.barricadeAt[i];
   if (!id) return null;
-  return afterEdit(dismantleBarricade(w, id));
+  const err = dismantleBarricade(w, id);
+  return afterEdit(err ? `Can't sell: ${err}` : null);
+}
+
+/** Sell a tower (the selected one by default). */
+export function sellTowerById(id = usePlan.getState().selected?.id): string | null {
+  if (id === undefined) return null;
+  const err = sellTower(game.world, id);
+  if (!err && usePlan.getState().selected?.id === id) selectTower(null);
+  return afterEdit(err ? `Can't sell: ${err}` : null);
+}
+
+/** Select a tower (null clears). The HUD shows its stats and sell button; the map shows its range. */
+export function selectTower(id: number | null): void {
+  const w = game.world;
+  const t = id === null ? undefined : w.towers.find((x) => x.id === id);
+  usePlan.setState({
+    selected: t
+      ? {
+          id: t.id,
+          tx: t.tx,
+          ty: t.ty,
+          name: towersData[t.type].name,
+          rangeM: towersData[t.type].rangeM,
+          kills: t.kills,
+          sellValue: towerSellValue(w, t),
+        }
+      : null,
+  });
 }
 
 function afterEdit(error: string | null): string | null {
-  useHud.getState().setNotice(error ? `Can't build here: ${error}` : null);
+  useHud.getState().setNotice(error);
   refreshPlanning(true);
+  refreshGhost();
   publish();
   return error;
 }

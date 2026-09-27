@@ -10,5 +10,6 @@
   "tileCost": 1,
   "barricadeCostPerHp": 0.5,
   "barricadeHpBands": 4,
-  "maxBarricadeSpanTiles": 6
+  "maxBarricadeSpanTiles": 6,
+  "sellRefund": 0.7
 }

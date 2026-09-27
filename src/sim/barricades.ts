@@ -1,5 +1,6 @@
 import barricadesData from '../data/barricades.json';
 import rulesData from '../data/rules.json';
+import { builtNow, sellValue, type BuiltAt } from './economy';
 import { flowField } from './flow';
 import { Tile, type TileMap } from './map';
 import type { World } from './world';
@@ -18,6 +19,7 @@ export interface Barricade {
   maxHp: number;
   /** HP band (1..barricadeHpBands) the flow field was last computed with. */
   band: number;
+  built: BuiltAt;
 }
 
 export type Span = { tiles: number[]; axis: 'x' | 'y' };
@@ -89,6 +91,7 @@ export function placeBarricade(
     hp: maxHp,
     maxHp,
     band: hpBand(maxHp, maxHp),
+    built: builtNow(world),
   };
   world.barricades.push(b);
   for (const i of b.tiles) world.barricadeAt[i] = b.id;
@@ -96,15 +99,16 @@ export function placeBarricade(
   return b;
 }
 
-/**
- * Take a barricade down during prep for a full refund.
- * TODO(pass-5): sell (70%) vs free undo of this prep's builds (DESIGN §3.1).
- */
+export function barricadeSellValue(world: World, b: Barricade): number {
+  return sellValue(world, barricadesData[b.type].cost, b.built);
+}
+
+/** Take a barricade down (prep only): 100% back if built this prep, else 70%. */
 export function dismantleBarricade(world: World, id: number): string | null {
   if (!canEditBarricades(world)) return 'barricades come down during prep only';
   const b = world.barricades.find((x) => x.id === id);
   if (!b) return 'no barricade here';
-  world.cash += barricadesData[b.type].cost;
+  world.cash += barricadeSellValue(world, b);
   removeBarricade(world, id);
   return null;
 }
@@ -129,6 +133,9 @@ export function damageBarricade(world: World, b: Barricade, dmg: number): void {
   // Band 0 counts as destroyed, so float dust left after many small hits (1e-13 HP) can't linger.
   if (band === 0) {
     world.stats.barricadesDestroyed++;
+    const mid = b.tiles[Math.floor(b.tiles.length / 2)]!;
+    const w = world.map!.width;
+    world.fx.barricadeBreaks.push({ tick: world.tick, x: mid % w, y: Math.floor(mid / w) });
     removeBarricade(world, b.id);
     return;
   }
@@ -161,6 +168,7 @@ export function previewField(world: World, span: Span, type: BarricadeType = 'sa
   const map = world.map!;
   const maxHp = barricadesData[type].hp;
   const ghost: Barricade = {
+    built: builtNow(world),
     id: -1,
     type,
     tiles: span.tiles,

@@ -12,6 +12,9 @@ const ROUTE_COLOR = '#f28c28';
 const GHOST_COLOR = '#35c4e8';
 const INVALID_COLOR = '#e5484d';
 const RANGE_Y = 0.6;
+/** Range disc of an existing (hovered or selected) tower. */
+const RANGE_COLOR = '#2fb4ff';
+const RANGE_FILL_OPACITY = 0.12;
 
 /**
  * Planning overlay: the current routes from this wave's stations, and a preview for the hovered tile:
@@ -22,6 +25,7 @@ const RANGE_Y = 0.6;
 export function PlanOverlay({ frame }: { frame: TileFrame }) {
   const routes = usePlan((s) => s.routes);
   const ghost = usePlan((s) => s.ghost);
+  const selected = usePlan((s) => s.selected);
   const width = game.world.map?.width ?? 1;
   const [lx, lz] = ghost ? tileToWorld(frame, ghost.tx, ghost.ty) : [0, 0];
 
@@ -54,14 +58,23 @@ export function PlanOverlay({ frame }: { frame: TileFrame }) {
           );
         })}
       {ghost?.kind === 'tower' && (
-        <mesh position={[lx, RANGE_Y, lz]} rotation-x={-Math.PI / 2}>
-          <ringGeometry args={[ghost.rangeM - 1.5, ghost.rangeM, 64]} />
-          <meshBasicMaterial
-            color={ghost.error ? INVALID_COLOR : GHOST_COLOR}
-            transparent
-            opacity={0.8}
-          />
-        </mesh>
+        <RangeDisc
+          frame={frame}
+          tx={ghost.tx}
+          ty={ghost.ty}
+          rangeM={ghost.rangeM}
+          color={ghost.error ? INVALID_COLOR : ghost.sellValue !== null ? RANGE_COLOR : GHOST_COLOR}
+        />
+      )}
+      {selected && (
+        <RangeDisc
+          frame={frame}
+          tx={selected.tx}
+          ty={selected.ty}
+          rangeM={selected.rangeM}
+          color={RANGE_COLOR}
+          filled
+        />
       )}
       {ghost && (
         <Html
@@ -78,12 +91,50 @@ export function PlanOverlay({ frame }: { frame: TileFrame }) {
 }
 
 function ghostLabel(ghost: Ghost): string {
-  if (ghost.error === 'already barricaded') return 'right-click to remove';
+  if (ghost.sellValue !== null) return `right-click: sell $${ghost.sellValue}`;
   if (ghost.error) return ghost.error;
   if (ghost.kind === 'tower') return 'MG Nest';
   if (ghost.routes.some((r) => r.siege)) return 'bugs will break through a barricade';
   if (ghost.detourM === 0) return 'no change';
   return `${ghost.detourM > 0 ? '+' : ''}${Math.round(ghost.detourM)} m`;
+}
+
+/** A tower's range projected on the street (DESIGN §10.3): a ring, optionally with a faint fill. */
+function RangeDisc({
+  frame,
+  tx,
+  ty,
+  rangeM,
+  color,
+  filled = false,
+}: {
+  frame: TileFrame;
+  tx: number;
+  ty: number;
+  rangeM: number;
+  color: string;
+  filled?: boolean;
+}) {
+  const [x, z] = tileToWorld(frame, tx, ty);
+  return (
+    <group position={[x, RANGE_Y, z]} rotation-x={-Math.PI / 2}>
+      <mesh>
+        <ringGeometry args={[rangeM - 1.5, rangeM, 64]} />
+        <meshBasicMaterial color={color} transparent opacity={0.85} />
+      </mesh>
+      {filled && (
+        <mesh>
+          <circleGeometry args={[rangeM, 64]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={RANGE_FILL_OPACITY}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
+    </group>
+  );
 }
 
 function RouteLine({

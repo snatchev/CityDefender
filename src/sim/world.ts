@@ -1,6 +1,6 @@
 import rulesData from '../data/rules.json';
 import { recomputeField, type Barricade } from './barricades';
-import { TICK_DT } from './constants';
+import { TICK_DT, TICK_HZ } from './constants';
 import type { TileMap } from './map';
 import { stepMobs, tickSpawners, type Mob, type Spawner } from './mobs';
 import { tickPhase, type Phase, type WaveDef } from './phase';
@@ -45,7 +45,25 @@ export interface World {
   spawners: Spawner[];
   nextMobId: number;
   stats: WorldStats;
+  /** Recent events for visual effects only (death pops, screen shake); the sim never reads them. */
+  fx: WorldFx;
 }
+
+export interface FxEvent {
+  tick: number;
+  /** Position in (continuous) tile coordinates. */
+  x: number;
+  y: number;
+}
+
+export interface WorldFx {
+  kills: FxEvent[];
+  barricadeBreaks: FxEvent[];
+}
+
+/** Effects events are kept this many ticks (1 s), then dropped. */
+const FX_KEEP_TICKS = TICK_HZ;
+const freshFx = (): WorldFx => ({ kills: [], barricadeBreaks: [] });
 
 export interface WorldStats {
   spawned: number;
@@ -88,6 +106,7 @@ export function createWorld(seed: number, map: TileMap | null = null): World {
     spawners: [],
     nextMobId: 1,
     stats: freshStats(),
+    fx: freshFx(),
   };
   if (map) setMap(world, map);
   return world;
@@ -122,6 +141,7 @@ export function resetWorld(world: World, seed: number): void {
   world.nextMobId = 1;
   world.nextBarricadeId = 1;
   world.stats = freshStats();
+  world.fx = freshFx();
   if (world.map) setMap(world, world.map);
 }
 
@@ -133,6 +153,9 @@ export function tickWorld(world: World): void {
   fireTowers(world);
   tickPhase(world);
   world.tick += 1;
+  const oldest = world.tick - FX_KEEP_TICKS;
+  world.fx.kills = world.fx.kills.filter((e) => e.tick >= oldest);
+  world.fx.barricadeBreaks = world.fx.barricadeBreaks.filter((e) => e.tick >= oldest);
 }
 
 export function simTimeSeconds(world: World): number {

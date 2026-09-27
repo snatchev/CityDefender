@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import { game, publish } from '../game';
-import { refreshPlanning } from '../planning';
+import { refreshPlanning, refreshSelection } from '../planning';
 import { tickWorld } from '../sim/world';
 
 /** HUD refresh interval in ticks (4 Hz): event rate, never per frame. */
@@ -21,6 +21,7 @@ export function SimDriver() {
     if (due) {
       publish();
       refreshPlanning(); // no-op unless the flow field changed (barricade damaged or destroyed)
+      refreshSelection();
     }
   });
   return null;

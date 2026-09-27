@@ -4,11 +4,13 @@ import { Canvas } from '@react-three/fiber';
 import { game } from '../game';
 import { useHud } from '../ui/store';
 import type { Ray } from 'three';
-import { buildAt, dismantleAt, hoverTile } from '../planning';
+import { buildAt, hoverTile, sellAt } from '../planning';
 import type { TileMap } from '../sim/map';
 import { Barricades } from './Barricades';
 import { CityMap, type GroundHandlers } from './CityMap';
 import { DevCamera } from './DevCamera';
+import { Effects } from './Effects';
+import { HpBars } from './HpBars';
 import { tileFrame, type TileFrame } from './coords';
 import { displayHeights } from './heights';
 import { KeyboardCamera } from './KeyboardCamera';
@@ -23,7 +25,7 @@ const CLICK_SLOP_PX = 5;
 
 /**
  * Pointer input on the map: hover previews, left-click builds (barricade on a street, MG Nest on a
- * rooftop), right-click dismantles a barricade. The tile is found by marching the pointer ray
+ * rooftop, or select a tower), right-click sells a tower or barricade. The tile is found by marching the pointer ray
  * through the height grid, so roofs are picked, not the ground behind them. Clicks that end a
  * camera drag are ignored.
  */
@@ -42,7 +44,7 @@ function groundHandlers(frame: TileFrame, map: TileMap, heights: Float32Array): 
       e.nativeEvent.preventDefault();
       if (e.delta > CLICK_SLOP_PX) return;
       const tile = tileAt(e.ray);
-      if (tile) dismantleAt(tile[0], tile[1]);
+      if (tile) sellAt(tile[0], tile[1]);
     },
   };
 }
@@ -86,6 +88,8 @@ export function Scene() {
           <Barricades frame={frame} />
           <Towers frame={frame} heights={heights} />
           <Mobs frame={frame} />
+          <HpBars frame={frame} />
+          <Effects frame={frame} />
           <PlanOverlay frame={frame} />
           {import.meta.env.DEV && <DevCamera frame={frame} heights={heights} width={map.width} />}
         </>

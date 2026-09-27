@@ -12,11 +12,13 @@ import {
 import mobsData from '../data/mobs.json';
 import { game } from '../game';
 import { TICK_DT, TILE_M } from '../sim/constants';
+import type { Mob } from '../sim/mobs';
 import { tileToWorld, type TileFrame } from './coords';
 
 /** Upper bound on mobs drawn at once (instance buffer size). */
 const MAX_MOBS = 2048;
-const RADIUS_M = 3.5;
+export const MOB_RADIUS_M = 3.5;
+const RADIUS_M = MOB_RADIUS_M;
 /** Acid green: bright, readable against the muted city (DESIGN §11). */
 const COLOR = new Color('#7dff3a');
 /** Colour for a mob hit in the last tick (hit flash). */
@@ -62,21 +64,11 @@ export function Mobs({ frame }: { frame: TileFrame }) {
     const mobs = game.world.mobs;
     const n = Math.min(mobs.length, MAX_MOBS);
     const target = (controls as unknown as { target?: Vector3 } | null)?.target;
-    const zoom = Math.max(
-      1,
-      (target ? camera.position.distanceTo(target) : ZOOM_REF_M) / ZOOM_REF_M,
-    );
+    const zoom = mobZoom(camera.position, target);
     for (let i = 0; i < n; i++) {
       const m = mobs[i]!;
-      const perTick = (mobsData[m.type].speedMps * TICK_DT) / TILE_M;
-      const t = Math.min(1, m.t + perTick * alpha);
-      const [wx, wz] = tileToWorld(
-        frame,
-        m.fromX + (m.toX - m.fromX) * t,
-        m.fromY + (m.toY - m.fromY) * t,
-      );
-      const [ox, oz] = spread(m.id);
-      o.position.set(wx + ox, RADIUS_M * zoom, wz + oz);
+      const [wx, wz] = mobWorldXZ(m, frame, alpha);
+      o.position.set(wx, RADIUS_M * zoom, wz);
       o.scale.setScalar(zoom);
       o.updateMatrix();
       b.setMatrixAt(i, o.matrix);
@@ -123,6 +115,24 @@ export function Mobs({ frame }: { frame: TileFrame }) {
       </instancedMesh>
     </>
   );
+}
+
+/** Mob size multiplier for the current camera distance (see ZOOM_REF_M). */
+export function mobZoom(cameraPos: Vector3, target: Vector3 | undefined): number {
+  return Math.max(1, (target ? cameraPos.distanceTo(target) : ZOOM_REF_M) / ZOOM_REF_M);
+}
+
+/** Where a mob is drawn this frame: interpolated along its step, plus its stable spread offset. */
+export function mobWorldXZ(m: Mob, frame: TileFrame, alpha: number): [number, number] {
+  const perTick = (mobsData[m.type].speedMps * TICK_DT) / TILE_M;
+  const t = Math.min(1, m.t + perTick * alpha);
+  const [wx, wz] = tileToWorld(
+    frame,
+    m.fromX + (m.toX - m.fromX) * t,
+    m.fromY + (m.toY - m.fromY) * t,
+  );
+  const [ox, oz] = spread(m.id);
+  return [wx + ox, wz + oz];
 }
 
 /** Stable per-mob offset from its id (render only; the sim doesn't know about it). */

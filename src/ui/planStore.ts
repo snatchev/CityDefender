@@ -20,12 +20,22 @@ export type Ghost =
       axis: 'x' | 'y';
       /** Why it can't go here, if it can't. */
       error: string | null;
+      /** Refund for right-clicking an existing barricade here, if there is one. */
+      sellValue: number | null;
       /** Routes from the active stations if this barricade were placed. */
       routes: Route[];
       /** Total change in route length versus now, in metres. */
       detourM: number;
     }
-  | { kind: 'tower'; tx: number; ty: number; error: string | null; rangeM: number };
+  | {
+      kind: 'tower';
+      tx: number;
+      ty: number;
+      error: string | null;
+      rangeM: number;
+      /** Set when hovering a tower that already exists: its right-click refund. */
+      sellValue: number | null;
+    };
 
 /**
  * Planning UI state: current routes from the active stations and the hover preview. Written by
@@ -34,6 +44,18 @@ export type Ghost =
 interface PlanState {
   routes: Route[];
   ghost: Ghost | null;
+  /** Selected tower (click an existing tower), shown with its range and a sell button. */
+  selected: SelectedTower | null;
 }
 
-export const usePlan = create<PlanState>()(() => ({ routes: [], ghost: null }));
+export interface SelectedTower {
+  id: number;
+  tx: number;
+  ty: number;
+  name: string;
+  rangeM: number;
+  kills: number;
+  sellValue: number;
+}
+
+export const usePlan = create<PlanState>()(() => ({ routes: [], ghost: null, selected: null }));

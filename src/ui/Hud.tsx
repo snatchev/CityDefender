@@ -1,7 +1,8 @@
 import barricadesData from '../data/barricades.json';
 import towersData from '../data/towers.json';
 import { callWave, restart, setTimeScale } from '../game';
-import { refreshPlanning } from '../planning';
+import { useEffect } from 'react';
+import { refreshPlanning, selectTower, sellTowerById } from '../planning';
 import { usePlan } from './planStore';
 import { useHud } from './store';
 
@@ -74,9 +75,12 @@ export function Hud() {
         </button>
       </div>
 
+      <SelectedTowerPanel />
+
       <p className="hud-hint">
-        Street: Police Sawhorse ${barricadesData.sawhorse.cost} (prep only, right-click refunds).
-        Rooftop by a street: {towersData.mgNest.name} ${towersData.mgNest.cost}.
+        Street: Police Sawhorse ${barricadesData.sawhorse.cost} (prep only). Rooftop by a street:{' '}
+        {towersData.mgNest.name} ${towersData.mgNest.cost}. Click a tower to select it; right-click
+        sells (100% during the prep you built it in, else 70%).
       </p>
       <p className="hud-hint">Camera: WASD pan · Q/E rotate · scroll zoom · drag to pan/orbit.</p>
       {s.notice && <p className="hud-notice">{s.notice}</p>}
@@ -90,6 +94,33 @@ export function Hud() {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function SelectedTowerPanel() {
+  const sel = usePlan((p) => p.selected);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Escape') selectTower(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  if (!sel) return null;
+  return (
+    <div className="hud-selected" aria-label="Selected tower">
+      <div>
+        <b>{sel.name}</b> · {sel.kills} kills · range {sel.rangeM} m
+      </div>
+      <div className="hud-row">
+        <button type="button" onClick={() => sellTowerById(sel.id)}>
+          Sell ${sel.sellValue}
+        </button>
+        <button type="button" onClick={() => selectTower(null)}>
+          Close (Esc)
+        </button>
+      </div>
     </div>
   );
 }
