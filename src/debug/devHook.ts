@@ -1,6 +1,7 @@
-import { callWave, game, publish, restart, setTimeScale, spawnWave } from '../game';
-import { buildAt, refreshPlanning, sellAt } from '../planning';
+import { callWave, game, publish, setTimeScale } from '../game';
+import { buildAt, restartRun, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
+import { queueWave } from '../sim/mobs';
 import { tickWorld, type World } from '../sim/world';
 
 /**
@@ -55,20 +56,17 @@ export function installDevHook(): void {
     get city() {
       return game.city;
     },
-    restart: (seed) => {
-      restart(seed);
-      refreshPlanning(true);
-    },
-    setSeed: (seed) => {
-      restart(seed);
-      refreshPlanning(true);
-    },
+    restart: restartRun,
+    setSeed: restartRun,
     build: buildAt,
     sell: sellAt,
     callWave,
     focusTile: (tx, ty, view) => focus?.(tx, ty, view),
     setTimeScale,
-    spawnWave: (count = 20, spawnIndex = 0) => spawnWave(count, spawnIndex),
+    spawnWave(count = 20, spawnIndex = 0) {
+      queueWave(game.world, { count, spawnIndex });
+      publish();
+    },
     step(n = 1) {
       for (let i = 0; i < n; i++) tickWorld(game.world);
       publish();

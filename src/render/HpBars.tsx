@@ -1,9 +1,10 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { Color, Object3D, Vector3, type InstancedMesh } from 'three';
-import { game } from '../game';
-import { MOB_RADIUS_M, mobWorldXZ, mobZoom } from './Mobs';
+import { game, renderAlpha } from '../game';
 import { type TileFrame } from './coords';
+import { MOB_RADIUS_M, mobWorldXZ } from './Mobs';
+import { viewDistance, zoomScale } from './view';
 
 const MAX_BARS = 1024;
 const WIDTH_M = 12;
@@ -30,9 +31,8 @@ export function HpBars({ frame }: { frame: TileFrame }) {
     if (!b || !f) return;
     const o = dummy.current;
     const { right, color } = tmp.current;
-    const target = (controls as unknown as { target?: Vector3 } | null)?.target;
-    const zoom = mobZoom(camera.position, target);
-    const alpha = game.stepper.paused ? 0 : game.stepper.alpha;
+    const zoom = zoomScale(viewDistance(camera, controls));
+    const alpha = renderAlpha();
     right.setFromMatrixColumn(camera.matrixWorld, 0);
     o.quaternion.copy(camera.quaternion);
     let n = 0;

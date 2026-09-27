@@ -7,13 +7,13 @@ import {
   GreaterDepth,
   Object3D,
   type InstancedMesh,
-  type Vector3,
 } from 'three';
 import mobsData from '../data/mobs.json';
-import { game } from '../game';
+import { game, renderAlpha } from '../game';
 import { TICK_DT, TILE_M } from '../sim/constants';
 import type { Mob } from '../sim/mobs';
 import { tileToWorld, type TileFrame } from './coords';
+import { viewDistance, zoomScale } from './view';
 
 /** Upper bound on mobs drawn at once (instance buffer size). */
 const MAX_MOBS = 2048;
@@ -28,11 +28,6 @@ const HALO_OPACITY = 0.22;
 /** Flat colour for the part of a mob hidden behind buildings (x-ray silhouette). */
 const XRAY_COLOR = '#c6ff4d';
 const XRAY_OPACITY = 0.75;
-/**
- * Zoom compensation: beyond this camera distance (m) mobs grow in proportion, so they keep a readable
- * size on screen when zoomed out instead of shrinking to a pixel. Up close they are true size.
- */
-export const ZOOM_REF_M = 300;
 /** Mobs are spread up to this far from the tile centre line so a swarm doesn't render as one ball. */
 const SPREAD_M = 2.5;
 
@@ -60,11 +55,10 @@ export function Mobs({ frame }: { frame: TileFrame }) {
     const x = xray.current;
     if (!b || !h || !x) return;
     const o = dummy.current;
-    const alpha = game.stepper.paused ? 0 : game.stepper.alpha;
+    const alpha = renderAlpha();
     const mobs = game.world.mobs;
     const n = Math.min(mobs.length, MAX_MOBS);
-    const target = (controls as unknown as { target?: Vector3 } | null)?.target;
-    const zoom = mobZoom(camera.position, target);
+    const zoom = zoomScale(viewDistance(camera, controls));
     for (let i = 0; i < n; i++) {
       const m = mobs[i]!;
       const [wx, wz] = mobWorldXZ(m, frame, alpha);
@@ -115,11 +109,6 @@ export function Mobs({ frame }: { frame: TileFrame }) {
       </instancedMesh>
     </>
   );
-}
-
-/** Mob size multiplier for the current camera distance (see ZOOM_REF_M). */
-export function mobZoom(cameraPos: Vector3, target: Vector3 | undefined): number {
-  return Math.max(1, (target ? cameraPos.distanceTo(target) : ZOOM_REF_M) / ZOOM_REF_M);
 }
 
 /** Where a mob is drawn this frame: interpolated along its step, plus its stable spread offset. */

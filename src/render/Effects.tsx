@@ -2,7 +2,7 @@ import { CameraShake } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useRef, type ComponentRef } from 'react';
 import { AdditiveBlending, Color, Object3D, type InstancedMesh } from 'three';
-import { game } from '../game';
+import { game, renderAlpha } from '../game';
 import { TICK_DT } from '../sim/constants';
 import { tileToWorld, type TileFrame } from './coords';
 
@@ -36,7 +36,7 @@ export function Effects({ frame }: { frame: TileFrame }) {
     const mesh = pops.current;
     if (!mesh) return;
     // Sim time since each event, including the fraction of a tick already rendered.
-    const now = (world.tick + (game.stepper.paused ? 0 : game.stepper.alpha)) * TICK_DT;
+    const now = (world.tick + renderAlpha()) * TICK_DT;
     const o = dummy.current;
     let n = 0;
     for (const e of world.fx.kills) {

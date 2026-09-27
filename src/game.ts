@@ -1,7 +1,6 @@
 import wavesData from './data/waves.json';
 import { loadCityFile } from './loadCity';
 import { cityToTileMap, type CityFileV0 } from './sim/cityFile';
-import { queueWave } from './sim/mobs';
 import { startRun, startWave, type WaveDef } from './sim/phase';
 import { FixedStepper } from './sim/stepper';
 import { createWorld, resetWorld, setMap, type World } from './sim/world';
@@ -37,6 +36,11 @@ export function restart(seed: number = game.world.seed): void {
   publish();
 }
 
+/** Fraction of a tick to interpolate by when drawing (0 while paused, so paused frames hold still). */
+export function renderAlpha(): number {
+  return game.stepper.paused ? 0 : game.stepper.alpha;
+}
+
 export function setTimeScale(scale: number): void {
   game.stepper.timeScale = scale;
   publish();
@@ -45,12 +49,6 @@ export function setTimeScale(scale: number): void {
 /** "Start wave" during prep: ends the countdown early for a bonus. */
 export function callWave(): void {
   startWave(game.world);
-  publish();
-}
-
-/** Dev only: send `count` crawlers from a station outside the wave script. */
-export function spawnWave(count: number, spawnIndex = 0): void {
-  queueWave(game.world, count, spawnIndex);
   publish();
 }
 
@@ -74,6 +72,7 @@ function cityWaves(city: CityFileV0): WaveDef[] {
   }));
 }
 
+/** Load a city and install its map. Start a run afterwards (planning.ts `restartRun`). */
 export async function loadCity(name: string): Promise<void> {
   const city = await loadCityFile(name);
   game.city = city;
@@ -81,9 +80,6 @@ export async function loadCity(name: string): Promise<void> {
   useHud.getState().setCity({
     name: city.meta.city,
     title: city.meta.title,
-    width: city.meta.width,
-    height: city.meta.height,
     stations: city.spawns.map((s) => s.name),
   });
-  restart();
 }

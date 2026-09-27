@@ -20,7 +20,8 @@ Owner: **Stefan**, an experienced software engineer who is new to React/three.js
   - `src/render/` is R3F. Read sim state in `useFrame` via refs, **never setState per frame**, and use InstancedMesh for crowds.
   - `src/ui/` is a React DOM overlay with a zustand store updated at event rate.
   - `src/data/*.json` holds all balance numbers. No magic numbers in code.
-  - `tools/map/` is the offline map pipeline (Node + tsx). Output goes to `public/cities/<city>/`.
+  - `src/game.ts` holds the single game instance (world, stepper, city) and run control; `src/planning.ts` is the glue from input to the sim (build, sell, select, hover previews, routes, `restartRun`).
+  - `tools/map/` is the offline map pipeline (Node + tsx): `build.ts` orchestrates `level.ts` → streets/goal → `stations.ts` → `labels.ts` → `heights.ts`. Output goes to `public/cities/<city>/`.
 - **Dev debug hook:** `window.__cd` exposes world state and commands (spawnWave, setSeed, placeBarricade…) for inspection via Chrome DevTools MCP.
 - **Attribution:** keep "© OpenStreetMap contributors" visible in‑game.
 - TypeScript strict. Small modules. Prefer pure functions in `sim/`.

@@ -1,8 +1,8 @@
 import barricadesData from '../data/barricades.json';
 import towersData from '../data/towers.json';
-import { callWave, restart, setTimeScale } from '../game';
+import { callWave, setTimeScale } from '../game';
 import { useEffect } from 'react';
-import { refreshPlanning, selectTower, sellTowerById } from '../planning';
+import { restartRun, selectTower, sellTowerById } from '../planning';
 import { usePlan } from './planStore';
 import { useHud } from './store';
 
@@ -65,13 +65,7 @@ export function Hud() {
             {sp.label}
           </button>
         ))}
-        <button
-          type="button"
-          onClick={() => {
-            restart();
-            refreshPlanning(true);
-          }}
-        >
+        <button type="button" onClick={() => restartRun()}>
           Restart
         </button>
       </div>

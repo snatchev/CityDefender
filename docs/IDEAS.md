@@ -5,6 +5,7 @@
 > Tags: 🎯 core fun · 🔁 replayability · ✨ juice · 🗺️ map · ⚙️ systems · 🏙️ flavor
 
 ## Planning & readability
+- ✨ **City Hall hit feedback** (Stefan, playtest 2): when bugs reach City Hall, flash it red and give a small screen shake (bigger as Integrity gets low), maybe a siren under 25%. Today only the number drops; the shake only fires on barricade breaks. → Pass 5/10
 - 🎯 **Ghost paths** from every active spawn during prep, updating live as you edit. → Pass 3/5
 - 🎯 **Detour meter** (`+340 m`) when previewing a barricade. → Pass 3
 - 🎯 **Free undo during prep**, and 70% sell refund after the wave starts. → Pass 5

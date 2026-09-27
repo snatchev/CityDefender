@@ -112,3 +112,11 @@ Consequences:
 - Selling refunds 70% (`sellRefund`), except builds placed during the current prep, which refund 100% ("free undo", DESIGN §3.1). Towers sell any time; barricades only in prep (D006).
 - The sim keeps a 1-second effects log (`world.fx`: kills, barricade breaks). It's for visuals only and the sim never reads it back.
 - The run is now 10 waves over 3 stations, tuned so passive play loses and a strong tower-only bot wins with ~30 Integrity.
+
+**D025 · 2026-09-27 · Code review pass: structure only, no behaviour change.**
+Why: Stefan asked for a review of code quality, readability and organisation after Pass 5.
+Consequences:
+- Sim: `map.ts` owns tile helpers (`N4`, `tileXY`, `inBounds`, `tileAt`), used everywhere instead of inline bounds checks. `phase.ts` has `isPlanning`/`isOver`. `world.ts` builds new and reset worlds from one `freshRun()`. `queueWave` takes a `SpawnGroup`. `mobPos` lives in `mobs.ts`.
+- Game/UI: `restartRun()` (planning.ts) is the one way to start a run; it also clears selection, hover and notices. `loadCity` only loads. Unused store fields were removed and the dev-only `spawnWave` moved to the dev hook.
+- Render: `view.ts` (controls type, view distance, `zoomScale`), `renderAlpha()` in game.ts, `indexToWorld()` in coords.ts, and pointer input in `pointer.ts` (was picking.ts plus handlers in Scene). LabelLayer compares camera matrices directly.
+- Map tool: `build.ts` split into step modules. The rebuilt `city.json` is byte-identical.

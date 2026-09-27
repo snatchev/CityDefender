@@ -6,8 +6,6 @@ import { simTimeSeconds, type World } from '../sim/world';
 export interface CityInfo {
   name: string;
   title: string;
-  width: number;
-  height: number;
   /** Station names, outermost first (index = spawn index). */
   stations: string[];
 }
@@ -37,7 +35,6 @@ interface HudState {
   city: CityInfo | null;
   /** Short feedback line for the player (e.g. why a placement failed). */
   notice: string | null;
-  barricades: number;
   /** Runtime errors surfaced on screen (so they show up in screenshots, not just the console). */
   errors: string[];
   publishSim: (world: World, timeScale: number) => void;
@@ -65,7 +62,6 @@ export const useHud = create<HudState>()((set, get) => ({
   renderer: null,
   city: null,
   notice: null,
-  barricades: 0,
   errors: [],
   setRenderer: (renderer) => set({ renderer }),
   setCity: (city) => set({ city }),
@@ -87,7 +83,6 @@ export const useHud = create<HudState>()((set, get) => ({
       waveCount: world.waves.length,
       phaseSeconds: Math.ceil(world.phaseTicks / TICK_HZ),
       waveIntel: sameIntel(get().waveIntel, world),
-      barricades: world.barricades.length,
     }),
 }));
 

@@ -1,16 +1,8 @@
 import rulesData from '../data/rules.json';
-import { isWalkable, Tile, type TileMap, type TileType } from './map';
+import { inBounds, isWalkable, N4, Tile, tileXY, type TileMap, type TileType } from './map';
 
 /** Field value for tiles that can't reach the goal (and non-walkable tiles). */
 export const UNREACHABLE = Infinity;
-
-/** 4-neighbour offsets. The order is fixed so the sim stays deterministic. */
-export const N4 = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
 
 /**
  * Flow field (DESIGN §5.1–5.3): the cheapest cost from every walkable tile to the goal, by Dijkstra
@@ -33,12 +25,11 @@ export function flowField(map: TileMap, extraCost: Float64Array): Float64Array {
     const [i, d] = heap.pop();
     if (d > field[i]!) continue; // stale entry
     const step = d + enterCost(extraCost, i);
-    const tx = i % map.width;
-    const ty = (i - tx) / map.width;
+    const [tx, ty] = tileXY(map, i);
     for (const [dx, dy] of N4) {
       const nx = tx + dx;
       const ny = ty + dy;
-      if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+      if (!inBounds(map, nx, ny)) continue;
       const n = ny * map.width + nx;
       if (!isWalkable(map.tiles[n] as TileType) || step >= field[n]!) continue;
       field[n] = step;
@@ -83,14 +74,13 @@ export function cheapestNeighbours(
   extraCost: Float64Array,
   i: number,
 ): number[] {
-  const tx = i % map.width;
-  const ty = (i - tx) / map.width;
+  const [tx, ty] = tileXY(map, i);
   let best = Infinity;
   let out: number[] = [];
   for (const [dx, dy] of N4) {
     const nx = tx + dx;
     const ny = ty + dy;
-    if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+    if (!inBounds(map, nx, ny)) continue;
     const n = ny * map.width + nx;
     if (field[n] === UNREACHABLE) continue;
     const c = enterCost(extraCost, n) + field[n]!;

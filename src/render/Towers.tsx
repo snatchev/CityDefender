@@ -6,11 +6,11 @@ import {
   Object3D,
   type InstancedMesh,
   type LineSegments,
-  type Vector3,
 } from 'three';
 import { game } from '../game';
 import { tileToWorld, type TileFrame } from './coords';
-import { ZOOM_REF_M } from './Mobs';
+import { MOB_RADIUS_M } from './Mobs';
+import { viewDistance, zoomScale } from './view';
 
 const MAX_TOWERS = 256;
 const RADIUS_M = 5.5;
@@ -24,14 +24,13 @@ const RING_OPACITY = 0.55;
 const TRACER_COLOR = '#fff2b0';
 /** A tracer stays visible this many ticks after its shot. */
 const TRACER_TICKS = 1;
-/** Mob centre height for tracer endpoints (matches the mob sphere radius). */
-const MOB_Y = 3.5;
 /** Towers get half the mobs' zoom compensation (they're bigger to start with). */
 const ZOOM_SHARE = 0.5;
 
 /**
- * MG Nests on their roofs (a self-lit body plus a glowing roof ring, both instanced), plus tracer lines from each tower to its last target
- * (one LineSegments buffer rewritten per frame). Reads `game.world` directly, never React state.
+ * MG Nests on their roofs (a self-lit body plus a glowing roof ring, both instanced), plus tracer
+ * lines from each tower to its last target (one LineSegments buffer rewritten per frame).
+ * Reads `game.world` directly, never React state.
  */
 export function Towers({ frame, heights }: { frame: TileFrame; heights: Float32Array }) {
   const bodies = useRef<InstancedMesh>(null);
@@ -56,9 +55,9 @@ export function Towers({ frame, heights }: { frame: TileFrame; heights: Float32A
     const pos = lines.geometry.getAttribute('position') as BufferAttribute;
     const towers = game.world.towers;
     const n = Math.min(towers.length, MAX_TOWERS);
-    const target = (controls as unknown as { target?: Vector3 } | null)?.target;
-    const dist = target ? camera.position.distanceTo(target) : ZOOM_REF_M;
-    const zoom = 1 + Math.max(0, dist / ZOOM_REF_M - 1) * ZOOM_SHARE;
+    const dist = viewDistance(camera, controls);
+    const zoom = zoomScale(dist, ZOOM_SHARE);
+    const mobCentreY = MOB_RADIUS_M * zoomScale(dist); // tracers end at the (zoom-scaled) mob centre
     let segs = 0;
     for (let i = 0; i < n; i++) {
       const t = towers[i]!;
@@ -77,7 +76,7 @@ export function Towers({ frame, heights }: { frame: TileFrame; heights: Float32A
       if (shot && game.world.tick - shot.tick <= TRACER_TICKS) {
         const [mx, mz] = tileToWorld(frame, shot.x, shot.y);
         pos.setXYZ(segs * 2, x, roof + HEIGHT_M * zoom, z);
-        pos.setXYZ(segs * 2 + 1, mx, MOB_Y * Math.max(1, dist / ZOOM_REF_M), mz); // mob centre, zoom-scaled
+        pos.setXYZ(segs * 2 + 1, mx, mobCentreY, mz);
         segs++;
       }
     }

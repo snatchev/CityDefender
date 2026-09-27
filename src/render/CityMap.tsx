@@ -1,4 +1,3 @@
-import type { ThreeEvent } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Color, Object3D, type InstancedMesh } from 'three';
 import type { CityFileV0 } from '../sim/cityFile';
@@ -7,6 +6,7 @@ import { Tile, type TileMap } from '../sim/map';
 import { tileToWorld, type TileFrame } from './coords';
 import { LOT_M } from './heights';
 import { LabelLayer, type MapLabel } from './LabelLayer';
+import type { GroundHandlers } from './pointer';
 
 const COLORS = {
   asphalt: '#3b3e44',
@@ -36,16 +36,9 @@ interface TileBox {
 /**
  * Map v0: flat asphalt, one instanced box per building tile at its (compressed) real height, open lots
  * as low slabs, the goal block as a white plinth, stations as orange discs, and HTML labels.
+ * The ground plane carries the pointer handlers (render/pointer.ts).
  * TODO(pass-6): merged extruded footprints, lane lines, slots.
  */
-/** Pointer handlers for the ground plane (the tile under the pointer is found by render/picking.ts). */
-export interface GroundHandlers {
-  onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
-  onPointerOut: (e: ThreeEvent<PointerEvent>) => void;
-  onClick: (e: ThreeEvent<MouseEvent>) => void;
-  onContextMenu: (e: ThreeEvent<MouseEvent>) => void;
-}
-
 export function CityMap({
   city,
   map,

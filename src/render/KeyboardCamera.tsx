@@ -1,6 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import { Vector3 } from 'three';
+import { orbitControls } from './view';
 
 /** Pan speed as a fraction of the camera's distance to its target, per second (zoomed out = faster). */
 const PAN_PER_S = 0.9;
@@ -35,10 +36,7 @@ function typingInto(target: EventTarget | null): boolean {
  */
 export function KeyboardCamera() {
   const camera = useThree((s) => s.camera);
-  const controls = useThree((s) => s.controls) as unknown as {
-    target: Vector3;
-    update(): void;
-  } | null;
+  const controls = orbitControls(useThree((s) => s.controls));
   const held = useRef(new Set<string>());
   /** Keys released since the last frame; they still act for that frame, so a quick tap nudges. */
   const released = useRef(new Set<string>());

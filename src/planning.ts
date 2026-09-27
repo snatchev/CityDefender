@@ -1,5 +1,5 @@
 import towersData from './data/towers.json';
-import { game, publish } from './game';
+import { game, publish, restart } from './game';
 import {
   barricadeSellValue,
   barricadeSpan,
@@ -123,6 +123,15 @@ export function refreshPlanning(force = false): void {
   routesKey = key;
   usePlan.setState({ routes: routesFrom(w.field, w.extraCost) });
   refreshGhost();
+}
+
+/** Start a new run (optionally with a new seed) and reset the planning UI with it. */
+export function restartRun(seed?: number): void {
+  restart(seed);
+  hovered = null;
+  usePlan.setState({ ghost: null, selected: null });
+  useHud.getState().setNotice(null);
+  refreshPlanning(true);
 }
 
 /** Refresh the selected tower's stats (kills, sell value); call at event rate. */

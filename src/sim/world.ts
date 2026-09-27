@@ -81,37 +81,45 @@ const freshStats = (): WorldStats => ({
   earlyBonus: 0,
 });
 
-export function createWorld(seed: number, map: TileMap | null = null): World {
-  const world: World = {
+/** Everything that starts fresh with each run (the map and its derived arrays are set separately). */
+function freshRun(seed: number) {
+  return {
     seed,
     rng: createRng(seed),
-    phase: 'idle',
+    phase: 'idle' as Phase,
     wave: 0,
-    waves: [],
+    waves: [] as WaveDef[],
     phaseTicks: 0,
     cash: rulesData.startCash,
-    towers: [],
-    towerAt: new Int32Array(0),
+    tick: 0,
+    integrity: rulesData.startIntegrity,
+    mobs: [] as Mob[],
+    spawners: [] as Spawner[],
+    nextMobId: 1,
     nextTowerId: 1,
+    nextBarricadeId: 1,
+    stats: freshStats(),
+    fx: freshFx(),
+  } satisfies Partial<World>;
+}
+
+export function createWorld(seed: number, map: TileMap | null = null): World {
+  const world: World = {
+    ...freshRun(seed),
     map: null,
     field: null,
     extraCost: null,
     fieldVersion: 0,
+    towers: [],
+    towerAt: new Int32Array(0),
     barricades: [],
     barricadeAt: new Int32Array(0),
-    nextBarricadeId: 1,
-    tick: 0,
-    integrity: rulesData.startIntegrity,
-    mobs: [],
-    spawners: [],
-    nextMobId: 1,
-    stats: freshStats(),
-    fx: freshFx(),
   };
   if (map) setMap(world, map);
   return world;
 }
 
+/** Install a map: clears everything placed on the old one and recomputes the flow field. */
 export function setMap(world: World, map: TileMap): void {
   world.map = map;
   world.barricades = [];
@@ -126,22 +134,7 @@ export function setMap(world: World, map: TileMap): void {
  * barricades, towers, mobs and the run are cleared (call `startRun` to begin a new run).
  */
 export function resetWorld(world: World, seed: number): void {
-  world.seed = seed;
-  world.rng = createRng(seed);
-  world.phase = 'idle';
-  world.wave = 0;
-  world.waves = [];
-  world.phaseTicks = 0;
-  world.cash = rulesData.startCash;
-  world.nextTowerId = 1;
-  world.tick = 0;
-  world.integrity = rulesData.startIntegrity;
-  world.mobs = [];
-  world.spawners = [];
-  world.nextMobId = 1;
-  world.nextBarricadeId = 1;
-  world.stats = freshStats();
-  world.fx = freshFx();
+  Object.assign(world, freshRun(seed));
   if (world.map) setMap(world, world.map);
 }
 

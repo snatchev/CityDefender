@@ -4,7 +4,7 @@ import { App } from './App';
 import { installDevHook } from './debug/devHook';
 import { installErrorReporting } from './debug/reportErrors';
 import { loadCity, publish } from './game';
-import { refreshPlanning } from './planning';
+import { restartRun } from './planning';
 import './index.css';
 import { useHud } from './ui/store';
 
@@ -12,7 +12,7 @@ installErrorReporting();
 if (import.meta.env.DEV) installDevHook();
 publish();
 loadCity('philly')
-  .then(() => refreshPlanning(true))
+  .then(() => restartRun())
   .catch((e: unknown) =>
     useHud
       .getState()

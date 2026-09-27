@@ -35,7 +35,7 @@ describe('barricades (siege rule)', () => {
     expect(route).not.toContain(idx(w, 4, 1));
     expect(route).toHaveLength(11); // 10 steps round the bottom, plus the start tile
 
-    queueWave(w, 5);
+    queueWave(w, { count: 5 });
     runUntilAllLeaked(w, 5);
     expect(w.stats.leaked).toBe(5);
     expect(b.hp).toBe(b.maxHp); // nobody touched it
@@ -47,7 +47,7 @@ describe('barricades (siege rule)', () => {
     const bottom = place(w, 4, 3);
     damageBarricade(w, bottom, bottom.maxHp / 2); // top route costs 6 + 50, bottom 10 + 25
 
-    queueWave(w, 5);
+    queueWave(w, { count: 5 });
     runUntilAllLeaked(w, 5);
     expect(w.stats.leaked).toBe(5);
     expect(w.stats.barricadesDestroyed).toBe(1);
@@ -59,7 +59,7 @@ describe('barricades (siege rule)', () => {
     const w = createWorld(1, parseAsciiMap('#######\n#S...G#\n#######'));
     place(w, 3, 1);
     const before = w.fieldVersion;
-    queueWave(w, 3);
+    queueWave(w, { count: 3 });
     runUntilAllLeaked(w, 3);
     expect(w.stats.barricadesDestroyed).toBe(1);
     // One recompute per band crossed below full (75%, 50%, 25%) plus one when it's destroyed.

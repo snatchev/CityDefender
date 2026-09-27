@@ -1,8 +1,9 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
-import { MathUtils, Spherical, type Vector3 } from 'three';
+import { MathUtils, Spherical } from 'three';
 import { registerFocus } from '../debug/devHook';
 import { tileToWorld, type TileFrame } from './coords';
+import { orbitControls } from './view';
 
 /**
  * Dev only: lets `__cd.focusTile(tx, ty)` centre the camera on a tile's top surface, keeping the view angle
@@ -18,10 +19,7 @@ export function DevCamera({
   width: number;
 }) {
   const camera = useThree((s) => s.camera);
-  const controls = useThree((s) => s.controls) as unknown as {
-    target: Vector3;
-    update(): void;
-  } | null;
+  const controls = orbitControls(useThree((s) => s.controls));
 
   useEffect(() => {
     if (!controls) return;

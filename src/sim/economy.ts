@@ -1,4 +1,5 @@
 import rulesData from '../data/rules.json';
+import { isPlanning } from './phase';
 import type { World } from './world';
 
 /** When something was built: its wave, and whether that was during planning (prep or sandbox). */
@@ -8,7 +9,7 @@ export interface BuiltAt {
 }
 
 export function builtNow(world: World): BuiltAt {
-  return { wave: world.wave, planning: world.phase === 'prep' || world.phase === 'idle' };
+  return { wave: world.wave, planning: isPlanning(world.phase) };
 }
 
 /**
@@ -16,7 +17,6 @@ export function builtNow(world: World): BuiltAt {
  * everything else at `sellRefund` (70%).
  */
 export function sellValue(world: World, cost: number, built: BuiltAt): number {
-  const planningNow = world.phase === 'prep' || world.phase === 'idle';
-  const freeUndo = planningNow && built.planning && built.wave === world.wave;
+  const freeUndo = isPlanning(world.phase) && built.planning && built.wave === world.wave;
   return freeUndo ? cost : Math.floor(cost * rulesData.sellRefund);
 }

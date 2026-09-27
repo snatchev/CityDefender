@@ -17,8 +17,22 @@ export interface TileMap {
   goal: TileCoord[];
 }
 
+/** 4-neighbour offsets. The order is fixed so the sim stays deterministic. */
+export const N4 = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+] as const;
+
 export function tileIndex(map: TileMap, tx: number, ty: number): number {
   return ty * map.width + tx;
+}
+
+/** Tile coordinates of a row-major tile index (inverse of `tileIndex`). */
+export function tileXY(map: TileMap, i: number): [tx: number, ty: number] {
+  const tx = i % map.width;
+  return [tx, (i - tx) / map.width];
 }
 
 export function inBounds(map: TileMap, tx: number, ty: number): boolean {

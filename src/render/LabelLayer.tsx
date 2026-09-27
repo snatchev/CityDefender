@@ -1,6 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useLayoutEffect, useRef } from 'react';
-import { Vector3 } from 'three';
+import { Matrix4, Vector3 } from 'three';
 
 export interface MapLabel {
   text: string;
@@ -16,7 +16,9 @@ export interface MapLabel {
 export function LabelLayer({ labels }: { labels: MapLabel[] }) {
   const gl = useThree((s) => s.gl);
   const spans = useRef<HTMLSpanElement[]>([]);
-  const lastCamera = useRef('');
+  /** Camera matrix and viewport size the labels were last placed for; skip frames where neither moved. */
+  const last = useRef({ matrix: new Matrix4(), w: 0, h: 0, valid: false });
+  const v = useRef(new Vector3());
 
   useLayoutEffect(() => {
     const layer = document.createElement('div');
@@ -30,29 +32,39 @@ export function LabelLayer({ labels }: { labels: MapLabel[] }) {
       return span;
     });
     gl.domElement.parentElement?.appendChild(layer);
-    lastCamera.current = '';
+    last.current.valid = false;
     return () => {
       layer.remove();
       spans.current = [];
     };
   }, [gl, labels]);
 
-  const v = new Vector3();
   useFrame(({ camera, size }) => {
-    const key = `${camera.matrixWorld.elements.join(',')}|${size.width}x${size.height}`;
-    if (key === lastCamera.current) return;
-    lastCamera.current = key;
+    const seen = last.current;
+    if (
+      seen.valid &&
+      seen.w === size.width &&
+      seen.h === size.height &&
+      seen.matrix.equals(camera.matrixWorld)
+    ) {
+      return;
+    }
+    seen.matrix.copy(camera.matrixWorld);
+    seen.w = size.width;
+    seen.h = size.height;
+    seen.valid = true;
+    const p = v.current;
     labels.forEach((l, i) => {
       const span = spans.current[i];
       if (!span) return;
-      v.set(l.position[0], l.position[1], l.position[2]).project(camera);
-      if (v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) {
+      p.set(l.position[0], l.position[1], l.position[2]).project(camera);
+      if (p.z > 1 || Math.abs(p.x) > 1.1 || Math.abs(p.y) > 1.1) {
         span.style.display = 'none';
         return;
       }
       span.style.display = '';
-      const x = ((v.x + 1) / 2) * size.width;
-      const y = ((1 - v.y) / 2) * size.height;
+      const x = ((p.x + 1) / 2) * size.width;
+      const y = ((1 - p.y) / 2) * size.height;
       span.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
     });
   });

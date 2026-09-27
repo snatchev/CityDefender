@@ -2,7 +2,8 @@ import barricadesData from '../data/barricades.json';
 import rulesData from '../data/rules.json';
 import { builtNow, sellValue, type BuiltAt } from './economy';
 import { flowField } from './flow';
-import { Tile, type TileMap } from './map';
+import { Tile, tileAt, tileXY, type TileMap } from './map';
+import { isPlanning } from './phase';
 import type { World } from './world';
 
 export type BarricadeType = keyof typeof barricadesData;
@@ -38,12 +39,7 @@ export function hpBand(hp: number, maxHp: number): number {
 export function barricadeSpan(world: World, tx: number, ty: number): Span | string {
   const map = world.map;
   if (!map) return 'no map';
-  const street = (x: number, y: number) =>
-    x >= 0 &&
-    y >= 0 &&
-    x < map.width &&
-    y < map.height &&
-    map.tiles[y * map.width + x] === Tile.Street;
+  const street = (x: number, y: number) => tileAt(map, x, y) === Tile.Street;
   if (!street(tx, ty)) return 'not a street';
   const run = (dx: number, dy: number) => {
     const out = [ty * map.width + tx];
@@ -65,9 +61,9 @@ export function barricadeSpan(world: World, tx: number, ty: number): Span | stri
   return span;
 }
 
-/** Barricades go up only while planning (DESIGN §3.1, D006); 'idle' is the no-run sandbox. */
+/** Barricades go up and come down only while planning (DESIGN §3.1, D006). */
 export function canEditBarricades(world: World): boolean {
-  return world.phase === 'prep' || world.phase === 'idle';
+  return isPlanning(world.phase);
 }
 
 export function placeBarricade(
@@ -133,9 +129,8 @@ export function damageBarricade(world: World, b: Barricade, dmg: number): void {
   // Band 0 counts as destroyed, so float dust left after many small hits (1e-13 HP) can't linger.
   if (band === 0) {
     world.stats.barricadesDestroyed++;
-    const mid = b.tiles[Math.floor(b.tiles.length / 2)]!;
-    const w = world.map!.width;
-    world.fx.barricadeBreaks.push({ tick: world.tick, x: mid % w, y: Math.floor(mid / w) });
+    const [x, y] = tileXY(world.map!, b.tiles[Math.floor(b.tiles.length / 2)]!);
+    world.fx.barricadeBreaks.push({ tick: world.tick, x, y });
     removeBarricade(world, b.id);
     return;
   }

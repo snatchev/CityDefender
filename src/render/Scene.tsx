@@ -1,53 +1,21 @@
 import { MapControls, Stats } from '@react-three/drei';
-import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { useMemo } from 'react';
 import { game } from '../game';
 import { useHud } from '../ui/store';
-import type { Ray } from 'three';
-import { buildAt, hoverTile, sellAt } from '../planning';
-import type { TileMap } from '../sim/map';
 import { Barricades } from './Barricades';
-import { CityMap, type GroundHandlers } from './CityMap';
+import { CityMap } from './CityMap';
+import { tileFrame } from './coords';
 import { DevCamera } from './DevCamera';
 import { Effects } from './Effects';
-import { HpBars } from './HpBars';
-import { tileFrame, type TileFrame } from './coords';
 import { displayHeights } from './heights';
+import { HpBars } from './HpBars';
 import { KeyboardCamera } from './KeyboardCamera';
-import { pickTile } from './picking';
-import { Towers } from './Towers';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
+import { groundHandlers } from './pointer';
 import { SimDriver } from './SimDriver';
-
-/** Pointer movement (px) above which a click counts as a camera drag, not a build. */
-const CLICK_SLOP_PX = 5;
-
-/**
- * Pointer input on the map: hover previews, left-click builds (barricade on a street, MG Nest on a
- * rooftop, or select a tower), right-click sells a tower or barricade. The tile is found by marching the pointer ray
- * through the height grid, so roofs are picked, not the ground behind them. Clicks that end a
- * camera drag are ignored.
- */
-function groundHandlers(frame: TileFrame, map: TileMap, heights: Float32Array): GroundHandlers {
-  const maxHeight = heights.reduce((m, h) => Math.max(m, h), 0);
-  const tileAt = (ray: Ray) => pickTile(ray, frame, map, heights, maxHeight);
-  return {
-    onPointerMove: (e) => hoverTile(tileAt(e.ray)),
-    onPointerOut: () => hoverTile(null),
-    onClick: (e) => {
-      if (e.delta > CLICK_SLOP_PX) return;
-      const tile = tileAt(e.ray);
-      if (tile) buildAt(tile[0], tile[1]);
-    },
-    onContextMenu: (e) => {
-      e.nativeEvent.preventDefault();
-      if (e.delta > CLICK_SLOP_PX) return;
-      const tile = tileAt(e.ray);
-      if (tile) sellAt(tile[0], tile[1]);
-    },
-  };
-}
+import { Towers } from './Towers';
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.

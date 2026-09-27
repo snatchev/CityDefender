@@ -1,5 +1,4 @@
-import { restart } from '../game';
-import { refreshPlanning } from '../planning';
+import { restartRun } from '../planning';
 import { useHud } from './store';
 
 /** Win/lose overlay with the run's numbers and "Play again" (DESIGN §3.2). */
@@ -31,15 +30,7 @@ export function EndScreen() {
           <dt>Cash left</dt>
           <dd>${cash}</dd>
         </dl>
-        <button
-          type="button"
-          className="hud-go"
-          autoFocus
-          onClick={() => {
-            restart();
-            refreshPlanning(true);
-          }}
-        >
+        <button type="button" className="hud-go" autoFocus onClick={() => restartRun()}>
           Play again
         </button>
       </div>

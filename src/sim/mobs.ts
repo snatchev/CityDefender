@@ -25,6 +25,11 @@ export interface Mob {
   t: number;
 }
 
+/** Mob position in (continuous) tile coordinates. */
+export function mobPos(m: Mob): [number, number] {
+  return [m.fromX + (m.toX - m.fromX) * m.t, m.fromY + (m.toY - m.fromY) * m.t];
+}
+
 /** Mobs waiting to leave one station, one every `intervalTicks`. */
 export interface Spawner {
   spawnIndex: number;
@@ -35,14 +40,27 @@ export interface Spawner {
   nextTick: number;
 }
 
-/** Queue `count` mobs to leave spawn `spawnIndex` (an index into `world.map.spawns`). */
+/** One station's share of a wave: `count` mobs of `type` leaving `spawnIndex`, one per `intervalS`. */
+export interface SpawnGroup {
+  /** Index into `world.map.spawns`. */
+  spawnIndex: number;
+  type: MobType;
+  count: number;
+  /** HP multiplier for this wave (HP grows faster than income; DESIGN §3.3). */
+  hpMul: number;
+  intervalS: number;
+}
+
+/** Queue a spawn group. Only `count` is required; the rest default to one plain group at spawn 0. */
 export function queueWave(
   world: World,
-  count: number,
-  spawnIndex = 0,
-  type: MobType = 'skitterling',
-  hpMul = 1,
-  intervalS: number = rulesData.spawnIntervalS,
+  {
+    count,
+    spawnIndex = 0,
+    type = 'skitterling',
+    hpMul = 1,
+    intervalS = rulesData.spawnIntervalS,
+  }: Partial<SpawnGroup> & { count: number },
 ): void {
   if (!world.map) throw new Error('queueWave: no map loaded');
   if (!world.map.spawns[spawnIndex]) throw new Error(`queueWave: no spawn ${spawnIndex}`);

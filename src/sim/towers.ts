@@ -1,9 +1,10 @@
 import mobsData from '../data/mobs.json';
 import towersData from '../data/towers.json';
 import { TICK_DT, TILE_M } from './constants';
-import { Tile } from './map';
+import { N4, Tile, tileAt } from './map';
 import { builtNow, sellValue, type BuiltAt } from './economy';
-import type { Mob } from './mobs';
+import { mobPos, type Mob } from './mobs';
+import { isOver } from './phase';
 import type { World } from './world';
 
 export type TowerType = keyof typeof towersData;
@@ -25,18 +26,9 @@ export interface Tower {
 export function towerSiteError(world: World, tx: number, ty: number): string | null {
   const map = world.map;
   if (!map) return 'no map';
-  if (world.phase === 'won' || world.phase === 'lost') return 'the run is over';
-  const at = (x: number, y: number) =>
-    x >= 0 && y >= 0 && x < map.width && y < map.height
-      ? map.tiles[y * map.width + x]
-      : Tile.Building;
-  if (at(tx, ty) !== Tile.Building) return 'not a rooftop';
-  const touchesStreet = [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ].some(([dx, dy]) => at(tx + dx!, ty + dy!) === Tile.Street);
+  if (isOver(world.phase)) return 'the run is over';
+  if (tileAt(map, tx, ty) !== Tile.Building) return 'not a rooftop';
+  const touchesStreet = N4.some(([dx, dy]) => tileAt(map, tx + dx, ty + dy) === Tile.Street);
   if (!touchesStreet) return 'must overlook a street';
   if (world.towerAt[ty * map.width + tx] !== 0) return 'already has a tower';
   return null;
@@ -75,18 +67,13 @@ export function towerSellValue(world: World, t: Tower): number {
 
 /** Sell a tower (any phase): 100% if built this prep, else 70%. */
 export function sellTower(world: World, id: number): string | null {
-  if (world.phase === 'won' || world.phase === 'lost') return 'the run is over';
+  if (isOver(world.phase)) return 'the run is over';
   const t = world.towers.find((x) => x.id === id);
   if (!t) return 'no tower here';
   world.cash += towerSellValue(world, t);
   world.towers = world.towers.filter((x) => x.id !== id);
   world.towerAt[t.ty * world.map!.width + t.tx] = 0;
   return null;
-}
-
-/** Mob position in (continuous) tile coordinates. */
-export function mobPos(m: Mob): [number, number] {
-  return [m.fromX + (m.toX - m.fromX) * m.t, m.fromY + (m.toY - m.fromY) * m.t];
 }
 
 /**

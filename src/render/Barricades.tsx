@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { Color, Object3D, type InstancedMesh } from 'three';
 import { game } from '../game';
 import { TILE_M } from '../sim/constants';
-import { tileToWorld, type TileFrame } from './coords';
+import { indexToWorld, type TileFrame } from './coords';
 
 /** Upper bound on barricade tiles drawn at once. */
 const MAX_TILES = 1024;
@@ -38,8 +38,7 @@ export function Barricades({ frame }: { frame: TileFrame }) {
       color.current.copy(BROKEN).lerp(HEALTHY, Math.max(0, b.hp / b.maxHp));
       for (const i of b.tiles) {
         if (n >= MAX_TILES) break;
-        const tx = i % map.width;
-        const [x, z] = tileToWorld(frame, tx, (i - tx) / map.width);
+        const [x, z] = indexToWorld(frame, map.width, i);
         o.position.set(x, BARRICADE_HEIGHT_M / 2, z);
         o.scale.set(sx, BARRICADE_HEIGHT_M, sz);
         o.updateMatrix();

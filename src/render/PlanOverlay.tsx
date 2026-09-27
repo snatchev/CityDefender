@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { game } from '../game';
 import { usePlan, type Ghost, type Route } from '../ui/planStore';
 import { BARRICADE_HEIGHT_M, barricadeBox } from './Barricades';
-import { tileToWorld, type TileFrame } from './coords';
+import { indexToWorld, tileToWorld, type TileFrame } from './coords';
 
 const ROUTE_Y = 1.2;
 /** Height of the preview label above the hovered tile. */
@@ -47,8 +47,7 @@ export function PlanOverlay({ frame }: { frame: TileFrame }) {
         ))}
       {ghost?.kind === 'barricade' &&
         ghost.tiles.map((i) => {
-          const tx = i % width;
-          const [x, z] = tileToWorld(frame, tx, (i - tx) / width);
+          const [x, z] = indexToWorld(frame, width, i);
           const [sx, sz] = barricadeBox(ghost.axis);
           return (
             <mesh key={i} position={[x, BARRICADE_HEIGHT_M / 2, z]}>
@@ -153,8 +152,7 @@ function RouteLine({
   const points = useMemo(
     () =>
       route.tiles.map((i): [number, number, number] => {
-        const tx = i % width;
-        const [x, z] = tileToWorld(frame, tx, (i - tx) / width);
+        const [x, z] = indexToWorld(frame, width, i);
         return [x, ROUTE_Y, z];
       }),
     [route, frame, width],

@@ -1,6 +1,6 @@
 import rulesData from '../data/rules.json';
 import { TICK_HZ } from './constants';
-import { queueWave, type MobType } from './mobs';
+import { queueWave, type SpawnGroup } from './mobs';
 import type { World } from './world';
 
 /**
@@ -10,18 +10,18 @@ import type { World } from './world';
  */
 export type Phase = 'idle' | 'prep' | 'assault' | 'debrief' | 'won' | 'lost';
 
-export interface WaveGroup {
-  /** Index into `world.map.spawns`. */
-  spawnIndex: number;
-  type: MobType;
-  count: number;
-  /** HP multiplier for this wave (HP grows faster than income; DESIGN §3.3). */
-  hpMul: number;
-  intervalS: number;
+/** Planning time: prep, or the no-run sandbox. Barricades can be edited; builds count as "this prep". */
+export function isPlanning(phase: Phase): boolean {
+  return phase === 'prep' || phase === 'idle';
+}
+
+/** The run has ended; the sim is frozen and nothing can be built or sold. */
+export function isOver(phase: Phase): boolean {
+  return phase === 'won' || phase === 'lost';
 }
 
 export interface WaveDef {
-  groups: WaveGroup[];
+  groups: SpawnGroup[];
 }
 
 export function startRun(world: World, waves: WaveDef[]): void {
@@ -41,9 +41,7 @@ export function startWave(world: World): void {
   const bonus = Math.floor((world.phaseTicks / TICK_HZ) * rulesData.earlyCallBonusPerS);
   world.cash += bonus;
   world.stats.earlyBonus += bonus;
-  for (const g of world.waves[world.wave]!.groups) {
-    queueWave(world, g.count, g.spawnIndex, g.type, g.hpMul, g.intervalS);
-  }
+  for (const g of world.waves[world.wave]!.groups) queueWave(world, g);
   world.phase = 'assault';
   world.phaseTicks = 0;
 }
@@ -54,7 +52,7 @@ export function waveClearBonus(waveIndex: number): number {
 
 /** Advance the phase machine by one tick (after mobs and towers have moved). */
 export function tickPhase(world: World): void {
-  if (world.phase === 'idle' || world.phase === 'won' || world.phase === 'lost') return;
+  if (world.phase === 'idle' || isOver(world.phase)) return;
   if (world.integrity <= 0) {
     world.phase = 'lost';
     return;
