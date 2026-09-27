@@ -62,6 +62,7 @@ export function PlanOverlay({ frame }: { frame: TileFrame }) {
           tx={ghost.tx}
           ty={ghost.ty}
           rangeM={ghost.rangeM}
+          minRangeM={ghost.minRangeM}
           color={ghost.error ? INVALID_COLOR : ghost.sellValue !== null ? RANGE_COLOR : GHOST_COLOR}
         />
       )}
@@ -71,6 +72,7 @@ export function PlanOverlay({ frame }: { frame: TileFrame }) {
           tx={selected.tx}
           ty={selected.ty}
           rangeM={selected.rangeM}
+          minRangeM={selected.minRangeM}
           color={RANGE_COLOR}
           filled
         />
@@ -104,6 +106,7 @@ function RangeDisc({
   tx,
   ty,
   rangeM,
+  minRangeM,
   color,
   filled = false,
 }: {
@@ -111,6 +114,8 @@ function RangeDisc({
   tx: number;
   ty: number;
   rangeM: number;
+  /** Inner "can't hit" radius of raised towers, drawn as a dashed-looking thin ring. */
+  minRangeM: number;
   color: string;
   filled?: boolean;
 }) {
@@ -121,9 +126,15 @@ function RangeDisc({
         <ringGeometry args={[rangeM - 1.5, rangeM, 64]} />
         <meshBasicMaterial color={color} transparent opacity={0.85} />
       </mesh>
+      {minRangeM > 0 && (
+        <mesh>
+          <ringGeometry args={[Math.max(0, minRangeM - 0.8), minRangeM, 48]} />
+          <meshBasicMaterial color={color} transparent opacity={0.5} />
+        </mesh>
+      )}
       {filled && (
         <mesh>
-          <circleGeometry args={[rangeM, 64]} />
+          <ringGeometry args={[minRangeM, rangeM, 64]} />
           <meshBasicMaterial
             color={color}
             transparent

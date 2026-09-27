@@ -1,4 +1,4 @@
-import type { CityFileV0 } from './sim/cityFile';
+import type { BuildingsFileV0, CityFileV0 } from './sim/cityFile';
 
 declare global {
   interface Window {
@@ -7,20 +7,30 @@ declare global {
   }
 }
 
-/** Load `public/cities/<name>/city.json`, from the inlined copy in the single-file preview or over HTTP. */
-export async function loadCityFile(name: string): Promise<CityFileV0> {
-  const path = `cities/${name}/city.json`;
+/** Fetch a generated city file, from the inlined copy in the single-file preview or over HTTP. */
+async function loadCityAsset(name: string, file: string): Promise<{ version: number }> {
+  const path = `cities/${name}/${file}`;
   let data = window.__CD_INLINE__?.[path];
   if (data === undefined) {
     const res = await fetch(import.meta.env.BASE_URL + path);
-    if (!res.ok)
+    if (!res.ok) {
       throw new Error(
         `loading ${path}: HTTP ${res.status} (run \`npm run map:build -- ${name}\`?)`,
       );
+    }
     data = await res.json();
   }
-  const file = data as CityFileV0;
-  if (file.version !== 0)
-    throw new Error(`${path}: unsupported city file version ${String(file.version)}`);
-  return file;
+  const asset = data as { version: number };
+  if (asset.version !== 0) throw new Error(`${path}: unsupported version ${String(asset.version)}`);
+  return asset;
+}
+
+/** `public/cities/<name>/city.json` (tiles, stations, labels: what the sim needs). */
+export async function loadCityFile(name: string): Promise<CityFileV0> {
+  return (await loadCityAsset(name, 'city.json')) as CityFileV0;
+}
+
+/** `public/cities/<name>/buildings.json` (outlines and centerlines: render only). */
+export async function loadBuildingsFile(name: string): Promise<BuildingsFileV0> {
+  return (await loadCityAsset(name, 'buildings.json')) as BuildingsFileV0;
 }

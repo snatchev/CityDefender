@@ -1,6 +1,6 @@
 import wavesData from './data/waves.json';
-import { loadCityFile } from './loadCity';
-import { cityToTileMap, type CityFileV0 } from './sim/cityFile';
+import { loadBuildingsFile, loadCityFile } from './loadCity';
+import { cityToTileMap, type BuildingsFileV0, type CityFileV0 } from './sim/cityFile';
 import { startRun, startWave, type WaveDef } from './sim/phase';
 import { FixedStepper } from './sim/stepper';
 import { createWorld, resetWorld, setMap, type World } from './sim/world';
@@ -14,6 +14,8 @@ export interface Game {
   stepper: FixedStepper;
   /** The loaded city file (labels, station names, meta). Its tiles live in `world.map`. */
   city: CityFileV0 | null;
+  /** Building outlines and street centerlines for drawing (never read by the sim). */
+  buildings: BuildingsFileV0 | null;
 }
 
 /** The single running game. The renderer and UI read from it; only sim functions mutate `world`. */
@@ -21,6 +23,7 @@ export const game: Game = {
   world: createWorld(DEFAULT_SEED),
   stepper: new FixedStepper(),
   city: null,
+  buildings: null,
 };
 
 /** Push a low-frequency snapshot of sim state to the UI store (never call per frame). */
@@ -74,8 +77,9 @@ function cityWaves(city: CityFileV0): WaveDef[] {
 
 /** Load a city and install its map. Start a run afterwards (planning.ts `restartRun`). */
 export async function loadCity(name: string): Promise<void> {
-  const city = await loadCityFile(name);
+  const [city, buildings] = await Promise.all([loadCityFile(name), loadBuildingsFile(name)]);
   game.city = city;
+  game.buildings = buildings;
   setMap(game.world, cityToTileMap(city));
   useHud.getState().setCity({
     name: city.meta.city,

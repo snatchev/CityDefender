@@ -2,6 +2,7 @@ import { MapControls, Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useMemo } from 'react';
 import { game } from '../game';
+import { usePlan } from '../ui/planStore';
 import { useHud } from '../ui/store';
 import { Barricades } from './Barricades';
 import { CityHall } from './CityHall';
@@ -12,16 +13,21 @@ import { Effects } from './Effects';
 import { displayHeights } from './heights';
 import { HpBars } from './HpBars';
 import { KeyboardCamera } from './KeyboardCamera';
+import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { groundHandlers } from './pointer';
 import { SimDriver } from './SimDriver';
+import { SlotMarkers } from './SlotMarkers';
 import { Towers } from './Towers';
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
   const cityName = useHud((s) => s.city?.name);
   const city = cityName ? game.city : null;
+  const buildingsFile = cityName ? game.buildings : null;
+  const slots = cityName ? game.world.slots : null;
+  const debugMap = usePlan((p) => p.debugMap);
   const map = game.world.map;
   const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
   const heights = useMemo(() => (city && map ? displayHeights(map) : null), [city, map]);
@@ -51,9 +57,18 @@ export function Scene() {
       <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
       <directionalLight position={[300, 600, 200]} intensity={1.8} />
 
-      {city && map && frame && heights && ground && (
+      {city && buildingsFile && map && frame && heights && ground && (
         <>
-          <CityMap city={city} map={map} frame={frame} heights={heights} ground={ground} />
+          <CityMap
+            city={city}
+            buildingsFile={buildingsFile}
+            map={map}
+            frame={frame}
+            heights={heights}
+            ground={ground}
+          />
+          {slots && <SlotMarkers slots={slots} frame={frame} width={map.width} heights={heights} />}
+          {slots && debugMap && <MapDebug slots={slots} frame={frame} width={map.width} />}
           <Barricades frame={frame} />
           <Towers frame={frame} heights={heights} />
           <Mobs frame={frame} />

@@ -38,6 +38,11 @@ export function indexToWorld(f: TileFrame, width: number, i: number): [x: number
   return tileToWorld(f, tx, (i - tx) / width);
 }
 
+/** World [x, z] of a continuous tile-unit point (u east, v south; tile tx spans [tx, tx + 1)). */
+export function uvToWorld(f: TileFrame, u: number, v: number): [x: number, z: number] {
+  return [(u - f.cx) * TILE_M, (v - f.cy) * TILE_M];
+}
+
 /** Tile under a world-space point (inverse of `tileToWorld`). */
 export function worldToTile(f: TileFrame, x: number, z: number): [tx: number, ty: number] {
   return [Math.floor(x / TILE_M + f.cx), Math.floor(z / TILE_M + f.cy)];

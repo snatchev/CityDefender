@@ -1,6 +1,7 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
-import { Color, Object3D, type InstancedMesh } from 'three';
-import type { CityFileV0 } from '../sim/cityFile';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Color, LineDashedMaterial, LineSegments, Object3D, type InstancedMesh } from 'three';
+import type { BuildingsFileV0, CityFileV0 } from '../sim/cityFile';
+import { buildingGeometry, laneLineGeometry } from './buildingMesh';
 import { TILE_M } from '../sim/constants';
 import { Tile, type TileMap } from '../sim/map';
 import { tileToWorld, type TileFrame } from './coords';
@@ -10,21 +11,19 @@ import type { GroundHandlers } from './pointer';
 
 const COLORS = {
   asphalt: '#3b3e44',
-  lot: '#77756f',
-  /** Low buildings (rowhouses, brick) … */
-  buildingLow: '#c8b89b',
-  /** … blend toward this for towers. */
-  buildingHigh: '#9fb0c0',
+  /** Block ground (sidewalks, yards, lots): every non-street tile gets a thin slab of this. */
+  block: '#8a857c',
   goal: '#efe9dc',
   station: '#f28c28',
+  lane: '#e8e2cf',
 } as const;
-/** Display heights (m) between which building colour blends from low to high. */
-const TINT_FROM_M = 16;
-const TINT_TO_M = 55;
 const GOAL_PLINTH_M = 1.5;
 const STATION_RADIUS_M = 7;
 const STATION_HEIGHT_M = 1;
 const STATION_LABEL_ABOVE_M = 10;
+/** Street classes that get a dashed center line. */
+const LANE_KINDS = ['trunk', 'primary', 'secondary', 'tertiary'] as const;
+const LANE_Y = 0.12;
 
 interface TileBox {
   tx: number;
@@ -34,27 +33,45 @@ interface TileBox {
 }
 
 /**
- * Map v0: flat asphalt, one instanced box per building tile at its (compressed) real height, open lots
- * as low slabs, the goal block as a white plinth, stations as orange discs, and HTML labels.
+ * The city: asphalt ground, a thin slab on every block tile, real building footprints extruded to
+ * their (compressed) heights as one merged mesh, dashed center lines on major streets, the goal block
+ * as a white plinth, stations as orange discs, and HTML labels.
  * The ground plane carries the pointer handlers (render/pointer.ts).
- * TODO(pass-6): merged extruded footprints, lane lines, slots.
  */
 export function CityMap({
   city,
+  buildingsFile,
   map,
   frame,
   heights,
   ground,
 }: {
   city: CityFileV0;
+  buildingsFile: BuildingsFileV0;
   map: TileMap;
   frame: TileFrame;
   /** Display height per tile (render/heights.ts). */
   heights: Float32Array;
   ground: GroundHandlers;
 }) {
-  const { buildings, lots, goal } = useMemo(() => classifyTiles(map, heights), [map, heights]);
-  const labels = useMemo(() => mapLabels(city, frame, buildings), [city, frame, buildings]);
+  const { blocks, goal } = useMemo(() => classifyTiles(map), [map]);
+  const labels = useMemo(() => mapLabels(city, frame, map, heights), [city, frame, map, heights]);
+  const buildings = useMemo(() => buildingGeometry(buildingsFile, frame), [buildingsFile, frame]);
+  const lanes = useMemo(() => {
+    const g = laneLineGeometry(buildingsFile, frame, LANE_KINDS);
+    return new LineSegments(
+      g,
+      new LineDashedMaterial({ color: COLORS.lane, dashSize: 4, gapSize: 5 }),
+    );
+  }, [buildingsFile, frame]);
+  useLayoutEffect(() => {
+    lanes.computeLineDistances();
+    return () => {
+      lanes.geometry.dispose();
+      (lanes.material as LineDashedMaterial).dispose();
+    };
+  }, [lanes]);
+  useEffect(() => () => buildings.dispose(), [buildings]);
 
   // Ground: covers the whole grid, centred on the grid (the world origin is the goal, not the grid centre).
   const [gx, gz] = tileToWorld(frame, (map.width - 1) / 2, (map.height - 1) / 2);
@@ -65,10 +82,13 @@ export function CityMap({
         <planeGeometry args={[map.width * TILE_M, map.height * TILE_M]} />
         <meshStandardMaterial color={COLORS.asphalt} />
       </mesh>
+      <primitive object={lanes} position-y={LANE_Y} />
 
-      <TileBoxes boxes={buildings} frame={frame} colorOf={buildingColor} />
-      <TileBoxes boxes={lots} frame={frame} colorOf={lotColor} />
+      <TileBoxes boxes={blocks} frame={frame} colorOf={blockColor} />
       <TileBoxes boxes={goal} frame={frame} colorOf={goalColor} />
+      <mesh geometry={buildings}>
+        <meshStandardMaterial vertexColors />
+      </mesh>
 
       {city.spawns.map((s) => {
         const [x, z] = tileToWorld(frame, s.tx, s.ty);
@@ -89,39 +109,31 @@ export function CityMap({
   );
 }
 
-const LOW = new Color(COLORS.buildingLow);
-const HIGH = new Color(COLORS.buildingHigh);
-const LOT = new Color(COLORS.lot);
+const BLOCK = new Color(COLORS.block);
 const GOAL = new Color(COLORS.goal);
-
-function buildingColor(h: number, out: Color): Color {
-  const t = Math.min(1, Math.max(0, (h - TINT_FROM_M) / (TINT_TO_M - TINT_FROM_M)));
-  return out.copy(LOW).lerp(HIGH, t);
-}
-const lotColor = (_h: number, out: Color) => out.copy(LOT);
+const blockColor = (_h: number, out: Color) => out.copy(BLOCK);
 const goalColor = (_h: number, out: Color) => out.copy(GOAL);
 
-function classifyTiles(map: TileMap, heights: Float32Array) {
-  const buildings: TileBox[] = [];
-  const lots: TileBox[] = [];
+function classifyTiles(map: TileMap) {
+  const blocks: TileBox[] = [];
   const goal: TileBox[] = [];
   for (let ty = 0; ty < map.height; ty++) {
     for (let tx = 0; tx < map.width; tx++) {
-      const i = ty * map.width + tx;
-      const t = map.tiles[i];
+      const t = map.tiles[ty * map.width + tx];
       if (t === Tile.Goal) goal.push({ tx, ty, h: GOAL_PLINTH_M });
-      else if (t === Tile.Building) {
-        const h = heights[i]!;
-        if (h > LOT_M) buildings.push({ tx, ty, h });
-        else lots.push({ tx, ty, h: LOT_M });
-      }
+      else if (t === Tile.Building) blocks.push({ tx, ty, h: LOT_M });
     }
   }
-  return { buildings, lots, goal };
+  return { blocks, goal };
 }
 
 /** Street names at street level; station names float above the tallest nearby roof. */
-function mapLabels(city: CityFileV0, frame: TileFrame, buildings: TileBox[]): MapLabel[] {
+function mapLabels(
+  city: CityFileV0,
+  frame: TileFrame,
+  map: TileMap,
+  heights: Float32Array,
+): MapLabel[] {
   const streets = city.labels.map((l): MapLabel => {
     const [x, z] = tileToWorld(frame, l.tx, l.ty);
     return {
@@ -132,9 +144,16 @@ function mapLabels(city: CityFileV0, frame: TileFrame, buildings: TileBox[]): Ma
   });
   const stations = city.spawns.map((s): MapLabel => {
     const [x, z] = tileToWorld(frame, s.tx, s.ty);
-    const roof = buildings
-      .filter((b) => Math.abs(b.tx - s.tx) <= 3 && Math.abs(b.ty - s.ty) <= 3)
-      .reduce((m, b) => Math.max(m, b.h), 0);
+    let roof = 0;
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const tx = s.tx + dx;
+        const ty = s.ty + dy;
+        if (tx >= 0 && ty >= 0 && tx < map.width && ty < map.height) {
+          roof = Math.max(roof, heights[ty * map.width + tx]!);
+        }
+      }
+    }
     return {
       text: s.name,
       position: [x, roof + STATION_LABEL_ABOVE_M, z],

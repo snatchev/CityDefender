@@ -33,6 +33,8 @@ export type Ghost =
       ty: number;
       error: string | null;
       rangeM: number;
+      /** Raised towers can't hit closer than this (0 at street level). */
+      minRangeM: number;
       /** Set when hovering a tower that already exists: its right-click refund. */
       sellValue: number | null;
     };
@@ -46,6 +48,8 @@ interface PlanState {
   ghost: Ghost | null;
   /** Selected tower (click an existing tower), shown with its range and a sell button. */
   selected: SelectedTower | null;
+  /** Map debug overlay (street graph, slots), toggled with M. */
+  debugMap: boolean;
 }
 
 export interface SelectedTower {
@@ -54,8 +58,16 @@ export interface SelectedTower {
   ty: number;
   name: string;
   rangeM: number;
+  minRangeM: number;
+  /** Gameplay height the tower stands at (0 on a street corner). */
+  heightM: number;
   kills: number;
   sellValue: number;
 }
 
-export const usePlan = create<PlanState>()(() => ({ routes: [], ghost: null, selected: null }));
+export const usePlan = create<PlanState>()(() => ({
+  routes: [],
+  ghost: null,
+  selected: null,
+  debugMap: false,
+}));

@@ -11,7 +11,15 @@ import {
 import { TILE_M } from './sim/constants';
 import { tracePath } from './sim/flow';
 import { Tile } from './sim/map';
-import { placeTower, sellTower, towerSellValue, towerSiteError } from './sim/towers';
+import { Slot } from './sim/slots';
+import {
+  placeTower,
+  sellTower,
+  siteHeight,
+  towerRange,
+  towerSellValue,
+  towerSiteError,
+} from './sim/towers';
 import { usePlan, type Route } from './ui/planStore';
 import { useHud } from './ui/store';
 
@@ -60,15 +68,17 @@ function refreshGhost(): void {
   const [tx, ty] = hovered;
   const i = ty * w.map.width + tx;
 
-  if (w.map.tiles[i] === Tile.Building) {
+  if (isTowerTile(i)) {
     const existing = w.towers.find((t) => t.id === w.towerAt[i]);
+    const range = towerRange(existing?.type ?? 'mgNest', existing?.heightM ?? siteHeight(w, i));
     usePlan.setState({
       ghost: {
         kind: 'tower',
         tx,
         ty,
         error: existing ? null : towerSiteError(w, tx, ty),
-        rangeM: towersData[existing?.type ?? 'mgNest'].rangeM,
+        rangeM: range.maxM,
+        minRangeM: range.minM,
         sellValue: existing ? towerSellValue(w, existing) : null,
       },
     });
@@ -160,8 +170,7 @@ export function buildAt(tx: number, ty: number): string | null {
     return null;
   }
   selectTower(null);
-  const result =
-    w.map.tiles[i] === Tile.Building ? placeTower(w, tx, ty) : placeBarricade(w, tx, ty);
+  const result = isTowerTile(i) ? placeTower(w, tx, ty) : placeBarricade(w, tx, ty);
   return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
 }
 
@@ -189,6 +198,7 @@ export function sellTowerById(id = usePlan.getState().selected?.id): string | nu
 export function selectTower(id: number | null): void {
   const w = game.world;
   const t = id === null ? undefined : w.towers.find((x) => x.id === id);
+  const range = t ? towerRange(t.type, t.heightM) : null;
   usePlan.setState({
     selected: t
       ? {
@@ -196,12 +206,20 @@ export function selectTower(id: number | null): void {
           tx: t.tx,
           ty: t.ty,
           name: towersData[t.type].name,
-          rangeM: towersData[t.type].rangeM,
+          rangeM: range!.maxM,
+          minRangeM: range!.minM,
+          heightM: t.heightM,
           kills: t.kills,
           sellValue: towerSellValue(w, t),
         }
       : null,
   });
+}
+
+/** Rooftops and street-corner tower spots take towers; other street tiles take barricades. */
+function isTowerTile(i: number): boolean {
+  const w = game.world;
+  return w.map!.tiles[i] === Tile.Building || (w.slots?.towerSlot[i] ?? Slot.None) !== Slot.None;
 }
 
 function afterEdit(error: string | null): string | null {

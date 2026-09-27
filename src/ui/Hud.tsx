@@ -16,7 +16,21 @@ const SPEEDS = [
   { label: '3×', scale: 3 },
 ] as const;
 
+/** HUD hotkeys: Esc closes the tower panel, M toggles the map debug view. */
+function useHotkeys() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.code === 'Escape') selectTower(null);
+      if (e.code === 'KeyM') usePlan.setState((p) => ({ debugMap: !p.debugMap }));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+}
+
 export function Hud() {
+  useHotkeys();
   const s = useHud();
   const routes = usePlan((p) => p.routes);
   const stationNames = s.city?.stations ?? [];
@@ -83,11 +97,14 @@ export function Hud() {
       <SelectedTowerPanel />
 
       <p className="hud-hint">
-        Street: Police Sawhorse ${barricadesData.sawhorse.cost} (prep only). Rooftop by a street:{' '}
-        {towersData.mgNest.name} ${towersData.mgNest.cost}. Click a tower to select it; right-click
-        sells (100% during the prep you built it in, else 70%).
+        Street: Police Sawhorse ${barricadesData.sawhorse.cost} (prep only, one per block).{' '}
+        {towersData.mgNest.name} ${towersData.mgNest.cost} on a roof pad (◆, more range when higher)
+        or a street corner (●). Click a tower to select it; right-click sells (100% during the prep
+        you built it in, else 70%).
       </p>
-      <p className="hud-hint">Camera: WASD pan · Q/E rotate · scroll zoom · drag to pan/orbit.</p>
+      <p className="hud-hint">
+        Camera: WASD pan · Q/E rotate · scroll zoom · drag to pan/orbit. M: map debug view.
+      </p>
       {s.notice && <p className="hud-notice">{s.notice}</p>}
       <p className="hud-debug">
         {s.simTime.toFixed(0)} s · tick {s.tick} · seed {s.seed} · {s.renderer ?? 'starting…'}
@@ -125,18 +142,13 @@ function WaveIntel() {
 
 function SelectedTowerPanel() {
   const sel = usePlan((p) => p.selected);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'Escape') selectTower(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
   if (!sel) return null;
   return (
     <div className="hud-selected" aria-label="Selected tower">
       <div>
-        <b>{sel.name}</b> · {sel.kills} kills · range {sel.rangeM} m
+        <b>{sel.name}</b> · {sel.kills} kills · range {Math.round(sel.rangeM)} m
+        {sel.minRangeM > 0 ? ` (min ${Math.round(sel.minRangeM)} m)` : ''}
+        {sel.heightM > 0 ? ` · roof ${Math.round(sel.heightM)} m` : ' · street level'}
       </div>
       <div className="hud-row">
         <button type="button" onClick={() => sellTowerById(sel.id)}>
