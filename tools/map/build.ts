@@ -5,15 +5,17 @@
  *   streets; level.ts)
  *   → building footprints and heights (footprints.ts) → streets painted into the gaps between
  *   buildings → goal block → stations (stations.ts) → street labels (labels.ts)
- *   → public/cities/<city>/city.json (sim) + buildings.json (render only)
+ *   → backdrop grids beyond the level (backdrop.ts)
+ *   → public/cities/<city>/city.json (sim) + buildings.json + backdrop.json (render only)
  *
  * Street graph, barricade slots, roof pads and corners are derived at load time by src/sim/slots.ts.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { BuildingsFileV0, CityFileV0 } from '../../src/sim/cityFile';
+import type { BackdropFileV0, BuildingsFileV0, CityFileV0 } from '../../src/sim/cityFile';
+import { bakeBackdrop } from './backdrop';
 import { cachePath, loadConfig, type OverpassResponse } from './config';
-import { fetchBuildings, fetchCity, fetchOsmBuildings } from './fetch';
+import { fetchBackdrop, fetchBuildings, fetchCity, fetchOsmBuildings } from './fetch';
 import { buildingsFile, heightRows, loadFootprints, rasterizeBuildings } from './footprints';
 import { streetLabels } from './labels';
 import { buildLevel } from './level';
@@ -32,6 +34,7 @@ const MAX_GOAL_TILES = 40 * 40;
 export interface BuildResult {
   city: CityFileV0;
   buildings: BuildingsFileV0;
+  backdrop: BackdropFileV0;
 }
 
 export async function buildCity(city: string): Promise<BuildResult> {
@@ -39,6 +42,7 @@ export async function buildCity(city: string): Promise<BuildResult> {
   await fetchCity(city);
   await fetchBuildings(city);
   await fetchOsmBuildings(city);
+  await fetchBackdrop(city);
   const osm = JSON.parse(readFileSync(cachePath(city), 'utf8')) as OverpassResponse;
 
   const level = buildLevel(cfg, osm);
@@ -66,6 +70,7 @@ export async function buildCity(city: string): Promise<BuildResult> {
   const labels = streetLabels(level, grid);
   const heights = heightRows(grid, raster.heights);
   const buildings = buildingsFile(level, fps, grid, cfg);
+  const backdrop = bakeBackdrop(city, cfg, level);
 
   const streetTiles = grid.cells.filter((c) => c === T_STREET).length;
   console.log(
@@ -99,6 +104,7 @@ export async function buildCity(city: string): Promise<BuildResult> {
       labels,
     },
     buildings,
+    backdrop,
   };
 }
 
@@ -109,6 +115,7 @@ const outDir = join('public', 'cities', name);
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, 'city.json'), JSON.stringify(result.city, null, 1) + '\n');
 writeFileSync(join(outDir, 'buildings.json'), JSON.stringify(result.buildings) + '\n');
+writeFileSync(join(outDir, 'backdrop.json'), JSON.stringify(result.backdrop) + '\n');
 console.log(
-  `[map:build] wrote ${outDir}/city.json + buildings.json in ${((performance.now() - t0) / 1000).toFixed(1)} s`,
+  `[map:build] wrote ${outDir}/city.json + buildings.json + backdrop.json in ${((performance.now() - t0) / 1000).toFixed(1)} s`,
 );

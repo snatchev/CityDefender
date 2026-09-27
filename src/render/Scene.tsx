@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { game } from '../game';
 import { usePlan } from '../ui/planStore';
 import { useHud } from '../ui/store';
+import { Backdrop } from './Backdrop';
 import { Barricades } from './Barricades';
 import { CityHall } from './CityHall';
 import { CityMap } from './CityMap';
@@ -18,14 +19,28 @@ import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { groundHandlers } from './pointer';
 import { SimDriver } from './SimDriver';
+import { SkyDome } from './SkyDome';
 import { SlotMarkers } from './SlotMarkers';
 import { Towers } from './Towers';
+
+/** Horizon haze: fog and background share it so the backdrop city fades into the sky. */
+const HAZE = '#c9d3db';
+const FOG_NEAR_M = 1600;
+const FOG_FAR_M = 6500;
+/** Sky dome around the camera; inside the far plane. */
+const SKY_RADIUS_M = 12000;
+const SKY_ZENITH = '#5b8fcc';
+const CAMERA_FAR_M = 16000;
+const MAX_ZOOM_OUT_M = 3000;
+/** Late-morning sun from the south-east (the directional light). */
+const SUN_POSITION: [number, number, number] = [900, 1100, 700];
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
   const cityName = useHud((s) => s.city?.name);
   const city = cityName ? game.city : null;
   const buildingsFile = cityName ? game.buildings : null;
+  const backdrop = cityName ? game.backdrop : null;
   const slots = cityName ? game.world.slots : null;
   const debugMap = usePlan((p) => p.debugMap);
   const map = game.world.map;
@@ -43,7 +58,7 @@ export function Scene() {
       aria-label="City map"
       tabIndex={0}
       dpr={[1, 2]}
-      camera={{ position: [120, 720, 820], fov: 45, near: 1, far: 6000 }}
+      camera={{ position: [120, 720, 820], fov: 45, near: 1, far: CAMERA_FAR_M }}
       onCreated={({ gl }) => {
         const ctx = gl.getContext();
         const kind =
@@ -53,9 +68,12 @@ export function Scene() {
         useHud.getState().setRenderer(kind);
       }}
     >
-      <color attach="background" args={['#cfd6dc']} />
+      <color attach="background" args={[HAZE]} />
+      <fog attach="fog" args={[HAZE, FOG_NEAR_M, FOG_FAR_M]} />
+      <SkyDome zenith={SKY_ZENITH} horizon={HAZE} radius={SKY_RADIUS_M} />
       <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
-      <directionalLight position={[300, 600, 200]} intensity={1.8} />
+      <directionalLight position={SUN_POSITION} intensity={1.8} />
+      {backdrop && frame && <Backdrop file={backdrop} frame={frame} />}
 
       {city && buildingsFile && map && frame && heights && ground && (
         <>
@@ -86,7 +104,7 @@ export function Scene() {
         target={[120, 0, 60]}
         enableDamping
         minDistance={80}
-        maxDistance={2200}
+        maxDistance={MAX_ZOOM_OUT_M}
         maxPolarAngle={Math.PI * 0.42}
       />
       <KeyboardCamera />

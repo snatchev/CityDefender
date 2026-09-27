@@ -5,6 +5,8 @@
 > Tags: 🎯 core fun · 🔁 replayability · ✨ juice · 🗺️ map · ⚙️ systems · 🏙️ flavor
 
 ## Planning & readability
+- 🗺️ **Rivers in the backdrop**: Schuylkill and Delaware water polygons (OSM multipolygons need ring stitching), maybe bridges. Would make the backdrop unmistakably Philadelphia. → Pass 10
+- 🗺️ **Backdrop streets**: major street lines through the backdrop grid so the far city reads as blocks. → Pass 10
 - ✨ **City Hall hit feedback** (Stefan, playtest 2): red flash + Integrity-scaled shake + HUD pulse → done 2026-09-27. Siren under 25% → Pass 10 (audio).
 - 🎯 **Ghost paths** from every active spawn during prep, updating live as you edit. → Pass 3/5
 - 🎯 **Detour meter** (`+340 m`) when previewing a barricade. → Pass 3

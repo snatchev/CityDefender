@@ -1,4 +1,4 @@
-import type { BuildingsFileV0, CityFileV0 } from './sim/cityFile';
+import type { BackdropFileV0, BuildingsFileV0, CityFileV0 } from './sim/cityFile';
 
 declare global {
   interface Window {
@@ -28,6 +28,11 @@ async function loadCityAsset(name: string, file: string): Promise<{ version: num
 /** `public/cities/<name>/city.json` (tiles, stations, labels: what the sim needs). */
 export async function loadCityFile(name: string): Promise<CityFileV0> {
   return (await loadCityAsset(name, 'city.json')) as CityFileV0;
+}
+
+/** `public/cities/<name>/backdrop.json` (the city beyond the level: render only). */
+export async function loadBackdropFile(name: string): Promise<BackdropFileV0> {
+  return (await loadCityAsset(name, 'backdrop.json')) as BackdropFileV0;
 }
 
 /** `public/cities/<name>/buildings.json` (outlines and centerlines: render only). */

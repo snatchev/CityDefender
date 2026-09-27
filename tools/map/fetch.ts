@@ -6,6 +6,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+  backdropBuildingsCachePath,
+  backdropOsmCachePath,
   buildingsCachePath,
   CACHE_DIR,
   osmBuildingsCachePath,
@@ -85,16 +87,17 @@ export async function fetchOsmBuildings(city: string, force = false): Promise<st
 /** ArcGIS feature services cap each response; page through with resultOffset. */
 const ARCGIS_PAGE = 2000;
 
-/** Download building footprints with heights for the fetch bbox into tools/map/cache/. */
-export async function fetchBuildings(city: string, force = false): Promise<string> {
-  const cfg = loadConfig(city);
-  const out = buildingsCachePath(city);
-  if (existsSync(out) && !force) return out;
+type Bbox = CityConfig['fetchBbox'];
 
-  const { south, west, north, east } = cfg.fetchBbox;
+/** Page through the city's footprint service for a bbox (optionally simplified server-side). */
+async function fetchFootprints(
+  cfg: CityConfig,
+  bbox: Bbox,
+  simplifyDeg?: number,
+): Promise<FootprintCollection> {
+  const { south, west, north, east } = bbox;
   const b = cfg.buildings;
   const all: FootprintCollection = { type: 'FeatureCollection', features: [] };
-  console.log(`[map:fetch] ${city}: querying building footprints…`);
   for (let offset = 0; ; offset += ARCGIS_PAGE) {
     const params = new URLSearchParams({
       where: '1=1',
@@ -108,6 +111,7 @@ export async function fetchBuildings(city: string, force = false): Promise<strin
       resultOffset: String(offset),
       resultRecordCount: String(ARCGIS_PAGE),
       f: 'geojson',
+      ...(simplifyDeg ? { maxAllowableOffset: String(simplifyDeg), geometryPrecision: '6' } : {}),
     });
     const res = await fetch(b.url, {
       method: 'POST',
@@ -119,12 +123,51 @@ export async function fetchBuildings(city: string, force = false): Promise<strin
     const page = (await res.json()) as FootprintCollection & { error?: unknown };
     if (page.error) throw new Error(`footprints query failed: ${JSON.stringify(page.error)}`);
     all.features.push(...page.features);
+    if (offset > 0 && offset % (ARCGIS_PAGE * 10) === 0)
+      console.log(`[map:fetch]   … ${all.features.length}`);
     if (page.features.length < ARCGIS_PAGE) break;
   }
+  return all;
+}
+
+async function cached(
+  out: string,
+  force: boolean,
+  what: string,
+  get: () => Promise<unknown>,
+): Promise<string> {
+  if (existsSync(out) && !force) return out;
+  console.log(`[map:fetch] ${what}…`);
+  const data = await get();
   mkdirSync(CACHE_DIR, { recursive: true });
-  writeFileSync(out, JSON.stringify(all));
-  console.log(`[map:fetch] wrote ${out} (${all.features.length} footprints)`);
+  const text = typeof data === 'string' ? data : JSON.stringify(data);
+  writeFileSync(out, text);
+  console.log(`[map:fetch] wrote ${out} (${(text.length / 1024).toFixed(0)} kB)`);
   return out;
+}
+
+/** Building footprints with heights for the level's fetch bbox. */
+export function fetchBuildings(city: string, force = false): Promise<string> {
+  const cfg = loadConfig(city);
+  return cached(buildingsCachePath(city), force, `${city}: building footprints`, () =>
+    fetchFootprints(cfg, cfg.fetchBbox),
+  );
+}
+
+/** Backdrop (D027): simplified footprints for the wider area, plus tall OSM buildings for skyline gaps. */
+export async function fetchBackdrop(city: string, force = false): Promise<void> {
+  const cfg = loadConfig(city);
+  const bd = cfg.backdrop;
+  await cached(backdropBuildingsCachePath(city), force, `${city}: backdrop footprints`, () =>
+    fetchFootprints(cfg, bd.bbox, bd.simplifyDeg),
+  );
+  const { south, west, north, east } = bd.bbox;
+  const bbox = `${south},${west},${north},${east}`;
+  await cached(backdropOsmCachePath(city), force, `${city}: backdrop OSM tall buildings`, () =>
+    overpass(
+      `[out:json][timeout:120];(way["building"]["height"](${bbox});way["building"]["building:levels"](${bbox}););out geom tags;`,
+    ),
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -133,4 +176,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   await fetchCity(city, args.includes('--force'));
   await fetchBuildings(city, args.includes('--force'));
   await fetchOsmBuildings(city, args.includes('--force'));
+  await fetchBackdrop(city, args.includes('--force'));
 }

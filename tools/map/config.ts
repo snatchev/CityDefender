@@ -35,6 +35,22 @@ export interface CityConfig {
     /** Fraction of a tile a footprint must cover before the tile counts as built (else it's an open lot). */
     minTileCoverage: number;
   };
+  /**
+   * Decorative city beyond the playable level (D027): footprints over a wider bbox, baked into coarse
+   * height grids — `nearCellM` cells within `nearRingM` of the level, `farCellM` cells beyond.
+   */
+  backdrop: {
+    bbox: { south: number; west: number; north: number; east: number };
+    /** Server-side outline simplification (degrees) to keep the download small. */
+    simplifyDeg: number;
+    nearRingM: number;
+    nearCellM: number;
+    farCellM: number;
+    /** Footprint coverage at which a cell counts as built. */
+    minCoverage: number;
+    /** OSM buildings at least this tall fill skyline gaps in the city data. */
+    osmMinHeightM: number;
+  };
   /** Max search distance when snapping a station to the nearest street tile. */
   stationSnapMaxTiles: number;
 }
@@ -55,6 +71,14 @@ export function buildingsCachePath(city: string): string {
 }
 
 /** OSM building outlines: the fallback where the city footprints have gaps (e.g. the Convention Center). */
+export function backdropBuildingsCachePath(city: string): string {
+  return join(CACHE_DIR, `${city}-backdrop-buildings.geojson`);
+}
+
+export function backdropOsmCachePath(city: string): string {
+  return join(CACHE_DIR, `${city}-backdrop-osm-tall.json`);
+}
+
 export function osmBuildingsCachePath(city: string): string {
   return join(CACHE_DIR, `${city}-osm-buildings.json`);
 }

@@ -40,5 +40,19 @@
     "defaultHeightM": 10,
     "minTileCoverage": 0.25,
     "osmLevelM": 3.5
+  },
+  "backdrop": {
+    "bbox": {
+      "south": 39.925,
+      "west": -75.195,
+      "north": 39.975,
+      "east": -75.135
+    },
+    "simplifyDeg": 3e-5,
+    "nearRingM": 700,
+    "nearCellM": 16,
+    "farCellM": 32,
+    "minCoverage": 0.4,
+    "osmMinHeightM": 30
   }
 }

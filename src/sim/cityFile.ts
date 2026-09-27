@@ -47,6 +47,28 @@ export interface BuildingsFileV0 {
   streets: { kind: string; pts: number[] }[];
 }
 
+/**
+ * `public/cities/<city>/backdrop.json`, render only (D027): the city beyond the playable level as
+ * coarse height grids in the level's tile frame. Detail drops with distance via bigger cells.
+ */
+export interface BackdropFileV0 {
+  version: 0;
+  /** Nearest (finest) first. */
+  layers: BackdropLayer[];
+}
+
+export interface BackdropLayer {
+  /** Top-left corner of the grid in tile units (may be negative: outside the level). */
+  u0: number;
+  v0: number;
+  /** Cell edge in tiles. */
+  cellTiles: number;
+  width: number;
+  height: number;
+  /** Real building height (m) per cell, one comma-separated row per grid row; 0 = open. */
+  rows: string[];
+}
+
 export interface CitySpawn {
   name: string;
   tx: number;
