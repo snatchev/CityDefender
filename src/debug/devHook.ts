@@ -2,6 +2,7 @@ import { callWave, game, publish, setTimeScale } from '../game';
 import { buildAt, restartRun, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
 import { queueWave } from '../sim/mobs';
+import { usePlan, type Ghost } from '../ui/planStore';
 import { tickWorld, type World } from '../sim/world';
 
 /**
@@ -25,6 +26,8 @@ export interface DevHook {
   callWave(): void;
   /** Centre the camera on a tile (so a real click at the canvas centre hits it). */
   focusTile(tx: number, ty: number, view?: CameraView): void;
+  /** The hover preview (hovered tile, ghost kind, error), as the planning UI sees it. */
+  readonly ghost: Ghost | null;
   /** Advance exactly `n` ticks synchronously (works while paused). */
   step(n?: number): number;
 }
@@ -55,6 +58,9 @@ export function installDevHook(): void {
     },
     get city() {
       return game.city;
+    },
+    get ghost() {
+      return usePlan.getState().ghost;
     },
     restart: restartRun,
     setSeed: restartRun,

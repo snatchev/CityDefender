@@ -18,6 +18,7 @@ import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { groundHandlers } from './pointer';
+import { SeeThroughDriver } from './SeeThroughDriver';
 import { SimDriver } from './SimDriver';
 import { SkyDome } from './SkyDome';
 import { SlotMarkers } from './SlotMarkers';
@@ -98,6 +99,7 @@ export function Scene() {
           <HpBars frame={frame} />
           <Effects frame={frame} />
           <PlanOverlay frame={frame} />
+          <SeeThroughDriver frame={frame} />
           {import.meta.env.DEV && <DevCamera frame={frame} heights={heights} width={map.width} />}
         </>
       )}

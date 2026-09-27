@@ -1,9 +1,10 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
-import { Color, Object3D, type InstancedMesh } from 'three';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Color, MeshStandardMaterial, Object3D, type InstancedMesh } from 'three';
 import type { BackdropFileV0, BackdropLayer } from '../sim/cityFile';
 import { TILE_M } from '../sim/constants';
 import { buildingColor } from './buildingMesh';
 import { uvToWorld, type TileFrame } from './coords';
+import { withSeeThrough } from './seeThrough';
 
 /** Ground beyond the level (slightly lighter than street asphalt, so the play area stands out). */
 const GROUND = '#5a5e63';
@@ -58,6 +59,8 @@ function LayerBoxes({
   haze: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
+  const material = useMemo(() => withSeeThrough(new MeshStandardMaterial()), []);
+  useEffect(() => () => material.dispose(), [material]);
   const cells = useMemo(() => {
     const out: { cx: number; cy: number; h: number }[] = [];
     layer.rows.forEach((row, cy) => {
@@ -95,9 +98,8 @@ function LayerBoxes({
 
   if (cells.length === 0) return null;
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, cells.length]}>
+    <instancedMesh ref={ref} args={[undefined, material, cells.length]}>
       <boxGeometry />
-      <meshStandardMaterial />
     </instancedMesh>
   );
 }

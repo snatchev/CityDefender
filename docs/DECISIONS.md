@@ -136,3 +136,7 @@ Consequences: `src/sim/slots.ts`: graph nodes are crossing tiles (both street ru
 **D029 · 2026-09-27 · Draw buildings at real height; compress only gameplay height. Supersedes the display half of DESIGN §4's height compression.**
 Why: Stefan noticed the tall buildings looked missing: the √ curve drew the 297 m Comcast Center at 69 m, below the City Hall stand-in. Philadelphia's skyline is defined by towers well above City Hall.
 Consequences: buildings, backdrop and tower positions use real metres; `gameHeight()` (√ curve) stays for tower range and minimum range. City Hall stand-in at real proportions (48 m block, statue at 167 m). Footprint height = `max_hgt` when it's within 1.25× of `approx_hgt` (catches spires), else `approx_hgt` (rejects values inflated by taller neighbours).
+
+**D030 · 2026-09-27 · See-through buildings: dithered cutaway cones (Stefan's idea).**
+Why: with real heights, towers hide the streets the player is defending.
+Consequences: `render/seeThrough.ts` patches the building and backdrop materials (`onBeforeCompile`). Two cones: camera → orbit target and camera → hovered tile, wide at the camera (45% of the view distance) and narrow at the focus, stopping just short of it. Surfaces inside are removed with a 4×4 ordered dither (up to 80%), so they stay opaque to the GPU (no sorting issues) and keep a ghost silhouette. Picking uses the same maths on the CPU, so the pointer passes through faded buildings. Dev hook gained `__cd.ghost`.

@@ -1,13 +1,17 @@
 import type { ThreeEvent } from '@react-three/fiber';
-import type { Ray } from 'three';
+import { Vector3, type Ray } from 'three';
 import { buildAt, hoverTile, sellAt } from '../planning';
 import type { TileMap } from '../sim/map';
 import { worldToTile, type TileFrame } from './coords';
+import { seeThroughFade } from './seeThrough';
 
 /** Ray-march step along the pointer ray, in metres. */
 const STEP_M = 1;
 /** Pointer movement (px) above which a click counts as a camera drag, not a build. */
 const CLICK_SLOP_PX = 5;
+/** Roofs faded more than this by the see-through cutaway don't catch the pointer. */
+const PICK_THROUGH_FADE = 0.5;
+const probe = new Vector3();
 
 /** Pointer handlers for the ground plane mesh. */
 export interface GroundHandlers {
@@ -67,7 +71,13 @@ export function pickTile(
     const y = o.y + d.y * t;
     const [tx, ty] = worldToTile(frame, o.x + d.x * t, o.z + d.z * t);
     if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) continue;
-    if (y <= heights[ty * map.width + tx]!) return [tx, ty];
+    const top = heights[ty * map.width + tx]!;
+    if (y > top) continue;
+    // A building faded out by the cutaway lets the pointer through to what's behind it.
+    if (top > 0 && seeThroughFade(probe.set(o.x + d.x * t, y, o.z + d.z * t)) > PICK_THROUGH_FADE) {
+      continue;
+    }
+    return [tx, ty];
   }
   const [tx, ty] = worldToTile(frame, o.x + d.x * tEnd, o.z + d.z * tEnd);
   return tx >= 0 && ty >= 0 && tx < map.width && ty < map.height ? [tx, ty] : null;

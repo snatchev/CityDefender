@@ -1,5 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Color, LineDashedMaterial, LineSegments, Object3D, type InstancedMesh } from 'three';
+import {
+  Color,
+  LineDashedMaterial,
+  LineSegments,
+  MeshStandardMaterial,
+  Object3D,
+  type InstancedMesh,
+} from 'three';
 import type { BuildingsFileV0, CityFileV0 } from '../sim/cityFile';
 import { buildingGeometry, laneLineGeometry } from './buildingMesh';
 import { TILE_M } from '../sim/constants';
@@ -8,6 +15,7 @@ import { tileToWorld, type TileFrame } from './coords';
 import { LOT_M } from './heights';
 import { LabelLayer, type MapLabel } from './LabelLayer';
 import type { GroundHandlers } from './pointer';
+import { withSeeThrough } from './seeThrough';
 
 const COLORS = {
   asphalt: '#3b3e44',
@@ -73,6 +81,11 @@ export function CityMap({
     };
   }, [lanes]);
   useEffect(() => () => buildings.dispose(), [buildings]);
+  const buildingMaterial = useMemo(
+    () => withSeeThrough(new MeshStandardMaterial({ vertexColors: true })),
+    [],
+  );
+  useEffect(() => () => buildingMaterial.dispose(), [buildingMaterial]);
 
   // Ground: covers the whole grid, centred on the grid (the world origin is the goal, not the grid centre).
   const [gx, gz] = tileToWorld(frame, (map.width - 1) / 2, (map.height - 1) / 2);
@@ -87,9 +100,7 @@ export function CityMap({
 
       <TileBoxes boxes={blocks} frame={frame} colorOf={blockColor} />
       <TileBoxes boxes={goal} frame={frame} colorOf={goalColor} />
-      <mesh geometry={buildings}>
-        <meshStandardMaterial vertexColors />
-      </mesh>
+      <mesh geometry={buildings} material={buildingMaterial} />
 
       {city.spawns.map((s) => {
         const [x, z] = tileToWorld(frame, s.tx, s.ty);
