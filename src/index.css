@@ -26,76 +26,6 @@ body,
   inset: 0;
 }
 
-.hud {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  width: 300px;
-  padding: 14px 16px;
-  background: color-mix(in srgb, var(--paper) 92%, transparent);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 0.08);
-  font-size: 14px;
-}
-
-.hud-title {
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.hud-sub {
-  color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 10px;
-}
-
-.hud-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  margin-bottom: 8px;
-  font-size: 15px;
-}
-
-.hud-big {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-  color: var(--defense);
-}
-
-.hud-cash {
-  color: #2f7d32;
-}
-
-.hud-phase {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 36px;
-  margin-bottom: 10px;
-  padding: 4px 8px;
-  background: #eef3f6;
-  border-radius: 6px;
-}
-
-.hud button.hud-go,
-.end-card button.hud-go {
-  background: #c2410c;
-  border-color: #c2410c;
-  color: white;
-  font-weight: 600;
-}
-
-.hud-debug {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
 .end-screen {
   position: absolute;
   inset: 0;
@@ -104,89 +34,10 @@ body,
   background: rgb(10 14 20 / 0.45);
 }
 
-.end-card {
-  min-width: 300px;
-  max-width: calc(100vw - 32px);
-  padding: 20px 24px;
-  background: var(--paper);
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgb(0 0 0 / 0.3);
-}
-
-.end-card h1 {
-  margin: 0 0 6px;
-  font-size: 24px;
-}
-
 .end-card button {
-  min-height: 36px;
+  min-height: 38px;
   padding: 6px 16px;
-  border-radius: 6px;
-  font: inherit;
-  cursor: pointer;
-}
-
-.hud-stats {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 12px;
-  margin: 0 0 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.hud-stats dt {
-  color: var(--muted);
-}
-
-.hud-stats dd {
-  margin: 0;
-  text-align: right;
-}
-
-.hud-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.hud button {
-  min-height: 32px;
-  padding: 4px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: white;
-  color: var(--ink);
-  font: inherit;
-  cursor: pointer;
-}
-
-.hud button.active {
-  background: var(--defense);
-  border-color: var(--defense);
-  color: white;
-}
-
-/* drei <Stats/> (stats.js) pins itself top-left with inline styles; move it out of the HUD's way. */
-.fps-meter {
-  top: auto !important;
-  left: auto !important;
-  right: 8px;
-  bottom: 8px;
-}
-
-.hud-errors {
-  margin: 12px 0 0;
-  padding: 8px 10px 8px 24px;
-  max-width: 420px;
-  background: #fdecea;
-  border: 1px solid #e8b4ae;
-  border-radius: 6px;
-  color: #8a1f14;
-  font:
-    12px/1.4 ui-monospace,
-    Menlo,
-    monospace;
-  white-space: pre-wrap;
+  border-radius: 8px;
 }
 
 .attribution {
@@ -242,19 +93,6 @@ body,
   font-weight: 600;
 }
 
-.hud-hint {
-  max-width: 260px;
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.hud-notice {
-  margin: 6px 0 0;
-  color: #8a1f14;
-  font-size: 12px;
-}
-
 /* Detour meter above the hovered street (render/PlanOverlay.tsx). */
 .detour-label {
   padding: 2px 7px;
@@ -266,64 +104,4 @@ body,
     sans-serif;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.hud-selected {
-  margin-top: 10px;
-  padding: 8px;
-  border: 1px solid #9fd3f2;
-  border-radius: 6px;
-  background: #eef7fd;
-  font-size: 13px;
-}
-
-.hud-selected .hud-row {
-  margin-top: 6px;
-}
-
-.hud-intel {
-  margin: -4px 0 10px;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-}
-
-.hud-intel li {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.hud-intel-station {
-  padding: 0 5px;
-  background: #f28c28;
-  border-radius: 3px;
-  color: #1f1206;
-  font-weight: 600;
-}
-
-/* City Hall Integrity: pulses on every hit (the element is re-keyed), red when low. */
-.hud-integrity {
-  display: inline-block;
-  animation: integrity-hit 0.45s ease-out;
-}
-
-.hud-integrity.low {
-  color: #c62828;
-}
-
-@keyframes integrity-hit {
-  0% {
-    transform: scale(1.35);
-    color: #e5484d;
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hud-integrity {
-    animation: none;
-  }
 }

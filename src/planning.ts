@@ -10,8 +10,6 @@ import {
 } from './sim/barricades';
 import { TILE_M } from './sim/constants';
 import { tracePath } from './sim/flow';
-import { Tile } from './sim/map';
-import { Slot } from './sim/slots';
 import {
   placeTower,
   sellTower,
@@ -19,8 +17,9 @@ import {
   towerRange,
   towerSellValue,
   towerSiteError,
+  type TowerType,
 } from './sim/towers';
-import { usePlan, type Route } from './ui/planStore';
+import { usePlan, type BuildTool, type Route } from './ui/planStore';
 import { useHud } from './ui/store';
 
 /**
@@ -67,61 +66,68 @@ function refreshGhost(): void {
   }
   const [tx, ty] = hovered;
   const i = ty * w.map.width + tx;
+  const tool = usePlan.getState().tool;
+  const tower = w.towers.find((t) => t.id === w.towerAt[i]);
+  const barricade = w.barricades.find((b) => b.id === w.barricadeAt[i]);
 
-  if (isTowerTile(i)) {
-    const existing = w.towers.find((t) => t.id === w.towerAt[i]);
-    const range = towerRange(existing?.type ?? 'mgNest', existing?.heightM ?? siteHeight(w, i));
+  if (tower || tool?.kind === 'tower') {
+    const type = tower?.type ?? (tool as { type: TowerType }).type;
+    const range = towerRange(type, tower?.heightM ?? siteHeight(w, i));
     usePlan.setState({
       ghost: {
         kind: 'tower',
         tx,
         ty,
-        error: existing ? null : towerSiteError(w, tx, ty),
+        error: tower ? null : towerSiteError(w, tx, ty),
         rangeM: range.maxM,
         minRangeM: range.minM,
-        sellValue: existing ? towerSellValue(w, existing) : null,
+        sellValue: tower ? towerSellValue(w, tower) : null,
       },
     });
     return;
   }
 
-  const existing = w.barricades.find((b) => b.id === w.barricadeAt[i]);
-  const span = canEditBarricades(w)
-    ? barricadeSpan(w, tx, ty)
-    : 'barricades go up during prep only';
-  if (typeof span === 'string') {
+  if (barricade || tool?.kind === 'barricade') {
+    const span = canEditBarricades(w)
+      ? barricadeSpan(w, tx, ty)
+      : 'barricades go up during prep only';
+    if (typeof span === 'string') {
+      usePlan.setState({
+        ghost: {
+          kind: 'barricade',
+          tx,
+          ty,
+          tiles: [],
+          axis: 'x',
+          error: span,
+          sellValue: barricade && canEditBarricades(w) ? barricadeSellValue(w, barricade) : null,
+          routes: [],
+          detourM: 0,
+        },
+      });
+      return;
+    }
+    const preview = previewField(w, span);
+    const routes = routesFrom(preview.field, preview.extraCost);
+    const now = usePlan.getState().routes;
+    const len = (rs: Route[]) => rs.reduce((sum, r) => sum + r.lengthM, 0);
     usePlan.setState({
       ghost: {
         kind: 'barricade',
         tx,
         ty,
-        tiles: [],
-        axis: 'x',
-        error: span,
-        sellValue: existing && canEditBarricades(w) ? barricadeSellValue(w, existing) : null,
-        routes: [],
-        detourM: 0,
+        tiles: span.tiles,
+        axis: span.axis,
+        error: null,
+        sellValue: null,
+        routes,
+        detourM: len(routes) - len(now),
       },
     });
     return;
   }
-  const preview = previewField(w, span);
-  const routes = routesFrom(preview.field, preview.extraCost);
-  const now = usePlan.getState().routes;
-  const len = (rs: Route[]) => rs.reduce((s, r) => s + r.lengthM, 0);
-  usePlan.setState({
-    ghost: {
-      kind: 'barricade',
-      tx,
-      ty,
-      tiles: span.tiles,
-      axis: span.axis,
-      error: null,
-      sellValue: null,
-      routes,
-      detourM: len(routes) - len(now),
-    },
-  });
+
+  usePlan.setState({ ghost: null }); // no tool and nothing built here: no preview
 }
 
 /** Recompute the active routes if the flow field or the wave changed (call at event rate). */
@@ -157,20 +163,28 @@ export function hoverTile(tile: [number, number] | null): void {
   refreshGhost();
 }
 
+/** Choose what left clicks build (null: clicks select towers). Clears any tower selection. */
+export function selectTool(tool: BuildTool | null): void {
+  usePlan.setState({ tool, selected: null });
+  useHud.getState().setNotice(null);
+  refreshGhost();
+}
+
 /**
- * Left click: select an existing tower, or build (barricade on a street, MG Nest on a rooftop).
- * Returns an error, or null.
+ * Left click: build with the selected tool, or with no tool select the tower on this tile.
+ * The tool stays selected so several can be placed in a row. Returns an error, or null.
  */
 export function buildAt(tx: number, ty: number): string | null {
   const w = game.world;
   if (!w.map) return 'no map';
   const i = ty * w.map.width + tx;
-  if (w.towerAt[i]) {
-    selectTower(w.towerAt[i]!);
+  const tool = usePlan.getState().tool;
+  if (!tool) {
+    selectTower(w.towerAt[i] ? w.towerAt[i]! : null);
     return null;
   }
-  selectTower(null);
-  const result = isTowerTile(i) ? placeTower(w, tx, ty) : placeBarricade(w, tx, ty);
+  const result =
+    tool.kind === 'tower' ? placeTower(w, tx, ty, tool.type) : placeBarricade(w, tx, ty, tool.type);
   return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
 }
 
@@ -214,12 +228,6 @@ export function selectTower(id: number | null): void {
         }
       : null,
   });
-}
-
-/** Rooftops and street-corner tower spots take towers; other street tiles take barricades. */
-function isTowerTile(i: number): boolean {
-  const w = game.world;
-  return w.map!.tiles[i] === Tile.Building || (w.slots?.towerSlot[i] ?? Slot.None) !== Slot.None;
 }
 
 function afterEdit(error: string | null): string | null {

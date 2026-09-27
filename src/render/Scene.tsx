@@ -9,7 +9,7 @@ import { Barricades } from './Barricades';
 import { CityHall } from './CityHall';
 import { CityMap } from './CityMap';
 import { tileFrame } from './coords';
-import { DevCamera } from './DevCamera';
+import { CameraBridge } from './CameraBridge';
 import { Effects } from './Effects';
 import { displayHeights } from './heights';
 import { HpBars } from './HpBars';
@@ -49,6 +49,7 @@ export function Scene() {
   const backdrop = cityName ? game.backdrop : null;
   const slots = cityName ? game.world.slots : null;
   const debugMap = usePlan((p) => p.debugMap);
+  const showFps = useHud((s) => s.showFps);
   const map = game.world.map;
   const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
   const heights = useMemo(() => (city && map ? displayHeights(map) : null), [city, map]);
@@ -100,7 +101,7 @@ export function Scene() {
           <Effects frame={frame} />
           <PlanOverlay frame={frame} />
           <SeeThroughDriver frame={frame} />
-          {import.meta.env.DEV && <DevCamera frame={frame} heights={heights} width={map.width} />}
+          <CameraBridge frame={frame} heights={heights} width={map.width} />
         </>
       )}
 
@@ -116,7 +117,7 @@ export function Scene() {
       />
       <KeyboardCamera />
       <SimDriver />
-      {import.meta.env.DEV && <Stats className="fps-meter" />}
+      {showFps && <Stats className="fps-meter" />}
     </Canvas>
   );
 }

@@ -6,6 +6,7 @@ import { installErrorReporting } from './debug/reportErrors';
 import { loadCity, publish } from './game';
 import { restartRun } from './planning';
 import './index.css';
+import './ui/hud.css';
 import { useHud } from './ui/store';
 
 installErrorReporting();

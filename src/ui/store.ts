@@ -35,12 +35,15 @@ interface HudState {
   city: CityInfo | null;
   /** Short feedback line for the player (e.g. why a placement failed). */
   notice: string | null;
+  /** Debug menu toggle for the FPS meter. */
+  showFps: boolean;
   /** Runtime errors surfaced on screen (so they show up in screenshots, not just the console). */
   errors: string[];
   publishSim: (world: World, timeScale: number) => void;
   setRenderer: (info: string) => void;
   setCity: (city: CityInfo) => void;
   setNotice: (notice: string | null) => void;
+  setShowFps: (show: boolean) => void;
   pushError: (message: string) => void;
 }
 
@@ -62,10 +65,12 @@ export const useHud = create<HudState>()((set, get) => ({
   renderer: null,
   city: null,
   notice: null,
+  showFps: false,
   errors: [],
   setRenderer: (renderer) => set({ renderer }),
   setCity: (city) => set({ city }),
   setNotice: (notice) => set({ notice }),
+  setShowFps: (showFps) => set({ showFps }),
   pushError: (message) => set((s) => ({ errors: [...s.errors, message].slice(-5) })),
   publishSim: (world, timeScale) =>
     set({

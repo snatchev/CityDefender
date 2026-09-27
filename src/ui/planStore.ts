@@ -1,4 +1,10 @@
 import { create } from 'zustand';
+import type { BarricadeType } from '../sim/barricades';
+import type { TowerType } from '../sim/towers';
+
+/** What a left click on the map builds (chosen in the build bar), or null to select towers. */
+export type BuildTool =
+  { kind: 'tower'; type: TowerType } | { kind: 'barricade'; type: BarricadeType };
 
 /** A route from a station to City Hall, as tile indices. */
 export interface Route {
@@ -48,8 +54,9 @@ interface PlanState {
   ghost: Ghost | null;
   /** Selected tower (click an existing tower), shown with its range and a sell button. */
   selected: SelectedTower | null;
-  /** Map debug overlay (street graph, slots), toggled with M. */
+  /** Map debug overlay (street graph, slots), toggled in the debug menu or with M. */
   debugMap: boolean;
+  tool: BuildTool | null;
 }
 
 export interface SelectedTower {
@@ -70,4 +77,5 @@ export const usePlan = create<PlanState>()(() => ({
   ghost: null,
   selected: null,
   debugMap: false,
+  tool: null,
 }));

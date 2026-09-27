@@ -1,3 +1,4 @@
+import { cameraBridge, type CameraView } from '../cameraBridge';
 import { callWave, game, publish, setTimeScale } from '../game';
 import { buildAt, restartRun, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
@@ -38,19 +39,6 @@ declare global {
   }
 }
 
-/** Optional camera placement for `focusTile`: distance (m), pitch above the ground and yaw (degrees). */
-export interface CameraView {
-  distM?: number;
-  pitchDeg?: number;
-  yawDeg?: number;
-}
-type FocusFn = (tx: number, ty: number, view?: CameraView) => void;
-let focus: FocusFn | null = null;
-/** Called by render/DevCamera.tsx once the camera controls exist. */
-export function registerFocus(fn: FocusFn | null): void {
-  focus = fn;
-}
-
 export function installDevHook(): void {
   window.__cd = {
     get world() {
@@ -67,7 +55,7 @@ export function installDevHook(): void {
     build: buildAt,
     sell: sellAt,
     callWave,
-    focusTile: (tx, ty, view) => focus?.(tx, ty, view),
+    focusTile: (tx, ty, view) => cameraBridge.focusTile?.(tx, ty, view),
     setTimeScale,
     spawnWave(count = 20, spawnIndex = 0) {
       queueWave(game.world, { count, spawnIndex });

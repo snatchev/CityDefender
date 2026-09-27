@@ -16,7 +16,12 @@ const RADIUS_FRACTION = [0.1, 0.06] as const;
 const RADIUS_MIN_M = [30, 20] as const;
 const RADIUS_MAX_M = [160, 90] as const;
 /** Cone radius at the camera end, as a fraction of the camera distance. */
-const CAMERA_END_FRACTION = 0.45;
+const CAMERA_END_FRACTION = 0.3;
+/**
+ * Only surfaces above the sight line can hide the focus; below it (low buildings the line passes over)
+ * stay solid. Allowance below the line, as a fraction of the local cone radius.
+ */
+const BELOW_LINE_ALLOWANCE = 0.15;
 /** Stop the cutaway just short of the focus point, so the street being looked at stays solid. */
 const T_END = 0.97;
 
@@ -58,9 +63,10 @@ function lineFade(p: Vector3, focus: Vector3, radius: number): number {
   if (len2 === 0) return 0;
   const t = p.clone().sub(state.cam).dot(ab) / len2;
   if (t <= 0 || t >= T_END) return 0;
-  const d = p.distanceTo(state.cam.clone().addScaledVector(ab, t));
+  const onLine = state.cam.clone().addScaledVector(ab, t);
   const r = state.camRadius + (radius - state.camRadius) * t; // cone: wide at the camera
-  return 1 - smoothstep(r * 0.6, r, d);
+  if (p.y < onLine.y - r * BELOW_LINE_ALLOWANCE) return 0; // below the sight line: not in the way
+  return 1 - smoothstep(r * 0.6, r, p.distanceTo(onLine));
 }
 
 /** Cutaway strength at a world point (CPU side), so picking can look through faded buildings. */
@@ -105,9 +111,10 @@ export function withSeeThrough<M extends Material>(material: M): M {
           vec3 ab = focus - uSeeCam;
           float t = dot(vSeeWorld - uSeeCam, ab) / max(dot(ab, ab), 1e-6);
           if (t <= 0.0 || t >= ${T_END.toFixed(2)}) return 0.0;
-          float d = length(vSeeWorld - (uSeeCam + ab * t));
+          vec3 onLine = uSeeCam + ab * t;
           float r = mix(uSeeCamRadius, radius, t);
-          return 1.0 - smoothstep(r * 0.6, r, d);
+          if (vSeeWorld.y < onLine.y - r * ${BELOW_LINE_ALLOWANCE.toFixed(2)}) return 0.0;
+          return 1.0 - smoothstep(r * 0.6, r, length(vSeeWorld - onLine));
         }
         float bayer4(vec2 p) {
           int x = int(mod(p.x, 4.0));
@@ -127,6 +134,6 @@ export function withSeeThrough<M extends Material>(material: M): M {
         }`,
       );
   };
-  material.customProgramCacheKey = () => 'see-through-v2';
+  material.customProgramCacheKey = () => 'see-through-v3';
   return material;
 }
