@@ -121,7 +121,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 **Accept:** side by side with a real map, a Philadelphian recognizes the blocks and skyline ordering. `map:build` stays under 1 minute from cache.
 **Deferred:** landmark models (Pass 10), multi‑city support (Pass 11).
 
-### Pass 7: Data‑driven roster I · timebox 2 days
+### Pass 7: Data‑driven roster I · timebox 2 days · ✅ done 2026-09-27 (see D032–D034)
 **Deliverable:** 3 more towers, 2 mob types, armor and targeting modes.
 - `src/data/{mobs,towers,barricades}.json` with a schema (zod) and validation in tests.
 - Mobs: **Skitterling** (fast swarm, replaces the sphere), **Carapace Beetle** (armor, 3× barricade damage).

@@ -1,7 +1,15 @@
 {
   "sawhorse": {
     "name": "Police Sawhorse",
+    "tier": 1,
     "hp": 100,
-    "cost": 25
+    "cost": 25,
+    "upgradeTo": "jersey"
+  },
+  "jersey": {
+    "name": "Jersey Barrier",
+    "tier": 2,
+    "hp": 400,
+    "cost": 90
   }
 }

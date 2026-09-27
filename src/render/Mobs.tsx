@@ -2,52 +2,96 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import {
   AdditiveBlending,
+  BoxGeometry,
   Color,
-  SphereGeometry,
   GreaterDepth,
   Object3D,
+  SphereGeometry,
+  type BufferGeometry,
   type InstancedMesh,
+  type MeshBasicMaterial,
 } from 'three';
-import mobsData from '../data/mobs.json';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { game, renderAlpha } from '../game';
 import { TICK_DT, TILE_M } from '../sim/constants';
-import type { Mob } from '../sim/mobs';
+import { mobSpeedMps, type Mob, type MobType } from '../sim/mobs';
 import { tileToWorld, type TileFrame } from './coords';
 import { viewDistance, zoomScale } from './view';
 
-/** Upper bound on mobs drawn at once (instance buffer size). */
+/** Upper bound on mobs of one type drawn at once (instance buffer size). */
 const MAX_MOBS = 2048;
-export const MOB_RADIUS_M = 3.5;
-const RADIUS_M = MOB_RADIUS_M;
-/** Acid green: bright, readable against the muted city (DESIGN §11). */
-const COLOR = new Color('#7dff3a');
 /** Colour for a mob hit in the last tick (hit flash). */
 const HIT_COLOR = new Color('#ffffff');
+/** Tint while slowed by Cryo. */
+const SLOW_COLOR = new Color('#9fe8ff');
 const HALO_SCALE = 2;
+/**
+ * The halo is for reading bugs from far away; up close it would bury their shapes. Its opacity
+ * ramps from HALO_OPACITY_NEAR at zoom scale 1 to HALO_OPACITY at HALO_FULL_ZOOM and beyond.
+ */
 const HALO_OPACITY = 0.22;
-/** Flat colour for the part of a mob hidden behind buildings (x-ray silhouette). */
-const XRAY_COLOR = '#c6ff4d';
+const HALO_OPACITY_NEAR = 0.03;
+const HALO_FULL_ZOOM = 2.5;
 const XRAY_OPACITY = 0.75;
 /** Mobs are spread up to this far from the tile centre line so a swarm doesn't render as one ball. */
 const SPREAD_M = 2.5;
 
+interface MobLook {
+  /** Rough body radius (m): halo size, HP bar height, tracer target height. */
+  radiusM: number;
+  color: string;
+  /** Flat colour for the part hidden behind buildings (x-ray silhouette). */
+  xray: string;
+  geometry: () => BufferGeometry;
+}
+
+/** How each mob type looks (DESIGN §6, §11): acid-green skittering swarm, gold armored beetles. */
+const LOOKS: Record<MobType, MobLook> = {
+  skitterling: { radiusM: 3.5, color: '#7dff3a', xray: '#c6ff4d', geometry: () => bugGeometry(1) },
+  beetle: { radiusM: 5.5, color: '#ffc93a', xray: '#ffe07a', geometry: () => beetleGeometry() },
+};
+
+export function mobRadiusM(type: MobType): number {
+  return LOOKS[type].radiusM;
+}
+
+/** All mobs, one layer per type. */
+export function Mobs({ frame }: { frame: TileFrame }) {
+  return (
+    <>
+      {(Object.keys(LOOKS) as MobType[]).map((type) => (
+        <MobLayer key={type} type={type} frame={frame} />
+      ))}
+    </>
+  );
+}
+
 /**
- * All crawlers, drawn as three InstancedMeshes that share one matrix per mob:
- * - the body (bright, self-lit, flashes white when hit),
+ * One mob type, drawn as three InstancedMeshes that share one matrix per mob:
+ * - the body (self-lit, flashes white when hit, ice-blue while slowed), facing where it walks,
  * - a soft additive halo around it (a cheap glow until real bloom in Pass 10),
- * - an x-ray silhouette: the same sphere in a flat colour, drawn only where something is in front
+ * - an x-ray silhouette: the same body in a flat colour, drawn only where something is in front
  *   of it (depth test "greater"), so bugs stay visible behind buildings.
  * Reads `game.world.mobs` every frame (never React state) and interpolates each mob forward by the
  * fraction of a tick the stepper has banked, so motion is smooth at 60 fps with a 20 Hz sim.
  */
-export function Mobs({ frame }: { frame: TileFrame }) {
+function MobLayer({ type, frame }: { type: MobType; frame: TileFrame }) {
+  const look = LOOKS[type];
   const body = useRef<InstancedMesh>(null);
   const halo = useRef<InstancedMesh>(null);
   const xray = useRef<InstancedMesh>(null);
   const dummy = useRef(new Object3D());
-  /** One sphere shared by body, halo and x-ray (they differ only in material and scale). */
-  const sphere = useMemo(() => new SphereGeometry(RADIUS_M, 16, 12), []);
-  useEffect(() => () => sphere.dispose(), [sphere]);
+  const tint = useRef(new Color());
+  const baseColor = useMemo(() => new Color(look.color), [look.color]);
+  const geometry = useMemo(() => look.geometry(), [look]);
+  const sphere = useMemo(() => new SphereGeometry(look.radiusM, 16, 12), [look.radiusM]);
+  useEffect(
+    () => () => {
+      geometry.dispose();
+      sphere.dispose();
+    },
+    [geometry, sphere],
+  );
 
   useFrame(({ camera, controls }) => {
     const b = body.current;
@@ -55,22 +99,29 @@ export function Mobs({ frame }: { frame: TileFrame }) {
     const x = xray.current;
     if (!b || !h || !x) return;
     const o = dummy.current;
+    const world = game.world;
     const alpha = renderAlpha();
-    const mobs = game.world.mobs;
-    const n = Math.min(mobs.length, MAX_MOBS);
     const zoom = zoomScale(viewDistance(camera, controls));
-    for (let i = 0; i < n; i++) {
-      const m = mobs[i]!;
+    const haloK = Math.min(1, (zoom - 1) / (HALO_FULL_ZOOM - 1));
+    (h.material as MeshBasicMaterial).opacity =
+      HALO_OPACITY_NEAR + (HALO_OPACITY - HALO_OPACITY_NEAR) * haloK;
+    let n = 0;
+    for (const m of world.mobs) {
+      if (m.type !== type || n >= MAX_MOBS) continue;
       const [wx, wz] = mobWorldXZ(m, frame, alpha);
-      o.position.set(wx, RADIUS_M * zoom, wz);
+      o.position.set(wx, look.radiusM * 0.6 * zoom, wz);
+      o.rotation.set(0, mobYaw(m, frame), 0);
       o.scale.setScalar(zoom);
       o.updateMatrix();
-      b.setMatrixAt(i, o.matrix);
-      x.setMatrixAt(i, o.matrix);
-      b.setColorAt(i, game.world.tick - m.lastHitTick <= 1 ? HIT_COLOR : COLOR);
+      b.setMatrixAt(n, o.matrix);
+      x.setMatrixAt(n, o.matrix);
+      const slowed = world.tick < m.slowUntilTick;
+      const c = world.tick - m.lastHitTick <= 1 ? HIT_COLOR : slowed ? SLOW_COLOR : baseColor;
+      b.setColorAt(n, tint.current.copy(c));
       o.scale.setScalar(HALO_SCALE * zoom);
       o.updateMatrix();
-      h.setMatrixAt(i, o.matrix);
+      h.setMatrixAt(n, o.matrix);
+      n++;
     }
     for (const mesh of [b, h, x]) {
       mesh.count = n;
@@ -84,10 +135,10 @@ export function Mobs({ frame }: { frame: TileFrame }) {
       <instancedMesh
         name="mobBody"
         ref={body}
-        args={[sphere, undefined, MAX_MOBS]}
+        args={[geometry, undefined, MAX_MOBS]}
         frustumCulled={false}
       >
-        <meshStandardMaterial emissive={COLOR} emissiveIntensity={0.6} />
+        <meshStandardMaterial emissive={look.color} emissiveIntensity={0.25} roughness={0.5} />
       </instancedMesh>
       <instancedMesh
         name="mobHalo"
@@ -96,7 +147,7 @@ export function Mobs({ frame }: { frame: TileFrame }) {
         frustumCulled={false}
       >
         <meshBasicMaterial
-          color={COLOR}
+          color={look.color}
           transparent
           opacity={HALO_OPACITY}
           blending={AdditiveBlending}
@@ -106,12 +157,12 @@ export function Mobs({ frame }: { frame: TileFrame }) {
       <instancedMesh
         name="mobXray"
         ref={xray}
-        args={[sphere, undefined, MAX_MOBS]}
+        args={[geometry, undefined, MAX_MOBS]}
         frustumCulled={false}
         renderOrder={10}
       >
         <meshBasicMaterial
-          color={XRAY_COLOR}
+          color={look.xray}
           transparent
           opacity={XRAY_OPACITY}
           depthFunc={GreaterDepth}
@@ -124,7 +175,7 @@ export function Mobs({ frame }: { frame: TileFrame }) {
 
 /** Where a mob is drawn this frame: interpolated along its step, plus its stable spread offset. */
 export function mobWorldXZ(m: Mob, frame: TileFrame, alpha: number): [number, number] {
-  const perTick = (mobsData[m.type].speedMps * TICK_DT) / TILE_M;
+  const perTick = (mobSpeedMps(game.world, m) * TICK_DT) / TILE_M;
   const t = Math.min(1, m.t + perTick * alpha);
   const [wx, wz] = tileToWorld(
     frame,
@@ -135,9 +186,60 @@ export function mobWorldXZ(m: Mob, frame: TileFrame, alpha: number): [number, nu
   return [wx + ox, wz + oz];
 }
 
+/** Heading (rotation about y) of a mob walking from its `from` tile to its `to` tile. */
+function mobYaw(m: Mob, frame: TileFrame): number {
+  if (m.fromX === m.toX && m.fromY === m.toY) return 0;
+  const [ax, az] = tileToWorld(frame, m.fromX, m.fromY);
+  const [bx, bz] = tileToWorld(frame, m.toX, m.toY);
+  return Math.atan2(bx - ax, bz - az); // models face +z
+}
+
 /** Stable per-mob offset from its id (render only; the sim doesn't know about it). */
 function spread(id: number): [number, number] {
   const a = Math.sin(id * 12.9898) * 43758.5453;
   const b = Math.sin(id * 78.233) * 12345.6789;
   return [(a - Math.floor(a) - 0.5) * 2 * SPREAD_M, (b - Math.floor(b) - 0.5) * 2 * SPREAD_M];
+}
+
+/** Six splayed legs for a body of half-width `hx` and half-length `hz`, facing +z. */
+function legs(hx: number, hz: number, len: number, thick: number): BufferGeometry[] {
+  const out: BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    for (const k of [-1, 0, 1]) {
+      const leg = new BoxGeometry(len, thick, thick);
+      leg.translate((side * len) / 2, 0, 0);
+      leg.rotateZ(side * -0.45); // down toward the street
+      leg.rotateY(side * k * 0.5); // fan forward and back
+      leg.translate(side * hx * 0.7, 0, k * hz * 0.55);
+      out.push(leg);
+    }
+  }
+  return out;
+}
+
+/** Skitterling: long thin body, round head, six long legs. About 8 m long at scale 1. */
+function bugGeometry(scale: number): BufferGeometry {
+  const body = new SphereGeometry(1, 12, 8);
+  body.scale(1.7 * scale, 1.2 * scale, 3 * scale);
+  const head = new SphereGeometry(1.25 * scale, 10, 8);
+  head.translate(0, 0.3 * scale, 3.4 * scale);
+  return merge([body, head, ...legs(1.7 * scale, 3 * scale, 3.6 * scale, 0.45 * scale)]);
+}
+
+/** Carapace Beetle: a wide, tall armored dome, small head, short thick legs. */
+function beetleGeometry(): BufferGeometry {
+  const shell = new SphereGeometry(1, 14, 10);
+  shell.scale(4, 2.8, 5.2);
+  const ridge = new BoxGeometry(0.8, 0.8, 9);
+  ridge.translate(0, 2.7, 0);
+  const head = new SphereGeometry(1.8, 10, 8);
+  head.translate(0, 0.2, 5.4);
+  return merge([shell, ridge, head, ...legs(4, 5.2, 3, 1)]);
+}
+
+function merge(parts: BufferGeometry[]): BufferGeometry {
+  const merged = mergeGeometries(parts, false);
+  for (const g of parts) g.dispose();
+  if (!merged) throw new Error('mob geometry: merge failed');
+  return merged;
 }

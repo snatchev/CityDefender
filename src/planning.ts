@@ -1,22 +1,28 @@
-import towersData from './data/towers.json';
+import type { TargetingMode } from './data/schema';
 import { game, publish, restart } from './game';
 import {
   barricadeSellValue,
   barricadeSpan,
+  barricadeUpgrade,
   canEditBarricades,
   dismantleBarricade,
   placeBarricade,
   previewField,
+  upgradeBarricade,
 } from './sim/barricades';
 import { TILE_M } from './sim/constants';
 import { tracePath } from './sim/flow';
 import {
   placeTower,
   sellTower,
+  setTargeting,
   siteHeight,
+  TOWERS,
   towerRange,
   towerSellValue,
   towerSiteError,
+  upgradeCost,
+  upgradeTower,
   type TowerType,
 } from './sim/towers';
 import { usePlan, type BuildTool, type Route } from './ui/planStore';
@@ -72,16 +78,35 @@ function refreshGhost(): void {
 
   if (tower || tool?.kind === 'tower') {
     const type = tower?.type ?? (tool as { type: TowerType }).type;
-    const range = towerRange(type, tower?.heightM ?? siteHeight(w, i));
+    const range = towerRange(type, tower?.heightM ?? siteHeight(w, i), tower?.tier ?? 0);
     usePlan.setState({
       ghost: {
         kind: 'tower',
         tx,
         ty,
-        error: tower ? null : towerSiteError(w, tx, ty),
+        name: TOWERS[type].name,
+        error: tower ? null : towerSiteError(w, tx, ty, type),
         rangeM: range.maxM,
         minRangeM: range.minM,
         sellValue: tower ? towerSellValue(w, tower) : null,
+      },
+    });
+    return;
+  }
+
+  if (barricade && tool?.kind === 'barricade' && barricadeUpgrade(barricade)?.type === tool.type) {
+    usePlan.setState({
+      ghost: {
+        kind: 'barricade',
+        tx,
+        ty,
+        tiles: barricade.tiles,
+        axis: barricade.axis,
+        error: canEditBarricades(w) ? null : 'barricades change during prep only',
+        sellValue: null,
+        upgradeCost: barricadeUpgrade(barricade)!.cost,
+        routes: [],
+        detourM: 0,
       },
     });
     return;
@@ -101,6 +126,7 @@ function refreshGhost(): void {
           axis: 'x',
           error: span,
           sellValue: barricade && canEditBarricades(w) ? barricadeSellValue(w, barricade) : null,
+          upgradeCost: null,
           routes: [],
           detourM: 0,
         },
@@ -120,6 +146,7 @@ function refreshGhost(): void {
         axis: span.axis,
         error: null,
         sellValue: null,
+        upgradeCost: null,
         routes,
         detourM: len(routes) - len(now),
       },
@@ -186,6 +213,11 @@ export function buildAt(
     selectTower(w.towerAt[i] ? w.towerAt[i]! : null);
     return null;
   }
+  const existing = w.barricades.find((b) => b.id === w.barricadeAt[i]);
+  if (tool.kind === 'barricade' && existing && barricadeUpgrade(existing)?.type === tool.type) {
+    const err = upgradeBarricade(w, existing.id);
+    return afterEdit(err ? `Can't upgrade: ${err}` : null);
+  }
   const result =
     tool.kind === 'tower' ? placeTower(w, tx, ty, tool.type) : placeBarricade(w, tx, ty, tool.type);
   return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
@@ -211,18 +243,40 @@ export function sellTowerById(id = usePlan.getState().selected?.id): string | nu
   return afterEdit(err ? `Can't sell: ${err}` : null);
 }
 
+/** Upgrade the selected tower one tier. */
+export function upgradeSelected(): string | null {
+  const id = usePlan.getState().selected?.id;
+  if (id === undefined) return null;
+  const err = upgradeTower(game.world, id);
+  if (!err) selectTower(id);
+  return afterEdit(err ? `Can't upgrade: ${err}` : null);
+}
+
+/** Change the selected tower's targeting mode. */
+export function setSelectedTargeting(mode: TargetingMode): void {
+  const id = usePlan.getState().selected?.id;
+  if (id === undefined) return;
+  setTargeting(game.world, id, mode);
+  selectTower(id);
+}
+
 /** Select a tower (null clears). The HUD shows its stats and sell button; the map shows its range. */
 export function selectTower(id: number | null): void {
   const w = game.world;
   const t = id === null ? undefined : w.towers.find((x) => x.id === id);
-  const range = t ? towerRange(t.type, t.heightM) : null;
+  const range = t ? towerRange(t.type, t.heightM, t.tier) : null;
   usePlan.setState({
     selected: t
       ? {
           id: t.id,
           tx: t.tx,
           ty: t.ty,
-          name: towersData[t.type].name,
+          type: t.type,
+          name: TOWERS[t.type].name,
+          tier: t.tier + 1,
+          tiers: TOWERS[t.type].tiers.length,
+          upgradeCost: upgradeCost(t),
+          targeting: t.targeting,
           rangeM: range!.maxM,
           minRangeM: range!.minM,
           heightM: t.heightM,

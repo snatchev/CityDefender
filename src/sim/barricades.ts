@@ -1,5 +1,6 @@
 import barricadesData from '../data/barricades.json';
 import rulesData from '../data/rules.json';
+import type { BarricadeDef } from '../data/schema';
 import { builtNow, sellValue, type BuiltAt } from './economy';
 import { flowField } from './flow';
 import { Tile, tileAt, tileXY, type TileMap } from './map';
@@ -7,6 +8,9 @@ import { isPlanning } from './phase';
 import type { World } from './world';
 
 export type BarricadeType = keyof typeof barricadesData;
+
+/** The barricade table, typed by its schema (src/data/schema.ts). */
+export const BARRICADES = barricadesData as Record<BarricadeType, BarricadeDef>;
 
 /** A barricade: one tile thick, spanning the street's full width (DESIGN §5.2). */
 export interface Barricade {
@@ -85,10 +89,10 @@ export function placeBarricade(
   if (!canEditBarricades(world)) return 'barricades go up during prep only';
   const span = barricadeSpan(world, tx, ty);
   if (typeof span === 'string') return span;
-  const cost = barricadesData[type].cost;
+  const cost = BARRICADES[type].cost;
   if (world.cash < cost) return `needs $${cost}`;
   world.cash -= cost;
-  const maxHp = barricadesData[type].hp;
+  const maxHp = BARRICADES[type].hp;
   const b: Barricade = {
     id: world.nextBarricadeId++,
     type,
@@ -106,7 +110,35 @@ export function placeBarricade(
 }
 
 export function barricadeSellValue(world: World, b: Barricade): number {
-  return sellValue(world, barricadesData[b.type].cost, b.built);
+  return sellValue(world, BARRICADES[b.type].cost, b.built);
+}
+
+/** What upgrading this barricade in place leads to and costs (the price difference), or null. */
+export function barricadeUpgrade(b: Barricade): { type: BarricadeType; cost: number } | null {
+  const next = BARRICADES[b.type].upgradeTo as BarricadeType | undefined;
+  if (!next) return null;
+  return { type: next, cost: BARRICADES[next].cost - BARRICADES[b.type].cost };
+}
+
+/**
+ * Upgrade a barricade in place (prep only, DESIGN §8), paying the price difference. It gains the
+ * HP difference, so damage it took stays taken.
+ */
+export function upgradeBarricade(world: World, id: number): string | null {
+  if (!canEditBarricades(world)) return 'barricades change during prep only';
+  const b = world.barricades.find((x) => x.id === id);
+  if (!b) return 'no barricade here';
+  const up = barricadeUpgrade(b);
+  if (!up) return 'already the strongest barricade';
+  if (world.cash < up.cost) return `needs $${up.cost}`;
+  world.cash -= up.cost;
+  const maxHp = BARRICADES[up.type].hp;
+  b.hp += maxHp - b.maxHp;
+  b.maxHp = maxHp;
+  b.type = up.type;
+  b.band = hpBand(b.hp, b.maxHp);
+  recomputeField(world);
+  return null;
 }
 
 /** Take a barricade down (prep only): 100% back if built this prep, else 70%. */
@@ -171,7 +203,7 @@ export function recomputeField(world: World): void {
 /** The flow field as it would be with a new full-HP barricade on `span` (for the placement preview). */
 export function previewField(world: World, span: Span, type: BarricadeType = 'sawhorse') {
   const map = world.map!;
-  const maxHp = barricadesData[type].hp;
+  const maxHp = BARRICADES[type].hp;
   const ghost: Barricade = {
     built: builtNow(world),
     id: -1,

@@ -1,11 +1,15 @@
 import { TICK_DT, TICK_HZ, TILE_M } from './constants';
 import mobsData from '../data/mobs.json';
 import rulesData from '../data/rules.json';
+import type { MobDef } from '../data/schema';
 import { damageBarricade } from './barricades';
 import { cheapestNeighbours } from './flow';
 import type { World } from './world';
 
 export type MobType = keyof typeof mobsData;
+
+/** The mob table, typed by its schema (src/data/schema.ts). */
+export const MOBS = mobsData as Record<MobType, MobDef>;
 
 /**
  * A crawler walking tile centre to tile centre. Positions are tile coordinates; (tx, ty) is the
@@ -18,6 +22,9 @@ export interface Mob {
   maxHp: number;
   /** Tick of the last tower hit (for the hit flash), or -1. */
   lastHitTick: number;
+  /** Slowed (Cryo) until this tick, moving at `slowMul` × speed meanwhile. */
+  slowUntilTick: number;
+  slowMul: number;
   fromX: number;
   fromY: number;
   toX: number;
@@ -28,6 +35,19 @@ export interface Mob {
 /** Mob position in (continuous) tile coordinates. */
 export function mobPos(m: Mob): [number, number] {
   return [m.fromX + (m.toX - m.fromX) * m.t, m.fromY + (m.toY - m.fromY) * m.t];
+}
+
+/** Speed this tick in metres per second, after any slow. */
+export function mobSpeedMps(world: World, m: Mob): number {
+  const base = MOBS[m.type].speedMps;
+  return world.tick < m.slowUntilTick ? base * m.slowMul : base;
+}
+
+/** Slow a mob (Cryo). Overlapping slows keep the stronger multiplier and the later end. */
+export function slowMob(world: World, m: Mob, mul: number, ticks: number): void {
+  const active = world.tick < m.slowUntilTick;
+  m.slowMul = active ? Math.min(m.slowMul, mul) : mul;
+  m.slowUntilTick = Math.max(active ? m.slowUntilTick : 0, world.tick + ticks);
 }
 
 /** Mobs waiting to leave one station, one every `intervalTicks`. */
@@ -76,13 +96,15 @@ export function queueWave(
 
 export function spawnMob(world: World, spawnIndex: number, type: MobType, hpMul = 1): Mob {
   const [tx, ty] = world.map!.spawns[spawnIndex]!;
-  const hp = mobsData[type].hp * hpMul;
+  const hp = MOBS[type].hp * hpMul;
   const mob: Mob = {
     id: world.nextMobId++,
     type,
     hp,
     maxHp: hp,
     lastHitTick: -1,
+    slowUntilTick: 0,
+    slowMul: 1,
     fromX: tx,
     fromY: ty,
     toX: tx,
@@ -116,8 +138,8 @@ export function stepMobs(world: World): void {
   if (!map || !world.field) return;
   const survivors: Mob[] = [];
   for (const m of world.mobs) {
-    const stats = mobsData[m.type];
-    const fullBudget = (stats.speedMps * TICK_DT) / TILE_M; // tiles per tick
+    const stats = MOBS[m.type];
+    const fullBudget = (mobSpeedMps(world, m) * TICK_DT) / TILE_M; // tiles per tick
     let budget = fullBudget;
     const arrived = () => m.t >= 1 && world.field![m.toY * map.width + m.toX] === 0;
     let reached = arrived(); // only if it spawned on a goal tile

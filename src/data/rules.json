@@ -11,5 +11,6 @@
   "barricadeCostPerHp": 0.5,
   "barricadeHpBands": 4,
   "maxBarricadeSpanTiles": 6,
-  "sellRefund": 0.7
+  "sellRefund": 0.7,
+  "armorMinDamageFraction": 0.25
 }

@@ -15,7 +15,7 @@ describe('selling', () => {
     ]);
     const pad = w.slots!.pads[0]!;
     const t = placeTower(w, pad % w.map!.width, Math.floor(pad / w.map!.width)) as Tower;
-    const cost = towersData.mgNest.cost;
+    const cost = towersData.mgNest.tiers[0]!.cost;
     expect(towerSellValue(w, t)).toBe(cost); // free undo
     startWave(w);
     expect(towerSellValue(w, t)).toBe(Math.floor(cost * rulesData.sellRefund));

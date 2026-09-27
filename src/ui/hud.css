@@ -271,8 +271,8 @@
   display: grid;
   grid-template-rows: auto auto auto;
   justify-items: center;
-  width: 96px;
-  padding: 8px 6px 6px;
+  width: 92px;
+  padding: 8px 4px 6px;
   border: 1px solid rgb(255 255 255 / 0.08);
   border-radius: 10px;
   background: rgb(255 255 255 / 0.04);
@@ -300,11 +300,11 @@
 .build-icon svg {
   width: 36px;
   height: 36px;
-  color: var(--hud-accent);
 }
 
-.build-item:first-child .build-icon svg {
-  color: #f2c14e;
+/* A gap between the barricades and the towers. */
+.build-item.group-start {
+  margin-left: 12px;
 }
 
 .build-name {
@@ -410,9 +410,31 @@
   color: var(--hud-text);
 }
 
-.tower-card-actions button:first-child {
+.tower-card-actions .sell {
   flex: 1;
   color: var(--hud-cash);
+}
+
+.tower-card-actions button:disabled {
+  opacity: 0.45;
+}
+
+.tower-card-actions .upgrade {
+  flex: 1;
+  color: var(--hud-accent);
+}
+
+.tower-card select {
+  padding: 2px 4px;
+  border: 1px solid var(--hud-edge);
+  border-radius: 6px;
+  background: rgb(20 28 40 / 0.9);
+  color: var(--hud-text);
+  font: inherit;
+}
+
+.intel-mob.beetle {
+  color: #ffc93a;
 }
 
 /* ---- Toasts ---- */

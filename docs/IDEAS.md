@@ -19,7 +19,7 @@
 
 ## Towers & combat
 - 🎯 **Height = range**, with a range disc projected onto the street. → Pass 6
-- 🎯 **Targeting modes** First/Last/Strong/Weak/Close. → Pass 7
+- 🎯 **Targeting modes** First/Last/Strong/Weak/Close. → done in Pass 7
 - 🎯 **Branching tier‑3 upgrades** (e.g. Railgun → Penetrator line pierce / Spotter marks targets). → Pass 9
 - 🎯 **Synergies:** Cryo *Wet* → Tesla +1 chain. Mortar craters slow. Seismic stun → Railgun crit.
 - ⚙️ **Tower veterancy:** kills grant small stat stars. Makes players attached to a tower.

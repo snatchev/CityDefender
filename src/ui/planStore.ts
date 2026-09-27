@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { TargetingMode } from '../data/schema';
 import type { BarricadeType } from '../sim/barricades';
 import type { TowerType } from '../sim/towers';
 
@@ -28,6 +29,8 @@ export type Ghost =
       error: string | null;
       /** Refund for right-clicking an existing barricade here, if there is one. */
       sellValue: number | null;
+      /** Set when the tool upgrades the barricade already here: the price difference. */
+      upgradeCost: number | null;
       /** Routes from the active stations if this barricade were placed. */
       routes: Route[];
       /** Total change in route length versus now, in metres. */
@@ -37,6 +40,8 @@ export type Ghost =
       kind: 'tower';
       tx: number;
       ty: number;
+      /** Tower name (the tool's, or the existing tower's). */
+      name: string;
       error: string | null;
       rangeM: number;
       /** Raised towers can't hit closer than this (0 at street level). */
@@ -63,7 +68,14 @@ export interface SelectedTower {
   id: number;
   tx: number;
   ty: number;
+  type: TowerType;
   name: string;
+  /** 1-based tier and how many there are. */
+  tier: number;
+  tiers: number;
+  /** Cost of the next tier, or null at the top. */
+  upgradeCost: number | null;
+  targeting: TargetingMode;
   rangeM: number;
   minRangeM: number;
   /** Gameplay height the tower stands at (0 on a street corner). */

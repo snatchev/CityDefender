@@ -1,9 +1,20 @@
 {
   "skitterling": {
+    "name": "Skitterling",
     "hp": 10,
     "speedMps": 10,
+    "armor": 0,
     "goalDamage": 1,
     "barricadeDps": 2,
     "bounty": 4
+  },
+  "beetle": {
+    "name": "Carapace Beetle",
+    "hp": 90,
+    "speedMps": 5,
+    "armor": 6,
+    "goalDamage": 5,
+    "barricadeDps": 6,
+    "bounty": 15
   }
 }

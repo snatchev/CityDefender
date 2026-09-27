@@ -29,6 +29,57 @@ export function MgNestIcon() {
   );
 }
 
+export function JerseyIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M4 28 L9 14 L11 8 H21 L23 14 L28 28 Z" fill="currentColor" />
+      <path d="M8 21 H24" stroke="#1b1d22" strokeWidth="2" />
+    </svg>
+  );
+}
+
+export function MortarIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="5" y="22" width="22" height="6" rx="2" fill="currentColor" />
+      <rect
+        x="12"
+        y="5"
+        width="8"
+        height="19"
+        rx="2"
+        fill="currentColor"
+        transform="rotate(30 16 22)"
+      />
+    </svg>
+  );
+}
+
+export function CryoIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <path
+        d="M16 3 V29 M4.7 9.5 L27.3 22.5 M4.7 22.5 L27.3 9.5"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <circle cx="16" cy="16" r="4.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function RailgunIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="4" y="19" width="12" height="9" rx="2" fill="currentColor" />
+      <rect x="10" y="10" width="20" height="3" rx="1" fill="currentColor" />
+      <rect x="10" y="15" width="20" height="3" rx="1" fill="currentColor" />
+      <rect x="8" y="9" width="6" height="12" rx="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function SpeedIcon({ scale }: { scale: number }) {
   if (scale === 0) {
     return (

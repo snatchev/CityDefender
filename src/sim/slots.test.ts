@@ -48,13 +48,14 @@ describe('street graph and slots', () => {
 
 describe('tower range and height (DESIGN §7)', () => {
   const s = towersData.mgNest;
+  const rangeM = s.tiers[0]!.rangeM;
   it('gives street-level towers the base range and no minimum', () => {
-    expect(towerRange('mgNest', 0)).toEqual({ minM: 0, maxM: s.rangeM });
+    expect(towerRange('mgNest', 0)).toEqual({ minM: 0, maxM: rangeM });
   });
   it('extends range with height up to the cap, with a minimum range below', () => {
     const mid = towerRange('mgNest', 20);
-    expect(mid.maxM).toBeCloseTo(s.rangeM * (1 + s.rangeHeightFactor * 20));
+    expect(mid.maxM).toBeCloseTo(rangeM * (1 + s.rangeHeightFactor * 20));
     expect(mid.minM).toBeCloseTo(s.minRangePerHeight * 20);
-    expect(towerRange('mgNest', 10_000).maxM).toBeCloseTo(s.rangeM * s.rangeMaxMul);
+    expect(towerRange('mgNest', 10_000).maxM).toBeCloseTo(rangeM * s.rangeMaxMul);
   });
 });

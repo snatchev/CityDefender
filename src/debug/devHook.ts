@@ -2,7 +2,9 @@ import { cameraBridge, type CameraView } from '../cameraBridge';
 import { callWave, game, publish, setTimeScale } from '../game';
 import { buildAt, restartRun, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
+import type { BarricadeType } from '../sim/barricades';
 import { queueWave } from '../sim/mobs';
+import { TOWERS, upgradeTower, type TowerType } from '../sim/towers';
 import type { Scene, WebGLRenderer } from 'three';
 import { usePlan, type Ghost } from '../ui/planStore';
 import { tickWorld, type World } from '../sim/world';
@@ -20,8 +22,13 @@ export interface DevHook {
   setTimeScale(scale: number): void;
   /** Queue `count` extra crawlers at spawn `spawnIndex` (index into `city.spawns`), outside the wave script. */
   spawnWave(count?: number, spawnIndex?: number): void;
-  /** Build at (tx, ty): an MG Nest on a tower spot, a sawhorse on any other street. Error or null. */
-  build(tx: number, ty: number): string | null;
+  /**
+   * Build `type` at (tx, ty) as a click with that tool would (default: an MG Nest on a tower spot, a
+   * sawhorse on any other street). A barricade type on a barricade upgrades it. Error or null.
+   */
+  build(tx: number, ty: number, type?: TowerType | BarricadeType): string | null;
+  /** Upgrade the tower at (tx, ty) one tier. Error or null. */
+  upgrade(tx: number, ty: number): string | null;
   /** Sell the tower or barricade at (tx, ty) as a right-click would. Error or null. */
   sell(tx: number, ty: number): string | null;
   /** "Start wave" (ends prep early). */
@@ -84,15 +91,24 @@ export function installDevHook(): void {
     },
     restart: restartRun,
     setSeed: restartRun,
-    build(tx, ty) {
+    build(tx, ty, type) {
       const w = game.world;
       const i = ty * (w.map?.width ?? 0) + tx;
       const towerSpot = (w.slots?.towerSlot[i] ?? 0) !== 0;
+      const t = type ?? (towerSpot ? 'mgNest' : 'sawhorse');
       return buildAt(
         tx,
         ty,
-        towerSpot ? { kind: 'tower', type: 'mgNest' } : { kind: 'barricade', type: 'sawhorse' },
+        t in TOWERS
+          ? { kind: 'tower', type: t as TowerType }
+          : { kind: 'barricade', type: t as BarricadeType },
       );
+    },
+    upgrade(tx, ty) {
+      const w = game.world;
+      const id = w.towerAt[ty * (w.map?.width ?? 0) + tx];
+      if (!id) return 'no tower here';
+      return upgradeTower(w, id);
     },
     sell: sellAt,
     callWave,

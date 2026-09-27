@@ -1,12 +1,90 @@
 {
   "mgNest": {
     "name": "MG Nest",
-    "cost": 100,
-    "rangeM": 64,
-    "damage": 4,
-    "shotsPerS": 4,
+    "role": "cheap single-target",
+    "slots": ["pad", "corner"],
+    "damageType": "kinetic",
+    "targeting": "first",
     "rangeHeightFactor": 0.01,
     "rangeMaxMul": 1.5,
-    "minRangePerHeight": 0.5
+    "minRangePerHeight": 0.5,
+    "tiers": [
+      { "cost": 100, "rangeM": 64, "damage": 4, "shotsPerS": 4 },
+      { "cost": 90, "rangeM": 72, "damage": 6, "shotsPerS": 4.5 }
+    ]
+  },
+  "mortar": {
+    "name": "Mortar",
+    "role": "splash, beats swarms",
+    "slots": ["pad"],
+    "damageType": "explosive",
+    "targeting": "first",
+    "rangeHeightFactor": 0.01,
+    "rangeMaxMul": 1.4,
+    "minRangePerHeight": 0.5,
+    "tiers": [
+      {
+        "cost": 175,
+        "rangeM": 120,
+        "minRangeM": 40,
+        "damage": 14,
+        "shotsPerS": 0.5,
+        "splashM": 16,
+        "shellS": 1.2
+      },
+      {
+        "cost": 150,
+        "rangeM": 135,
+        "minRangeM": 40,
+        "damage": 22,
+        "shotsPerS": 0.6,
+        "splashM": 20,
+        "shellS": 1.2
+      }
+    ]
+  },
+  "cryo": {
+    "name": "Cryo Sprayer",
+    "role": "slows everything in a cone",
+    "slots": ["corner"],
+    "damageType": "cryo",
+    "targeting": "first",
+    "rangeHeightFactor": 0,
+    "rangeMaxMul": 1,
+    "minRangePerHeight": 0,
+    "tiers": [
+      {
+        "cost": 125,
+        "rangeM": 40,
+        "damage": 1,
+        "shotsPerS": 2,
+        "coneDeg": 50,
+        "slowMul": 0.5,
+        "slowS": 1.5
+      },
+      {
+        "cost": 100,
+        "rangeM": 48,
+        "damage": 2,
+        "shotsPerS": 2,
+        "coneDeg": 60,
+        "slowMul": 0.4,
+        "slowS": 2
+      }
+    ]
+  },
+  "railgun": {
+    "name": "Railgun",
+    "role": "pierces armor, long range",
+    "slots": ["pad"],
+    "damageType": "pierce",
+    "targeting": "strongest",
+    "rangeHeightFactor": 0.02,
+    "rangeMaxMul": 1.8,
+    "minRangePerHeight": 0.5,
+    "tiers": [
+      { "cost": 225, "rangeM": 110, "damage": 60, "shotsPerS": 0.4 },
+      { "cost": 200, "rangeM": 125, "damage": 95, "shotsPerS": 0.45 }
+    ]
   }
 }

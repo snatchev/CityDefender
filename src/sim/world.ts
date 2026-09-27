@@ -5,7 +5,7 @@ import type { TileMap } from './map';
 import { deriveSlots, type MapSlots } from './slots';
 import { stepMobs, tickSpawners, type Mob, type Spawner } from './mobs';
 import { tickPhase, type Phase, type WaveDef } from './phase';
-import { fireTowers, type Tower } from './towers';
+import { fireTowers, type Shell, type Tower } from './towers';
 import { createRng, type Rng } from './rng';
 
 /**
@@ -45,6 +45,8 @@ export interface World {
   /** City Hall Integrity, the "lives" value (DESIGN §3.2). */
   integrity: number;
   mobs: Mob[];
+  /** Mortar shells in flight. */
+  shells: Shell[];
   spawners: Spawner[];
   nextMobId: number;
   stats: WorldStats;
@@ -59,8 +61,14 @@ export interface FxEvent {
   y: number;
 }
 
+export interface SplashFx extends FxEvent {
+  radiusM: number;
+}
+
 export interface WorldFx {
   kills: FxEvent[];
+  /** A mortar shell landed. */
+  splashes: SplashFx[];
   barricadeBreaks: FxEvent[];
   /** A bug reached City Hall (one event per bug). */
   goalHits: FxEvent[];
@@ -68,7 +76,7 @@ export interface WorldFx {
 
 /** Effects events are kept this many ticks (1 s), then dropped. */
 const FX_KEEP_TICKS = TICK_HZ;
-const freshFx = (): WorldFx => ({ kills: [], barricadeBreaks: [], goalHits: [] });
+const freshFx = (): WorldFx => ({ kills: [], splashes: [], barricadeBreaks: [], goalHits: [] });
 
 export interface WorldStats {
   spawned: number;
@@ -99,6 +107,7 @@ function freshRun(seed: number) {
     tick: 0,
     integrity: rulesData.startIntegrity,
     mobs: [] as Mob[],
+    shells: [] as Shell[],
     spawners: [] as Spawner[],
     nextMobId: 1,
     nextTowerId: 1,
@@ -154,9 +163,11 @@ export function tickWorld(world: World): void {
   tickPhase(world);
   world.tick += 1;
   const oldest = world.tick - FX_KEEP_TICKS;
-  for (const key of Object.keys(world.fx) as (keyof WorldFx)[]) {
-    world.fx[key] = world.fx[key].filter((e) => e.tick >= oldest);
-  }
+  const fx = world.fx;
+  fx.kills = fx.kills.filter((e) => e.tick >= oldest);
+  fx.splashes = fx.splashes.filter((e) => e.tick >= oldest);
+  fx.barricadeBreaks = fx.barricadeBreaks.filter((e) => e.tick >= oldest);
+  fx.goalHits = fx.goalHits.filter((e) => e.tick >= oldest);
 }
 
 export function simTimeSeconds(world: World): number {

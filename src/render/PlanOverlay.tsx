@@ -92,9 +92,12 @@ export function PlanOverlay({ frame }: { frame: TileFrame }) {
 }
 
 function ghostLabel(ghost: Ghost): string {
+  if (ghost.kind === 'barricade' && ghost.upgradeCost !== null && !ghost.error) {
+    return `upgrade $${ghost.upgradeCost}`;
+  }
   if (ghost.sellValue !== null) return `right-click: sell $${ghost.sellValue}`;
   if (ghost.error) return ghost.error;
-  if (ghost.kind === 'tower') return 'MG Nest';
+  if (ghost.kind === 'tower') return ghost.name;
   if (ghost.routes.some((r) => r.siege)) return 'bugs will break through a barricade';
   if (ghost.detourM === 0) return 'no change';
   return `${ghost.detourM > 0 ? '+' : ''}${Math.round(ghost.detourM)} m`;

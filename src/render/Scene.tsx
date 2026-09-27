@@ -20,6 +20,7 @@ import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { groundHandlers } from './pointer';
 import { SeeThroughDriver } from './SeeThroughDriver';
+import { Shots } from './Shots';
 import { SimDriver } from './SimDriver';
 import { SkyDome } from './SkyDome';
 import { SlotMarkers } from './SlotMarkers';
@@ -98,6 +99,7 @@ export function Scene() {
           {slots && debugMap && <MapDebug slots={slots} frame={frame} width={map.width} />}
           <Barricades frame={frame} />
           <Towers frame={frame} heights={heights} />
+          <Shots frame={frame} heights={heights} />
           <Mobs frame={frame} />
           <HpBars frame={frame} />
           <Effects frame={frame} />

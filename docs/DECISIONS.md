@@ -144,3 +144,16 @@ Consequences: `render/seeThrough.ts` patches the building and backdrop materials
 **D031 · 2026-09-27 · Game HUD layout: minimap + speed top right, build bar bottom, status top left, debug behind a gear (Stefan's request).**
 Why: Stefan wanted the play area uncluttered, where bugs come from visible at a glance, and no instructions or dev readouts in the player's HUD.
 Consequences: `ui/Minimap.tsx` is a 2D canvas fed straight from the sim (no React state): base map and routes cached in a layer rebuilt when the routes change, moving parts redrawn at 20 Hz. `ui/SpeedButton.tsx` cycles 0/1/2/3×. `ui/BuildBar.tsx` holds a build tool in `usePlan.tool`; clicking the map with no tool only selects towers. Tick, seed, speed and restart moved to the debug menu. Performance measured before/after in Chrome: the game is GPU- and CPU-light (≈1.3 ms JS per frame, 23–28 draw calls), so no renderer optimisation was done; see STATUS for the measuring caveats.
+
+**D032 · 2026-09-27 · Balance tables are plain JSON checked by zod schemas in a test.**
+Why: the plan asks for schema validation; checking in a test keeps zod out of the game bundle and fails fast with the path to a bad value.
+Consequences: `src/data/schema.ts` defines the tower, mob, barricade and wave schemas; the sim imports only their inferred types (`TOWERS`, `MOBS`, `BARRICADES` are the JSON cast to those types). Each tower tier lists its full stats (not deltas), so one tier row can be read on its own. Type-specific fields are required by damage type (explosive: splash and shell time; cryo: cone, slow multiplier and duration).
+
+**D033 · 2026-09-27 · Damage model: flat armor with a 25% floor; pierce ignores it; mortar shells land where the target was.**
+Why: flat armor per hit (DESIGN §6) makes fast small hits (MG) weak and big hits (Railgun) strong against beetles, which is the counter we want. The floor (`armorMinDamageFraction`) keeps nothing immune. Shells on a fixed point with a flight time let a swarm run into the splash but let a lone fast bug dodge, without target-leading maths.
+Consequences: `sim/damage.ts hitDamage(raw, type, armor)`, unit-tested. Cryo hits everything in range inside its cone (aimed at the target) and slows it; overlapping slows keep the stronger multiplier and later end. Kills from a shell are credited to its tower if it still exists.
+
+**D034 · 2026-09-27 · Upgrades: two tiers, any phase; barricades upgrade in place during prep.**
+Why: DESIGN §7–8; tier 3 branches arrive in Pass 9.
+Consequences: a tower tracks everything spent on it, and selling refunds 70% of that (100% during the prep it was built in). Barricade upgrades cost the price difference and add the HP difference, so damage already taken stays taken; the flow field is recomputed. Clicking a sawhorse with the Jersey Barrier tool upgrades it.
+

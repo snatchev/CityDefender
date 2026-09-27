@@ -3,8 +3,8 @@
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
 **Last updated:** 2026-09-27
-**Current pass:** Pass 6 (Map generator v1): **done**, tagged `pass-06`; then a UI + performance pass (6b, Stefan's request)
-**Next up:** Pass 7 (data-driven roster: Mortar, Cryo, Railgun; Carapace Beetle; armor and targeting modes)
+**Current pass:** Pass 7 (Data-driven roster I): **done**, tagged `pass-07`
+**Next up:** Pass 8 (fliers, diggers, sappers: Wasp Drone + Flak/Tesla, Tunneler Grub + Seismic Pulse, Acid Spitter; more barricades)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
@@ -22,6 +22,14 @@
   - A decorative backdrop city out to the rivers (70k footprints baked to 16 m / 32 m height grids, LOD by distance), a gradient sky and horizon haze (D027, Stefan's request).
   - City Hall hit feedback (flash, Integrity-scaled shake, HUD pulse), from playtest 2.
   - Balance re-tuned for the new tower spots: bug HP ×1.7 from wave 3; gentler height bonus (see Known issues).
+- Pass 7: data-driven roster I (tag `pass-07`, D032–D034).
+  - Balance tables with zod schemas (`src/data/schema.ts`), checked by `schema.test.ts`; the sim imports only the inferred types.
+  - Towers: MG Nest (kinetic, pads + corners), **Mortar** (explosive splash, shells land where the target was, 40 m minimum range, pads), **Cryo Sprayer** (slows everything in a cone, corners), **Railgun** (pierces armor, long range that grows most with height, pads). Each has two tiers (upgrade in the tower card) and a targeting mode (first, last, strongest, weakest, closest).
+  - Bugs: Skitterling (new bug shape, faces where it walks) and **Carapace Beetle** (armor 6, slow, 5 Integrity per leak, 3× barricade damage, gold). Armor is flat reduction per hit with a 25% floor; pierce ignores it (`sim/damage.ts`).
+  - **Jersey Barrier** (400 HP): build it directly or click a sawhorse with it to upgrade in place for the difference ($65); damage taken stays taken.
+  - Shots: MG tracers, violet rail beams, icy spray cones, mortar shells arcing to an orange splash ring. Slowed bugs turn ice blue. Bug halos fade when zoomed in so shapes read up close.
+  - Build bar lists all six from the tables with stats cards; wave intel names the bug type.
+  - Waves: beetles from wave 3, beetle-heavy waves 9–10 (see Known issues for the balance run).
 - UI + performance pass (6b, Stefan's request, D031):
   - Top right: an overhead minimap (street grid, City Hall, this wave's stations pulsing, their routes, live bugs, towers, barricades, the camera's view; click to move the camera), with one big speed button under it that cycles pause / 1× / 2× / 3×.
   - Bottom: a build bar (Police Sawhorse, MG Nest). Hovering shows stats; click picks the tool, Esc puts it down. Towers and barricades are only built with a tool picked.
@@ -53,6 +61,12 @@
 - Camera isn't clamped to the level bounds (camera work is Pass 4–5).
 - Street labels are dense when zoomed out; no label culling or level-of-detail yet.
 
+## Deferred from Pass 7
+- Tier 3 branching upgrades (Pass 9). Cryo "wet" + Tesla synergy (Pass 8). Width-scaled barricade cost (Pass 8).
+- Mortar craters that slow (a DESIGN §7 upgrade idea); mortar shells don't lead moving targets (they land where the target was, on purpose).
+- Walk animation and real models for bugs and towers (Pass 10). Swarms still render as a single file along the tile centre line.
+- `balance-data` project skill (TOOLING.md): write it once the tables settle after Pass 8.
+
 ## Deferred from Pass 6
 - Sidewalk tiles (DESIGN §4 tile types): corners are street-level spots at intersection corners instead.
 - Rivers and backdrop streets (IDEAS, Pass 10). Landmark models (Pass 10).
@@ -74,6 +88,8 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Balance after Pass 7 (throwaway headless bot on the real map, calls every wave early, no barricades): MG Nests only → lost in wave 8 (beetles shrug off MG chip damage); a mixed bot (mortars, railguns once beetles are coming, one cryo, upgrades) → won with 27 Integrity and $840 unspent. Needs a playtest.
+- Sim matchup test (`matchups.test.ts`, one tower alone on a straight street, kills per $100): vs a tight swarm Mortar 22.9, MG 7.0, Railgun 5.8; vs 16 beetles Railgun 7.1, Mortar 2.3, MG 1.0.
 - Perf measuring caveat (2026-09-27): halfway through the perf check the Mac dropped to `CPU_Speed_Limit = 28` (`pmset -g therm`) with Messages, Spotlight and Photos indexing busy; every scene, even with no bugs drawn, fell to ~35 ms frames and there were multi-second stalls. Check `pmset -g therm` and Activity Monitor before trusting a perf number.
 - Chrome's CPU profile charges ~6% of main-thread time to the minimap's `draw` even when it returns immediately (it is the first rAF callback of the frame and absorbs the browser's own work). Measured directly it costs 0.18 ms per redraw at 20 Hz. Don't chase it.
 - 2026-09-27 (after pass-06): buildings drawn at real height (D029), see-through cutaway for buildings between the camera and the focus / cursor (D030). Both from Stefan's feedback.
@@ -104,3 +120,4 @@
 | 5c | 2026-09-27 | ✅ City Hall hit feedback: red flash, shake that grows as Integrity drops, HUD Integrity pulses on each hit and turns red under 25. Checked in Chrome by stepping to a hit (flash visible, shake measured) | – | Playtest 2 request |
 | 6 | 2026-09-27 | ✅ typecheck, lint, 33/33 tests (+ street graph, pads, one barricade per block, height range). map:build 1.3 s incl. backdrop. Real clicks: tower on a corner (street level) and on a pad (range 82 m / min 9 m on a 19 m roof), M debug view. Backdrop + sky at 60 fps; live wave 60 fps. Headless re-balance | [pass-06.png](screenshots/pass-06.png), [backdrop](screenshots/pass-06-backdrop.png) | Includes City Hall hit feedback and Stefan's backdrop/sky request |
 | 6b | 2026-09-27 | ✅ typecheck, lint, 33/33 tests. UI checked with real hover/clicks. Perf at 1440×900 (dpr 2): dev build idle 60 fps, 26 draw calls, 507k tris, 65 MB heap; 400 bugs + 10 towers at 3× 60 fps, 929k tris, 72 MB. Production build: idle 60 fps / 23 calls / 42 MB heap; heavy 60 fps apart from one stall that coincided with macOS CPU throttling. Main-thread JS per frame ~1.3 ms (dev) | [ui-pass.png](screenshots/ui-pass.png) | Minimap: static layer cached, overlay at 20 Hz. Dev hook: `renderInfo()`, `setVisible(name, on)`, `build` picks a tool |
+| 7 | 2026-09-27 | ✅ typecheck, lint, 50/50 tests (+ damage formula, table schemas, matchups: Mortar vs swarm, Railgun vs beetles). Real clicks: select a Railgun, Upgrade $200 → tier 2 (172 m), targeting dropdown, Cryo refused on a roof pad. Sawhorse → Jersey upgrade keeps damage (60/100 → 360/400). Wave 3 with beetles played in Chrome. 400 bugs (80 beetles) + 12 mixed towers at 3×: 60 fps, p95 17.6 ms, 37 draw calls | [pass-07.png](screenshots/pass-07.png) | Headless re-balance with beetles |

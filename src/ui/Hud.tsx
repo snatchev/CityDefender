@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import rulesData from '../data/rules.json';
 import { callWave, game } from '../game';
-import { restartRun, selectTool, selectTower, sellTowerById } from '../planning';
+import { MOBS } from '../sim/mobs';
+import { TARGETING_MODES, type TargetingMode } from '../data/schema';
+import {
+  restartRun,
+  selectTool,
+  selectTower,
+  sellTowerById,
+  setSelectedTargeting,
+  upgradeSelected,
+} from '../planning';
+import { towerColor } from '../render/Towers';
 import { BuildBar } from './BuildBar';
 import { GearIcon } from './icons';
 import { Minimap } from './Minimap';
@@ -138,8 +148,9 @@ function WaveIntel() {
       {intel.map((g, i) => (
         <li key={i}>
           <span className="station-chip">{stations[g.spawnIndex]}</span>
-          <span>
-            {g.count}×{g.hpMul !== 1 ? ` · HP ×${g.hpMul}` : ''}
+          <span className={`intel-mob ${g.type}`}>
+            {g.count}× {MOBS[g.type].name}
+            {g.hpMul !== 1 ? ` · HP ×${g.hpMul}` : ''}
           </span>
         </li>
       ))}
@@ -149,11 +160,38 @@ function WaveIntel() {
 
 function SelectedTowerCard() {
   const sel = usePlan((p) => p.selected);
+  const cash = useHud((s) => s.cash);
   if (!sel) return null;
   return (
     <section className="hud-panel tower-card" aria-label="Selected tower">
-      <div className="tower-card-title">{sel.name}</div>
+      <div className="tower-card-title" style={{ color: towerColor(sel.type) }}>
+        {sel.name}
+      </div>
       <dl>
+        <div>
+          <dt>Tier</dt>
+          <dd>
+            {sel.tier} of {sel.tiers}
+          </dd>
+        </div>
+        <div>
+          <dt>
+            <label htmlFor="targeting">Targets</label>
+          </dt>
+          <dd>
+            <select
+              id="targeting"
+              value={sel.targeting}
+              onChange={(e) => setSelectedTargeting(e.target.value as TargetingMode)}
+            >
+              {TARGETING_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </dd>
+        </div>
         <div>
           <dt>Kills</dt>
           <dd>{sel.kills}</dd>
@@ -171,7 +209,17 @@ function SelectedTowerCard() {
         </div>
       </dl>
       <div className="tower-card-actions">
-        <button type="button" onClick={() => sellTowerById(sel.id)}>
+        {sel.upgradeCost !== null && (
+          <button
+            type="button"
+            className="upgrade"
+            disabled={cash < sel.upgradeCost}
+            onClick={() => upgradeSelected()}
+          >
+            Upgrade ${sel.upgradeCost}
+          </button>
+        )}
+        <button type="button" className="sell" onClick={() => sellTowerById(sel.id)}>
           Sell ${sel.sellValue}
         </button>
         <button type="button" aria-label="Close" onClick={() => selectTower(null)}>
