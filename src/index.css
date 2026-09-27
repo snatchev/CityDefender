@@ -30,7 +30,7 @@ body,
   position: absolute;
   top: 16px;
   left: 16px;
-  min-width: 220px;
+  width: 300px;
   padding: 14px 16px;
   background: color-mix(in srgb, var(--paper) 92%, transparent);
   border: 1px solid var(--line);
@@ -50,28 +50,80 @@ body,
   margin-bottom: 10px;
 }
 
-.hud-integrity {
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
   margin-bottom: 8px;
   font-size: 15px;
 }
 
-.hud-integrity strong {
+.hud-big {
   font-size: 22px;
   font-variant-numeric: tabular-nums;
   color: var(--defense);
 }
 
-.hud-spawn {
-  margin-bottom: 8px;
+.hud-cash {
+  color: #2f7d32;
 }
 
-.hud select {
-  min-height: 32px;
-  flex: 1;
-  border: 1px solid var(--line);
+.hud-phase {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  background: #eef3f6;
   border-radius: 6px;
-  background: white;
+}
+
+.hud button.hud-go,
+.end-card button.hud-go {
+  background: #c2410c;
+  border-color: #c2410c;
+  color: white;
+  font-weight: 600;
+}
+
+.hud-debug {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.end-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(10 14 20 / 0.45);
+}
+
+.end-card {
+  min-width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 20px 24px;
+  background: var(--paper);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.3);
+}
+
+.end-card h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+
+.end-card button {
+  min-height: 36px;
+  padding: 6px 16px;
+  border-radius: 6px;
   font: inherit;
+  cursor: pointer;
 }
 
 .hud-stats {

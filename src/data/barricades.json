@@ -1,6 +1,7 @@
 {
   "sawhorse": {
     "name": "Police Sawhorse",
-    "hp": 100
+    "hp": 100,
+    "cost": 25
   }
 }

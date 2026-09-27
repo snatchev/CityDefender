@@ -63,14 +63,23 @@ export function barricadeSpan(world: World, tx: number, ty: number): Span | stri
   return span;
 }
 
+/** Barricades go up only while planning (DESIGN §3.1, D006); 'idle' is the no-run sandbox. */
+export function canEditBarricades(world: World): boolean {
+  return world.phase === 'prep' || world.phase === 'idle';
+}
+
 export function placeBarricade(
   world: World,
   tx: number,
   ty: number,
   type: BarricadeType = 'sawhorse',
 ): Barricade | string {
+  if (!canEditBarricades(world)) return 'barricades go up during prep only';
   const span = barricadeSpan(world, tx, ty);
   if (typeof span === 'string') return span;
+  const cost = barricadesData[type].cost;
+  if (world.cash < cost) return `needs $${cost}`;
+  world.cash -= cost;
   const maxHp = barricadesData[type].hp;
   const b: Barricade = {
     id: world.nextBarricadeId++,
@@ -87,6 +96,20 @@ export function placeBarricade(
   return b;
 }
 
+/**
+ * Take a barricade down during prep for a full refund.
+ * TODO(pass-5): sell (70%) vs free undo of this prep's builds (DESIGN §3.1).
+ */
+export function dismantleBarricade(world: World, id: number): string | null {
+  if (!canEditBarricades(world)) return 'barricades come down during prep only';
+  const b = world.barricades.find((x) => x.id === id);
+  if (!b) return 'no barricade here';
+  world.cash += barricadesData[b.type].cost;
+  removeBarricade(world, id);
+  return null;
+}
+
+/** Remove a barricade from the map (destroyed or dismantled). */
 export function removeBarricade(world: World, id: number): boolean {
   const b = world.barricades.find((x) => x.id === id);
   if (!b) return false;

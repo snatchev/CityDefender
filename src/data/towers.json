@@ -1,0 +1,9 @@
+{
+  "mgNest": {
+    "name": "MG Nest",
+    "cost": 100,
+    "rangeM": 64,
+    "damage": 4,
+    "shotsPerS": 4
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "philly": [
+    {
+      "groups": [
+        { "station": "Race-Vine", "type": "skitterling", "count": 14, "hpMul": 1, "intervalS": 0.6 }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 22,
+          "hpMul": 1.8,
+          "intervalS": 0.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        { "station": "Race-Vine", "type": "skitterling", "count": 30, "hpMul": 3, "intervalS": 0.4 }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 26,
+          "hpMul": 4.4,
+          "intervalS": 0.4
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 20,
+          "hpMul": 4.4,
+          "intervalS": 0.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 34,
+          "hpMul": 6.2,
+          "intervalS": 0.35
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 30,
+          "hpMul": 6.2,
+          "intervalS": 0.44999999999999996
+        }
+      ]
+    }
+  ]
+}

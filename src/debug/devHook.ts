@@ -1,5 +1,5 @@
-import { game, publish, restart, setTimeScale, spawnWave } from '../game';
-import { placeBarricadeAt, refreshPlanning, removeBarricadeAt, selectStation } from '../planning';
+import { callWave, game, publish, restart, setTimeScale, spawnWave } from '../game';
+import { buildAt, dismantleAt, refreshPlanning } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
 import { tickWorld, type World } from '../sim/world';
 
@@ -14,13 +14,14 @@ export interface DevHook {
   restart(seed?: number): void;
   setSeed(seed: number): void;
   setTimeScale(scale: number): void;
-  /** Queue `count` crawlers at spawn `spawnIndex` (index into `city.spawns`, outermost first). */
+  /** Queue `count` extra crawlers at spawn `spawnIndex` (index into `city.spawns`), outside the wave script. */
   spawnWave(count?: number, spawnIndex?: number): void;
-  /** Place a sawhorse across the street at (tx, ty). Returns an error string, or null on success. */
-  placeBarricade(tx: number, ty: number): string | null;
-  removeBarricade(tx: number, ty: number): boolean;
-  /** Select the station whose route is drawn (index into `city.spawns`). */
-  selectStation(index: number): void;
+  /** Build at (tx, ty) as a click would: sawhorse on a street, MG Nest on a rooftop. Error or null. */
+  build(tx: number, ty: number): string | null;
+  /** Dismantle the barricade at (tx, ty) as a right-click would. Error or null. */
+  dismantle(tx: number, ty: number): string | null;
+  /** "Start wave" (ends prep early). */
+  callWave(): void;
   /** Centre the camera on a tile (so a real click at the canvas centre hits it). */
   focusTile(tx: number, ty: number): void;
   /** Advance exactly `n` ticks synchronously (works while paused). */
@@ -56,9 +57,9 @@ export function installDevHook(): void {
       restart(seed);
       refreshPlanning(true);
     },
-    placeBarricade: placeBarricadeAt,
-    removeBarricade: removeBarricadeAt,
-    selectStation,
+    build: buildAt,
+    dismantle: dismantleAt,
+    callWave,
     focusTile: (tx, ty) => focus?.(tx, ty),
     setTimeScale,
     spawnWave: (count = 20, spawnIndex = 0) => spawnWave(count, spawnIndex),

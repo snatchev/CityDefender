@@ -86,3 +86,13 @@ Consequences: `sim/flow.ts` (`goalDistanceField`), recomputed only when the map 
 **D021 · 2026-09-26 · Flow field and siege numbers (Pass 3).**
 Why: implements D003 with integer costs so equal routes tie exactly and replays stay deterministic.
 Consequences: Dijkstra from the goal tiles; stepping onto a tile costs `tileCost (1) + round(barricadeCostPerHp (0.5) × bandedHp)`, where HP is rounded up to the barricade's current 25% band. A full sawhorse (100 HP) is worth a 50-tile (400 m) detour. Band 0 counts as destroyed. Barricade span = the shorter contiguous street run through the clicked tile, max 6 tiles (wider usually means an intersection), never on a station. All numbers in `src/data/rules.json` and `barricades.json`; siege DPS per mob in `mobs.json`. Dev-only `__cd.focusTile` exists so agents can test placement with real clicks.
+
+**D022 · 2026-09-26 · Pass 4 run loop, economy and input.**
+Why: first playable with the fewest moving parts.
+Consequences:
+- The phase machine lives in `sim/phase.ts` ('idle' = sandbox/tests, then prep → assault → debrief → … → won/lost). Barricades can be placed and dismantled only in prep (or idle), with a full refund until Pass 5's sell/undo rules. Towers can be built any time.
+- One click does both: street → sawhorse, rooftop overlooking a street → MG Nest. No build menu yet.
+- Tile picking marches the pointer ray through the display-height grid instead of raycasting ~15k instanced boxes.
+- Waves name stations (`waves.json`) and the game resolves them to spawn indices, so the sim stays city-agnostic.
+- Balance was tuned with a headless run of the sim on the real map (no towers / two towers / keep buying). The permanent autoplayer is still Pass 9.
+- Routes and ghost routes cover every station active in the current wave, completing Pass 3's "ghost path from each active spawn".

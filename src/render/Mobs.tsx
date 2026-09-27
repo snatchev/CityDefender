@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
-import { Object3D, type InstancedMesh } from 'three';
+import { Color, Object3D, type InstancedMesh } from 'three';
 import mobsData from '../data/mobs.json';
 import { game } from '../game';
 import { TICK_DT, TILE_M } from '../sim/constants';
@@ -9,7 +9,9 @@ import { tileToWorld, type TileFrame } from './coords';
 /** Upper bound on mobs drawn at once (instance buffer size). */
 const MAX_MOBS = 2048;
 const RADIUS_M = 2.2;
-const COLOR = '#d7263d';
+const COLOR = new Color('#d7263d');
+/** Colour for a mob hit in the last tick (hit flash). */
+const HIT_COLOR = new Color('#ffffff');
 /** Mobs are spread up to this far from the tile centre line so a swarm doesn't render as one ball. */
 const SPREAD_M = 2.5;
 
@@ -42,15 +44,17 @@ export function Mobs({ frame }: { frame: TileFrame }) {
       o.position.set(x + ox, RADIUS_M, z + oz);
       o.updateMatrix();
       mesh.setMatrixAt(i, o.matrix);
+      mesh.setColorAt(i, game.world.tick - m.lastHitTick <= 1 ? HIT_COLOR : COLOR);
     }
     mesh.count = n;
     mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
 
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, MAX_MOBS]} frustumCulled={false}>
       <sphereGeometry args={[RADIUS_M, 12, 8]} />
-      <meshStandardMaterial color={COLOR} emissive={COLOR} emissiveIntensity={0.35} />
+      <meshStandardMaterial emissive="#5a0c16" />
     </instancedMesh>
   );
 }

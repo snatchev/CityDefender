@@ -1,11 +1,11 @@
 import type { ThreeEvent } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Color, Object3D, type InstancedMesh } from 'three';
-import mapData from '../data/map.json';
-import { cityHeights, compressHeight, type CityFileV0 } from '../sim/cityFile';
+import type { CityFileV0 } from '../sim/cityFile';
 import { TILE_M } from '../sim/constants';
 import { Tile, type TileMap } from '../sim/map';
 import { tileToWorld, type TileFrame } from './coords';
+import { LOT_M } from './heights';
 import { LabelLayer, type MapLabel } from './LabelLayer';
 
 const COLORS = {
@@ -21,7 +21,6 @@ const COLORS = {
 /** Display heights (m) between which building colour blends from low to high. */
 const TINT_FROM_M = 16;
 const TINT_TO_M = 55;
-const LOT_M = 0.4;
 const GOAL_PLINTH_M = 1.5;
 const STATION_RADIUS_M = 7;
 const STATION_HEIGHT_M = 1;
@@ -39,7 +38,7 @@ interface TileBox {
  * as low slabs, the goal block as a white plinth, stations as orange discs, and HTML labels.
  * TODO(pass-6): merged extruded footprints, lane lines, slots.
  */
-/** Pointer handlers for the ground plane (street picking for barricades). */
+/** Pointer handlers for the ground plane (the tile under the pointer is found by render/picking.ts). */
 export interface GroundHandlers {
   onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
   onPointerOut: (e: ThreeEvent<PointerEvent>) => void;
@@ -51,14 +50,17 @@ export function CityMap({
   city,
   map,
   frame,
+  heights,
   ground,
 }: {
   city: CityFileV0;
   map: TileMap;
   frame: TileFrame;
+  /** Display height per tile (render/heights.ts). */
+  heights: Float32Array;
   ground: GroundHandlers;
 }) {
-  const { buildings, lots, goal } = useMemo(() => classifyTiles(city, map), [city, map]);
+  const { buildings, lots, goal } = useMemo(() => classifyTiles(map, heights), [map, heights]);
   const labels = useMemo(() => mapLabels(city, frame, buildings), [city, frame, buildings]);
 
   // Ground: covers the whole grid, centred on the grid (the world origin is the goal, not the grid centre).
@@ -106,8 +108,7 @@ function buildingColor(h: number, out: Color): Color {
 const lotColor = (_h: number, out: Color) => out.copy(LOT);
 const goalColor = (_h: number, out: Color) => out.copy(GOAL);
 
-function classifyTiles(city: CityFileV0, map: TileMap) {
-  const heights = cityHeights(city);
+function classifyTiles(map: TileMap, heights: Float32Array) {
   const buildings: TileBox[] = [];
   const lots: TileBox[] = [];
   const goal: TileBox[] = [];
@@ -117,8 +118,8 @@ function classifyTiles(city: CityFileV0, map: TileMap) {
       const t = map.tiles[i];
       if (t === Tile.Goal) goal.push({ tx, ty, h: GOAL_PLINTH_M });
       else if (t === Tile.Building) {
-        const h = compressHeight(heights[i]!, mapData.heightCompressionK);
-        if (h > 0) buildings.push({ tx, ty, h });
+        const h = heights[i]!;
+        if (h > LOT_M) buildings.push({ tx, ty, h });
         else lots.push({ tx, ty, h: LOT_M });
       }
     }

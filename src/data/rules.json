@@ -1,5 +1,11 @@
 {
   "startIntegrity": 100,
+  "startCash": 250,
+  "prepSeconds": 30,
+  "debriefSeconds": 4,
+  "earlyCallBonusPerS": 1,
+  "waveClearBonusBase": 40,
+  "waveClearBonusPerWave": 10,
   "spawnIntervalS": 0.4,
   "tileCost": 1,
   "barricadeCostPerHp": 0.5,

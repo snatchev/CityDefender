@@ -3,37 +3,45 @@ import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { game } from '../game';
 import { useHud } from '../ui/store';
-import { hoverTile, placeBarricadeAt, removeBarricadeAt } from '../planning';
+import type { Ray } from 'three';
+import { buildAt, dismantleAt, hoverTile } from '../planning';
+import type { TileMap } from '../sim/map';
 import { Barricades } from './Barricades';
 import { CityMap, type GroundHandlers } from './CityMap';
 import { DevCamera } from './DevCamera';
-import { tileFrame, worldToTile, type TileFrame } from './coords';
+import { tileFrame, type TileFrame } from './coords';
+import { displayHeights } from './heights';
+import { pickTile } from './picking';
+import { Towers } from './Towers';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { SimDriver } from './SimDriver';
 
-/** Pointer movement (px) above which a click counts as a camera drag, not a placement. */
+/** Pointer movement (px) above which a click counts as a camera drag, not a build. */
 const CLICK_SLOP_PX = 5;
 
 /**
- * Ground picking: hover previews a barricade, left-click places one, right-click removes one.
- * Clicks that end a camera drag are ignored.
+ * Pointer input on the map: hover previews, left-click builds (barricade on a street, MG Nest on a
+ * rooftop), right-click dismantles a barricade. The tile is found by marching the pointer ray
+ * through the height grid, so roofs are picked, not the ground behind them. Clicks that end a
+ * camera drag are ignored.
  */
-function groundHandlers(frame: TileFrame): GroundHandlers {
-  const tileAt = (p: { x: number; z: number }) => worldToTile(frame, p.x, p.z);
+function groundHandlers(frame: TileFrame, map: TileMap, heights: Float32Array): GroundHandlers {
+  const maxHeight = heights.reduce((m, h) => Math.max(m, h), 0);
+  const tileAt = (ray: Ray) => pickTile(ray, frame, map, heights, maxHeight);
   return {
-    onPointerMove: (e) => hoverTile(tileAt(e.point)),
+    onPointerMove: (e) => hoverTile(tileAt(e.ray)),
     onPointerOut: () => hoverTile(null),
     onClick: (e) => {
       if (e.delta > CLICK_SLOP_PX) return;
-      const [tx, ty] = tileAt(e.point);
-      placeBarricadeAt(tx, ty);
+      const tile = tileAt(e.ray);
+      if (tile) buildAt(tile[0], tile[1]);
     },
     onContextMenu: (e) => {
       e.nativeEvent.preventDefault();
       if (e.delta > CLICK_SLOP_PX) return;
-      const [tx, ty] = tileAt(e.point);
-      removeBarricadeAt(tx, ty);
+      const tile = tileAt(e.ray);
+      if (tile) dismantleAt(tile[0], tile[1]);
     },
   };
 }
@@ -44,7 +52,11 @@ export function Scene() {
   const city = cityName ? game.city : null;
   const map = game.world.map;
   const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
-  const ground = useMemo(() => (frame ? groundHandlers(frame) : null), [frame]);
+  const heights = useMemo(() => (city && map ? displayHeights(city, map) : null), [city, map]);
+  const ground = useMemo(
+    () => (frame && map && heights ? groundHandlers(frame, map, heights) : null),
+    [frame, map, heights],
+  );
 
   return (
     <Canvas
@@ -67,13 +79,14 @@ export function Scene() {
       <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
       <directionalLight position={[300, 600, 200]} intensity={1.8} />
 
-      {city && map && frame && ground && (
+      {city && map && frame && heights && ground && (
         <>
-          <CityMap city={city} map={map} frame={frame} ground={ground} />
+          <CityMap city={city} map={map} frame={frame} heights={heights} ground={ground} />
           <Barricades frame={frame} />
+          <Towers frame={frame} heights={heights} />
           <Mobs frame={frame} />
           <PlanOverlay frame={frame} />
-          {import.meta.env.DEV && <DevCamera frame={frame} />}
+          {import.meta.env.DEV && <DevCamera frame={frame} heights={heights} width={map.width} />}
         </>
       )}
 

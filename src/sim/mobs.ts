@@ -15,6 +15,9 @@ export interface Mob {
   id: number;
   type: MobType;
   hp: number;
+  maxHp: number;
+  /** Tick of the last tower hit (for the hit flash), or -1. */
+  lastHitTick: number;
   fromX: number;
   fromY: number;
   toX: number;
@@ -27,6 +30,7 @@ export interface Spawner {
   spawnIndex: number;
   type: MobType;
   remaining: number;
+  hpMul: number;
   intervalTicks: number;
   nextTick: number;
 }
@@ -37,6 +41,8 @@ export function queueWave(
   count: number,
   spawnIndex = 0,
   type: MobType = 'skitterling',
+  hpMul = 1,
+  intervalS: number = rulesData.spawnIntervalS,
 ): void {
   if (!world.map) throw new Error('queueWave: no map loaded');
   if (!world.map.spawns[spawnIndex]) throw new Error(`queueWave: no spawn ${spawnIndex}`);
@@ -44,17 +50,21 @@ export function queueWave(
     spawnIndex,
     type,
     remaining: count,
-    intervalTicks: Math.max(1, Math.round(rulesData.spawnIntervalS * TICK_HZ)),
+    hpMul,
+    intervalTicks: Math.max(1, Math.round(intervalS * TICK_HZ)),
     nextTick: world.tick,
   });
 }
 
-export function spawnMob(world: World, spawnIndex: number, type: MobType): Mob {
+export function spawnMob(world: World, spawnIndex: number, type: MobType, hpMul = 1): Mob {
   const [tx, ty] = world.map!.spawns[spawnIndex]!;
+  const hp = mobsData[type].hp * hpMul;
   const mob: Mob = {
     id: world.nextMobId++,
     type,
-    hp: mobsData[type].hp,
+    hp,
+    maxHp: hp,
+    lastHitTick: -1,
     fromX: tx,
     fromY: ty,
     toX: tx,
@@ -69,7 +79,7 @@ export function spawnMob(world: World, spawnIndex: number, type: MobType): Mob {
 export function tickSpawners(world: World): void {
   for (const s of world.spawners) {
     while (s.remaining > 0 && world.tick >= s.nextTick) {
-      spawnMob(world, s.spawnIndex, s.type);
+      spawnMob(world, s.spawnIndex, s.type, s.hpMul);
       s.remaining--;
       s.nextTick += s.intervalTicks;
     }

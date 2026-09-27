@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { TICK_HZ } from '../sim/constants';
+import type { Phase } from '../sim/phase';
 import { simTimeSeconds, type World } from '../sim/world';
 
 export interface CityInfo {
@@ -19,6 +21,14 @@ interface HudState {
   integrity: number;
   mobs: number;
   leaked: number;
+  kills: number;
+  cash: number;
+  phase: Phase;
+  /** 1-based wave number and total. */
+  wave: number;
+  waveCount: number;
+  /** Seconds left in the prep/debrief countdown. */
+  phaseSeconds: number;
   /** Set once the WebGL renderer is up (Canvas onCreated). */
   renderer: string | null;
   /** Set once the city file has loaded; the scene renders the map from `game.city` after that. */
@@ -43,6 +53,12 @@ export const useHud = create<HudState>()((set) => ({
   integrity: 0,
   mobs: 0,
   leaked: 0,
+  kills: 0,
+  cash: 0,
+  phase: 'idle',
+  wave: 0,
+  waveCount: 0,
+  phaseSeconds: 0,
   renderer: null,
   city: null,
   notice: null,
@@ -61,6 +77,12 @@ export const useHud = create<HudState>()((set) => ({
       integrity: world.integrity,
       mobs: world.mobs.length + world.spawners.reduce((n, s) => n + s.remaining, 0),
       leaked: world.stats.leaked,
+      kills: world.stats.kills,
+      cash: world.cash,
+      phase: world.phase,
+      wave: world.wave + 1,
+      waveCount: world.waves.length,
+      phaseSeconds: Math.ceil(world.phaseTicks / TICK_HZ),
       barricades: world.barricades.length,
     }),
 }));
