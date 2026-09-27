@@ -24,7 +24,7 @@ export function Scene() {
   const city = cityName ? game.city : null;
   const map = game.world.map;
   const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
-  const heights = useMemo(() => (city && map ? displayHeights(city, map) : null), [city, map]);
+  const heights = useMemo(() => (city && map ? displayHeights(map) : null), [city, map]);
   const ground = useMemo(
     () => (frame && map && heights ? groundHandlers(frame, map, heights) : null),
     [frame, map, heights],

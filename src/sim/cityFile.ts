@@ -71,6 +71,7 @@ export function cityToTileMap(city: CityFileV0): TileMap {
     );
   }
   map.spawns = city.spawns.map((s) => [s.tx, s.ty] as const);
+  map.heightsM = cityHeights(city);
   return map;
 }
 
@@ -87,12 +88,4 @@ export function cityHeights(city: CityFileV0): Float32Array {
     cells.forEach((c, tx) => (out[ty * width + tx] = Number(c)));
   });
   return out;
-}
-
-/**
- * Display/gameplay height from real height (DESIGN §4): a square-root curve that keeps the skyline's
- * ordering but stops skyscrapers from walling off the camera. `k` lives in src/data/map.json.
- */
-export function compressHeight(realM: number, k: number): number {
-  return realM > 0 ? k * Math.sqrt(realM) : 0;
 }

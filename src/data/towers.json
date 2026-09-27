@@ -4,6 +4,9 @@
     "cost": 100,
     "rangeM": 64,
     "damage": 4,
-    "shotsPerS": 4
+    "shotsPerS": 4,
+    "rangeHeightFactor": 0.015,
+    "rangeMaxMul": 1.8,
+    "minRangePerHeight": 0.5
   }
 }

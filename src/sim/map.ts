@@ -15,6 +15,8 @@ export interface TileMap {
   tiles: Uint8Array;
   spawns: TileCoord[];
   goal: TileCoord[];
+  /** Real building height per tile (m), if known (city maps; ASCII fixtures have none). */
+  heightsM?: Float32Array;
 }
 
 /** 4-neighbour offsets. The order is fixed so the sim stays deterministic. */

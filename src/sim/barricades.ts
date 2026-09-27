@@ -31,18 +31,30 @@ export function hpBand(hp: number, maxHp: number): number {
 }
 
 /**
- * The tiles a barricade clicked at (tx, ty) would cover: the run of street tiles across the street,
- * i.e. along whichever axis the contiguous street is shorter. Returns an error string when the click
- * isn't on a plain street, lands on a station or another barricade, or the span is too wide
- * (usually an intersection).
+ * The tiles a barricade clicked at (tx, ty) would cover: the run of street tiles across the street
+ * at that spot. One barricade per street segment (block face, DESIGN §4.1), never on an
+ * intersection or station, and the span must stay within its segment. Returns an error string if
+ * the spot can't take a barricade.
  */
 export function barricadeSpan(world: World, tx: number, ty: number): Span | string {
   const map = world.map;
-  if (!map) return 'no map';
+  const slots = world.slots;
+  if (!map || !slots) return 'no map';
   const street = (x: number, y: number) => tileAt(map, x, y) === Tile.Street;
   if (!street(tx, ty)) return 'not a street';
+  const here = ty * map.width + tx;
+  if (world.barricadeAt[here]! !== 0) return 'already barricaded';
+  const seg = slots.segmentOf[here]!;
+  if (seg < 0) {
+    return slots.nodes[slots.nodeOf[here]!]?.station
+      ? 'blocks a station'
+      : 'intersections stay open';
+  }
+  if (world.barricades.some((b) => slots.segmentOf[b.tiles[0]!] === seg)) {
+    return 'this block already has a barricade';
+  }
   const run = (dx: number, dy: number) => {
-    const out = [ty * map.width + tx];
+    const out = [here];
     for (const s of [-1, 1]) {
       for (let x = tx + s * dx, y = ty + s * dy; street(x, y); x += s * dx, y += s * dy) {
         out.push(y * map.width + x);
@@ -50,14 +62,12 @@ export function barricadeSpan(world: World, tx: number, ty: number): Span | stri
     }
     return out.sort((a, b) => a - b);
   };
-  const across = run(1, 0);
-  const along = run(0, 1);
   const span: Span =
-    across.length <= along.length ? { tiles: across, axis: 'x' } : { tiles: along, axis: 'y' };
-  if (span.tiles.length > rulesData.maxBarricadeSpanTiles) return 'too wide (intersection?)';
-  const spawns = new Set(map.spawns.map(([x, y]) => y * map.width + x));
-  if (span.tiles.some((i) => spawns.has(i))) return 'blocks a station';
-  if (span.tiles.some((i) => world.barricadeAt[i]! !== 0)) return 'already barricaded';
+    slots.segments[seg]!.axis === 'x'
+      ? { tiles: run(1, 0), axis: 'x' }
+      : { tiles: run(0, 1), axis: 'y' };
+  if (span.tiles.length > rulesData.maxBarricadeSpanTiles) return 'too wide here';
+  if (span.tiles.some((i) => slots.segmentOf[i] !== seg)) return 'too close to a crossing';
   return span;
 }
 

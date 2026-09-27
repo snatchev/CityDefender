@@ -1,7 +1,8 @@
 import mobsData from '../data/mobs.json';
 import towersData from '../data/towers.json';
 import { TICK_DT, TILE_M } from './constants';
-import { N4, Tile, tileAt } from './map';
+import { gameHeight } from './height';
+import { Slot } from './slots';
 import { builtNow, sellValue, type BuiltAt } from './economy';
 import { mobPos, type Mob } from './mobs';
 import { isOver } from './phase';
@@ -16,25 +17,42 @@ export interface Tower {
   ty: number;
   /** Seconds until the next shot is ready (≤ 0 = ready). */
   cooldown: number;
+  /** Height the tower stands at (gameplay metres; 0 on a street corner). Sets its range (DESIGN §7). */
+  heightM: number;
   /** Most recent shot, for tracers: target position in tile coordinates. */
   lastShot: { tick: number; x: number; y: number } | null;
   built: BuiltAt;
   kills: number;
 }
 
-/** Why a tower can't go on (tx, ty), or null if it can. MVP rule (DESIGN §4.1): a building tile touching a street. */
+/** Why a tower can't go on (tx, ty), or null if it can: towers need a roof pad or a corner (DESIGN §4.1). */
 export function towerSiteError(world: World, tx: number, ty: number): string | null {
   const map = world.map;
-  if (!map) return 'no map';
+  const slots = world.slots;
+  if (!map || !slots) return 'no map';
   if (isOver(world.phase)) return 'the run is over';
-  if (tileAt(map, tx, ty) !== Tile.Building) return 'not a rooftop';
-  const touchesStreet = N4.some(([dx, dy]) => tileAt(map, tx + dx, ty + dy) === Tile.Street);
-  if (!touchesStreet) return 'must overlook a street';
-  if (world.towerAt[ty * map.width + tx] !== 0) return 'already has a tower';
+  if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) return 'off the map';
+  const i = ty * map.width + tx;
+  if (slots.towerSlot[i] === Slot.None) return 'not a tower spot (roof pads and corners only)';
+  if (world.towerAt[i] !== 0) return 'already has a tower';
   return null;
 }
 
-// TODO(pass-6): roof pads and the height range bonus (DESIGN §7).
+/** Gameplay height of a tower spot: the roof for a pad, street level for a corner. */
+export function siteHeight(world: World, i: number): number {
+  return world.slots?.towerSlot[i] === Slot.Pad ? gameHeight(world.map?.heightsM?.[i] ?? 0) : 0;
+}
+
+/**
+ * Range in metres (DESIGN §7): base range × (1 + heightFactor × height), capped, and a minimum range
+ * for raised towers (they can't shoot straight down). Street-level towers have no minimum.
+ */
+export function towerRange(type: TowerType, heightM: number): { minM: number; maxM: number } {
+  const s = towersData[type];
+  const mul = Math.min(s.rangeMaxMul, 1 + s.rangeHeightFactor * heightM);
+  return { minM: s.minRangePerHeight * heightM, maxM: s.rangeM * mul };
+}
+
 export function placeTower(
   world: World,
   tx: number,
@@ -51,6 +69,7 @@ export function placeTower(
     type,
     tx,
     ty,
+    heightM: siteHeight(world, ty * world.map!.width + tx),
     cooldown: 0,
     lastShot: null,
     built: builtNow(world),
@@ -83,13 +102,16 @@ export function sellTower(world: World, id: number): string | null {
 function acquireFirst(world: World, t: Tower): Mob | null {
   const map = world.map!;
   const field = world.field!;
-  const range = towersData[t.type].rangeM / TILE_M;
+  const r = towerRange(t.type, t.heightM);
+  const maxTiles = r.maxM / TILE_M;
+  const minTiles = r.minM / TILE_M;
   let best: Mob | null = null;
   let bestKey = Infinity;
   for (const m of world.mobs) {
     if (m.hp <= 0) continue;
     const [x, y] = mobPos(m);
-    if (Math.hypot(x - t.tx, y - t.ty) > range) continue;
+    const d = Math.hypot(x - t.tx, y - t.ty);
+    if (d > maxTiles || d < minTiles) continue;
     const key = field[m.toY * map.width + m.toX]! + (1 - m.t);
     if (key < bestKey || (key === bestKey && best && m.id < best.id)) {
       best = m;

@@ -17,15 +17,21 @@ const WAVES: WaveDef[] = [
   },
 ];
 
+/** The `n` tower spots (pads or corners) closest to the goal. */
+function spotsNearGoal(w: World, n: number): [number, number][] {
+  const [gx, gy] = w.map!.goal[0]!;
+  return [...w.slots!.pads, ...w.slots!.corners]
+    .map((i) => [i % w.map!.width, Math.floor(i / w.map!.width)] as [number, number])
+    .sort((a, b) => Math.hypot(a[0] - gx, a[1] - gy) - Math.hypot(b[0] - gx, b[1] - gy))
+    .slice(0, n);
+}
+
 /** Play a scripted run: two towers by the goal, call the first wave early, let the rest play out. */
 function scriptedRun(seed: number, withTowers: boolean) {
   const w: World = createWorld(seed, parseAsciiMap(GRID));
   startRun(w, WAVES);
   if (withTowers) {
-    for (const [tx, ty] of [
-      [5, 3],
-      [5, 5],
-    ] as const) {
+    for (const [tx, ty] of spotsNearGoal(w, 2)) {
       const t = placeTower(w, tx, ty);
       if (typeof t === 'string') throw new Error(t);
     }

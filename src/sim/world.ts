@@ -2,6 +2,7 @@ import rulesData from '../data/rules.json';
 import { recomputeField, type Barricade } from './barricades';
 import { TICK_DT, TICK_HZ } from './constants';
 import type { TileMap } from './map';
+import { deriveSlots, type MapSlots } from './slots';
 import { stepMobs, tickSpawners, type Mob, type Spawner } from './mobs';
 import { tickPhase, type Phase, type WaveDef } from './phase';
 import { fireTowers, type Tower } from './towers';
@@ -27,6 +28,8 @@ export interface World {
   nextTowerId: number;
   /** The level's tile grid. Null until the city has loaded. */
   map: TileMap | null;
+  /** Street graph and placement slots derived from the map (slots.ts). */
+  slots: MapSlots | null;
   /** Flow field: cheapest cost to the goal per tile (see flow.ts). Recomputed on barricade events. */
   field: Float64Array | null;
   /** Extra cost per tile from barricades, the input the field was computed with. */
@@ -109,6 +112,7 @@ export function createWorld(seed: number, map: TileMap | null = null): World {
   const world: World = {
     ...freshRun(seed),
     map: null,
+    slots: null,
     field: null,
     extraCost: null,
     fieldVersion: 0,
@@ -124,6 +128,7 @@ export function createWorld(seed: number, map: TileMap | null = null): World {
 /** Install a map: clears everything placed on the old one and recomputes the flow field. */
 export function setMap(world: World, map: TileMap): void {
   world.map = map;
+  world.slots = deriveSlots(map, map.heightsM);
   world.barricades = [];
   world.barricadeAt = new Int32Array(map.width * map.height);
   world.towers = [];

@@ -13,7 +13,8 @@ describe('selling', () => {
     startRun(w, [
       { groups: [{ spawnIndex: 0, type: 'skitterling', count: 1, hpMul: 1, intervalS: 1 }] },
     ]);
-    const t = placeTower(w, 5, 3) as Tower;
+    const pad = w.slots!.pads[0]!;
+    const t = placeTower(w, pad % w.map!.width, Math.floor(pad / w.map!.width)) as Tower;
     const cost = towersData.mgNest.cost;
     expect(towerSellValue(w, t)).toBe(cost); // free undo
     startWave(w);
