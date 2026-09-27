@@ -1,6 +1,7 @@
 import { MapControls, Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useMemo } from 'react';
+import { registerRenderer } from '../debug/devHook';
 import { game } from '../game';
 import { usePlan } from '../ui/planStore';
 import { useHud } from '../ui/store';
@@ -66,13 +67,14 @@ export function Scene() {
       tabIndex={0}
       dpr={[1, 2]}
       camera={{ position: [120, 720, 820], fov: 45, near: CAMERA_NEAR_M, far: CAMERA_FAR_M }}
-      onCreated={({ gl }) => {
+      onCreated={({ gl, scene }) => {
         const ctx = gl.getContext();
         const kind =
           typeof WebGL2RenderingContext !== 'undefined' && ctx instanceof WebGL2RenderingContext
             ? 'WebGL2'
             : 'WebGL';
         useHud.getState().setRenderer(kind);
+        if (import.meta.env.DEV) registerRenderer(gl, scene);
       }}
     >
       <color attach="background" args={[HAZE]} />

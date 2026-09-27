@@ -8,6 +8,8 @@ import { usePlan } from './planStore';
 
 /** Minimap width in CSS pixels (height follows the map's aspect ratio). */
 const WIDTH_PX = 240;
+/** Redraw rate for the moving parts. At minimap scale a bug moves ~1 px per frame, so 20 Hz looks the same as 60. */
+const REDRAW_MS = 50;
 const COLORS = {
   block: '#2c313b',
   street: '#6f7888',
@@ -23,8 +25,9 @@ const COLORS = {
 
 /**
  * Overhead minimap (top right): the street grid, City Hall, this wave's stations (pulsing) and the
- * routes out of them, live bugs, towers, barricades and the camera's view. The base is rendered once
- * per map; the overlay is redrawn each animation frame straight from the sim (no React state).
+ * routes out of them, live bugs, towers, barricades and the camera's view. Streets, City Hall and the
+ * routes are cached in a static layer, rebuilt only when the routes change; the moving parts are
+ * redrawn at 20 Hz straight from the sim (no React state).
  * Clicking moves the camera there.
  */
 export function Minimap({ map }: { map: TileMap }) {
@@ -42,27 +45,43 @@ export function Minimap({ map }: { map: TileMap }) {
     const base = renderBase(map);
     const px = (t: number) => (t + 0.5) * scale; // tile centre → CSS px
 
-    let raf = 0;
-    const draw = (now: number) => {
-      raf = requestAnimationFrame(draw);
-      const world = game.world;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(base, 0, 0, WIDTH_PX, heightPx);
-
-      // Routes from this wave's stations.
-      ctx.strokeStyle = COLORS.route;
-      ctx.lineWidth = 1.5;
-      for (const r of usePlan.getState().routes) {
-        ctx.beginPath();
+    // Static layer at device resolution: base map + routes, rebuilt only when the routes change.
+    const layer = document.createElement('canvas');
+    layer.width = c.width;
+    layer.height = c.height;
+    const lctx = layer.getContext('2d')!;
+    let layerRoutes: unknown = null;
+    const rebuildLayer = (routes: ReturnType<typeof usePlan.getState>['routes']) => {
+      layerRoutes = routes;
+      lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      lctx.imageSmoothingEnabled = false;
+      lctx.drawImage(base, 0, 0, WIDTH_PX, heightPx);
+      lctx.strokeStyle = COLORS.route;
+      lctx.lineWidth = 1.5;
+      for (const r of routes) {
+        lctx.beginPath();
         r.tiles.forEach((i, k) => {
           const x = px(i % map.width);
           const y = px(Math.floor(i / map.width));
-          if (k === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+          if (k === 0) lctx.moveTo(x, y);
+          else lctx.lineTo(x, y);
         });
-        ctx.stroke();
+        lctx.stroke();
       }
+    };
+
+    let raf = 0;
+    let lastDraw = -Infinity;
+    const draw = (now: number) => {
+      raf = requestAnimationFrame(draw);
+      if (now - lastDraw < REDRAW_MS) return;
+      lastDraw = now;
+      const world = game.world;
+      const routes = usePlan.getState().routes;
+      if (routes !== layerRoutes) rebuildLayer(routes);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(layer, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Barricades and towers.
       ctx.fillStyle = COLORS.barricade;

@@ -174,11 +174,14 @@ export function selectTool(tool: BuildTool | null): void {
  * Left click: build with the selected tool, or with no tool select the tower on this tile.
  * The tool stays selected so several can be placed in a row. Returns an error, or null.
  */
-export function buildAt(tx: number, ty: number): string | null {
+export function buildAt(
+  tx: number,
+  ty: number,
+  tool: BuildTool | null = usePlan.getState().tool,
+): string | null {
   const w = game.world;
   if (!w.map) return 'no map';
   const i = ty * w.map.width + tx;
-  const tool = usePlan.getState().tool;
   if (!tool) {
     selectTower(w.towerAt[i] ? w.towerAt[i]! : null);
     return null;

@@ -2,8 +2,8 @@
 
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
-**Last updated:** 2026-09-26
-**Current pass:** Pass 6 (Map generator v1): **done**, tagged `pass-06`
+**Last updated:** 2026-09-27
+**Current pass:** Pass 6 (Map generator v1): **done**, tagged `pass-06`; then a UI + performance pass (6b, Stefan's request)
 **Next up:** Pass 7 (data-driven roster: Mortar, Cryo, Railgun; Carapace Beetle; armor and targeting modes)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
@@ -22,6 +22,12 @@
   - A decorative backdrop city out to the rivers (70k footprints baked to 16 m / 32 m height grids, LOD by distance), a gradient sky and horizon haze (D027, Stefan's request).
   - City Hall hit feedback (flash, Integrity-scaled shake, HUD pulse), from playtest 2.
   - Balance re-tuned for the new tower spots: bug HP ×1.7 from wave 3; gentler height bonus (see Known issues).
+- UI + performance pass (6b, Stefan's request, D031):
+  - Top right: an overhead minimap (street grid, City Hall, this wave's stations pulsing, their routes, live bugs, towers, barricades, the camera's view; click to move the camera), with one big speed button under it that cycles pause / 1× / 2× / 3×.
+  - Bottom: a build bar (Police Sawhorse, MG Nest). Hovering shows stats; click picks the tool, Esc puts it down. Towers and barricades are only built with a tool picked.
+  - Top left: a status HUD (City Hall integrity bar, cash, wave + phase, Start wave, wave intel, bugs/kills/leaked). No instructions anywhere; no restart button in the HUD.
+  - Tick, seed, speed, sim time, renderer, FPS meter, map debug view, Restart and New seed live in the debug menu (gear, bottom left).
+  - Performance: see the pass log and D031. The game is well inside budget; no renderer changes were needed.
 - Real building heights (pulled forward from Pass 6 at Stefan's request, D019): per-tile heights from City of Philadelphia footprints, with OSM buildings filling the gaps (the Convention Center and Comcast Technology Center are missing from the city data). Drawn with the √ height curve from DESIGN §4. Open lots show as low grey slabs.
 - 28 agent skills installed in `.agents/skills` (symlinked into `.claude/skills`). All kept (D018); see [TOOLING.md](TOOLING.md).
 
@@ -68,6 +74,8 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Perf measuring caveat (2026-09-27): halfway through the perf check the Mac dropped to `CPU_Speed_Limit = 28` (`pmset -g therm`) with Messages, Spotlight and Photos indexing busy; every scene, even with no bugs drawn, fell to ~35 ms frames and there were multi-second stalls. Check `pmset -g therm` and Activity Monitor before trusting a perf number.
+- Chrome's CPU profile charges ~6% of main-thread time to the minimap's `draw` even when it returns immediately (it is the first rAF callback of the frame and absorbs the browser's own work). Measured directly it costs 0.18 ms per redraw at 20 Hz. Don't chase it.
 - 2026-09-27 (after pass-06): buildings drawn at real height (D029), see-through cutaway for buildings between the camera and the focus / cursor (D030). Both from Stefan's feedback.
 - Fixed 2026-09-27: streets flickered while moving the camera (Stefan). Z-fighting between the level asphalt and the backdrop ground 5 cm below it, made worse by the larger far plane. Backdrop ground now 3 m lower with polygon offset, camera near plane 1 → 4 m, lane lines lifted to 25 cm.
 - Balance after Pass 6 (headless bot on the real map, no barricades): two towers only → lost in wave 6; a bot that keeps buying well-placed towers on pads/corners → won with ~37 Integrity, damage from wave 6 on. Street corners put towers right on the route, which is why HP went up ×1.7. Needs a playtest.
@@ -95,3 +103,4 @@
 | 5b | 2026-09-27 | ✅ review/refactor (D025): 31 files, −189 lines net. typecheck, lint, 28/28 tests. `map:build` output byte-identical. Real clicks: build, select, Restart (now also clears the selection panel). Scripted wave 1 cleared, cash reconciles, 61 fps | – | Structure only, no gameplay change |
 | 5c | 2026-09-27 | ✅ City Hall hit feedback: red flash, shake that grows as Integrity drops, HUD Integrity pulses on each hit and turns red under 25. Checked in Chrome by stepping to a hit (flash visible, shake measured) | – | Playtest 2 request |
 | 6 | 2026-09-27 | ✅ typecheck, lint, 33/33 tests (+ street graph, pads, one barricade per block, height range). map:build 1.3 s incl. backdrop. Real clicks: tower on a corner (street level) and on a pad (range 82 m / min 9 m on a 19 m roof), M debug view. Backdrop + sky at 60 fps; live wave 60 fps. Headless re-balance | [pass-06.png](screenshots/pass-06.png), [backdrop](screenshots/pass-06-backdrop.png) | Includes City Hall hit feedback and Stefan's backdrop/sky request |
+| 6b | 2026-09-27 | ✅ typecheck, lint, 33/33 tests. UI checked with real hover/clicks. Perf at 1440×900 (dpr 2): dev build idle 60 fps, 26 draw calls, 507k tris, 65 MB heap; 400 bugs + 10 towers at 3× 60 fps, 929k tris, 72 MB. Production build: idle 60 fps / 23 calls / 42 MB heap; heavy 60 fps apart from one stall that coincided with macOS CPU throttling. Main-thread JS per frame ~1.3 ms (dev) | [ui-pass.png](screenshots/ui-pass.png) | Minimap: static layer cached, overlay at 20 Hz. Dev hook: `renderInfo()`, `setVisible(name, on)`, `build` picks a tool |

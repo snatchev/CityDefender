@@ -81,10 +81,20 @@ export function Mobs({ frame }: { frame: TileFrame }) {
 
   return (
     <>
-      <instancedMesh ref={body} args={[sphere, undefined, MAX_MOBS]} frustumCulled={false}>
+      <instancedMesh
+        name="mobBody"
+        ref={body}
+        args={[sphere, undefined, MAX_MOBS]}
+        frustumCulled={false}
+      >
         <meshStandardMaterial emissive={COLOR} emissiveIntensity={0.6} />
       </instancedMesh>
-      <instancedMesh ref={halo} args={[sphere, undefined, MAX_MOBS]} frustumCulled={false}>
+      <instancedMesh
+        name="mobHalo"
+        ref={halo}
+        args={[sphere, undefined, MAX_MOBS]}
+        frustumCulled={false}
+      >
         <meshBasicMaterial
           color={COLOR}
           transparent
@@ -94,6 +104,7 @@ export function Mobs({ frame }: { frame: TileFrame }) {
         />
       </instancedMesh>
       <instancedMesh
+        name="mobXray"
         ref={xray}
         args={[sphere, undefined, MAX_MOBS]}
         frustumCulled={false}
