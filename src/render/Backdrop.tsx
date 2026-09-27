@@ -13,6 +13,11 @@ const HAZE = new Color('#c9d3db');
 const HAZE_PER_LAYER = [0.18, 0.32];
 /** The ground reaches far past the backdrop so it fades into the fog instead of ending in an edge. */
 const GROUND_SIZE_M = 30000;
+/**
+ * The backdrop ground runs under the playable map too. It sits well below the level's asphalt and is
+ * pushed back further with a polygon offset, so the two never z-fight (flickering streets) at distance.
+ */
+const GROUND_Y = -3;
 /** Per-cell brightness jitter (±), so merged cells don't read as a uniform carpet. */
 const JITTER = 0.06;
 
@@ -28,9 +33,14 @@ export function Backdrop({ file, frame }: { file: BackdropFileV0; frame: TileFra
   const d = outer.height * outer.cellTiles * TILE_M;
   return (
     <group>
-      <mesh rotation-x={-Math.PI / 2} position={[x0 + w / 2, -0.05, z0 + d / 2]}>
+      <mesh rotation-x={-Math.PI / 2} position={[x0 + w / 2, GROUND_Y, z0 + d / 2]}>
         <planeGeometry args={[GROUND_SIZE_M, GROUND_SIZE_M]} />
-        <meshStandardMaterial color={GROUND} />
+        <meshStandardMaterial
+          color={GROUND}
+          polygonOffset
+          polygonOffsetFactor={4}
+          polygonOffsetUnits={4}
+        />
       </mesh>
       {file.layers.map((l, k) => (
         <LayerBoxes key={k} layer={l} frame={frame} haze={HAZE_PER_LAYER[k] ?? 0.4} />

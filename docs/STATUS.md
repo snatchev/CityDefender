@@ -68,6 +68,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Fixed 2026-09-27: streets flickered while moving the camera (Stefan). Z-fighting between the level asphalt and the backdrop ground 5 cm below it, made worse by the larger far plane. Backdrop ground now 3 m lower with polygon offset, camera near plane 1 → 4 m, lane lines lifted to 25 cm.
 - Balance after Pass 6 (headless bot on the real map, no barricades): two towers only → lost in wave 6; a bot that keeps buying well-placed towers on pads/corners → won with ~37 Integrity, damage from wave 6 on. Street corners put towers right on the route, which is why HP went up ×1.7. Needs a playtest.
 - (Pre-Pass 6) Balance, 10 waves (headless check on the real map, throwaway script, no barricades): no towers → lost in wave 5; two towers only → lost in wave 7; a bot that keeps buying well-placed MG Nests → won with ~30 Integrity, damage from wave 8 on. Humans can do better with barricades (merging routes into kill zones). About 6 min calling every wave early, about 11 min waiting out prep. Needs playtest 2.
 - The HUD's per-station route lines and the station labels can overlap the HUD panel on small windows.

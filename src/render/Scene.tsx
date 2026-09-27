@@ -30,6 +30,11 @@ const FOG_FAR_M = 6500;
 /** Sky dome around the camera; inside the far plane. */
 const SKY_RADIUS_M = 12000;
 const SKY_ZENITH = '#5b8fcc';
+/**
+ * Depth precision scales with near / far: keep near as large as the closest zoom allows (minDistance
+ * is 80 m) so distant, nearly coplanar surfaces don't z-fight.
+ */
+const CAMERA_NEAR_M = 4;
 const CAMERA_FAR_M = 16000;
 const MAX_ZOOM_OUT_M = 3000;
 /** Late-morning sun from the south-east (the directional light). */
@@ -58,7 +63,7 @@ export function Scene() {
       aria-label="City map"
       tabIndex={0}
       dpr={[1, 2]}
-      camera={{ position: [120, 720, 820], fov: 45, near: 1, far: CAMERA_FAR_M }}
+      camera={{ position: [120, 720, 820], fov: 45, near: CAMERA_NEAR_M, far: CAMERA_FAR_M }}
       onCreated={({ gl }) => {
         const ctx = gl.getContext();
         const kind =

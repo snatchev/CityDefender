@@ -23,7 +23,8 @@ const STATION_HEIGHT_M = 1;
 const STATION_LABEL_ABOVE_M = 10;
 /** Street classes that get a dashed center line. */
 const LANE_KINDS = ['trunk', 'primary', 'secondary', 'tertiary'] as const;
-const LANE_Y = 0.12;
+/** Lane markings float a little above the asphalt so they don't z-fight with it at distance. */
+const LANE_Y = 0.25;
 
 interface TileBox {
   tx: number;
