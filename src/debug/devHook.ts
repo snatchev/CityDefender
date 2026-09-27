@@ -23,7 +23,7 @@ export interface DevHook {
   /** "Start wave" (ends prep early). */
   callWave(): void;
   /** Centre the camera on a tile (so a real click at the canvas centre hits it). */
-  focusTile(tx: number, ty: number): void;
+  focusTile(tx: number, ty: number, view?: CameraView): void;
   /** Advance exactly `n` ticks synchronously (works while paused). */
   step(n?: number): number;
 }
@@ -34,7 +34,13 @@ declare global {
   }
 }
 
-type FocusFn = (tx: number, ty: number) => void;
+/** Optional camera placement for `focusTile`: distance (m), pitch above the ground and yaw (degrees). */
+export interface CameraView {
+  distM?: number;
+  pitchDeg?: number;
+  yawDeg?: number;
+}
+type FocusFn = (tx: number, ty: number, view?: CameraView) => void;
 let focus: FocusFn | null = null;
 /** Called by render/DevCamera.tsx once the camera controls exist. */
 export function registerFocus(fn: FocusFn | null): void {
@@ -60,7 +66,7 @@ export function installDevHook(): void {
     build: buildAt,
     dismantle: dismantleAt,
     callWave,
-    focusTile: (tx, ty) => focus?.(tx, ty),
+    focusTile: (tx, ty, view) => focus?.(tx, ty, view),
     setTimeScale,
     spawnWave: (count = 20, spawnIndex = 0) => spawnWave(count, spawnIndex),
     step(n = 1) {

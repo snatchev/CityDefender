@@ -1,6 +1,6 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
-import type { Vector3 } from 'three';
+import { MathUtils, Spherical, type Vector3 } from 'three';
 import { registerFocus } from '../debug/devHook';
 import { tileToWorld, type TileFrame } from './coords';
 
@@ -25,10 +25,18 @@ export function DevCamera({
 
   useEffect(() => {
     if (!controls) return;
-    registerFocus((tx, ty) => {
+    registerFocus((tx, ty, view) => {
       const [x, z] = tileToWorld(frame, tx, ty);
       const y = heights[ty * width + tx] ?? 0; // aim at the roof, so a centre click picks this tile
       const offset = camera.position.clone().sub(controls.target);
+      if (view) {
+        // Spherical placement: yaw 0 = camera south of the target looking north.
+        const s = new Spherical().setFromVector3(offset);
+        if (view.distM !== undefined) s.radius = view.distM;
+        if (view.pitchDeg !== undefined) s.phi = MathUtils.degToRad(90 - view.pitchDeg);
+        if (view.yawDeg !== undefined) s.theta = MathUtils.degToRad(view.yawDeg);
+        offset.setFromSpherical(s);
+      }
       controls.target.set(x, y, z);
       camera.position.set(x, y, z).add(offset);
       controls.update();

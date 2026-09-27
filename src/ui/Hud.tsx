@@ -78,6 +78,7 @@ export function Hud() {
         Street: Police Sawhorse ${barricadesData.sawhorse.cost} (prep only, right-click refunds).
         Rooftop by a street: {towersData.mgNest.name} ${towersData.mgNest.cost}.
       </p>
+      <p className="hud-hint">Camera: WASD pan · Q/E rotate · scroll zoom · drag to pan/orbit.</p>
       {s.notice && <p className="hud-notice">{s.notice}</p>}
       <p className="hud-debug">
         {s.simTime.toFixed(0)} s · tick {s.tick} · seed {s.seed} · {s.renderer ?? 'starting…'}

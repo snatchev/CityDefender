@@ -96,3 +96,12 @@ Consequences:
 - Waves name stations (`waves.json`) and the game resolves them to spawn indices, so the sim stays city-agnostic.
 - Balance was tuned with a headless run of the sim on the real map (no towers / two towers / keep buying). The permanent autoplayer is still Pass 9.
 - Routes and ghost routes cover every station active in the current wave, completing Pass 3's "ghost path from each active spawn".
+
+**D023 · 2026-09-26 · Unit visibility and keyboard camera (playtest 1).**
+Why: Stefan found mobs and towers hard to see and wanted bugs visible behind buildings, plus WASD/QE camera keys.
+Consequences:
+- Mobs are drawn in three instanced passes sharing one geometry and one matrix per mob: a self-lit body, an additive halo (fake glow; real bloom stays in Pass 10), and an x-ray pass that uses the same sphere with a flat unlit material and `depthFunc = GreaterDepth`, so it draws only where something is in front. This is the standard two-pass "occluded silhouette" shader (Unity's `ZTest Greater` pass). three.js has no multi-pass materials, so the extra pass is a second InstancedMesh: one extra draw call for all mobs, not per mob.
+- Alternatives considered: the postprocessing Outline effect's `xRay` mode (outlines through walls; revisit with the Pass 10 postprocessing stack if we prefer outlines to fills), a stencil pass (same cost, more setup), and "always on top" (loses depth cues).
+- Mobs scale with camera distance beyond 300 m so they stay readable zoomed out; towers get half that.
+- Keyboard camera: WASD pans relative to the view, Q/E orbit the target. Keys are matched by `KeyboardEvent.code` (layout-independent), ignored while typing, cleared on blur, and a tap moves at least one frame.
+- Dev: `__cd.focusTile(tx, ty, { distM, pitchDeg, yawDeg })` for reproducible screenshots.

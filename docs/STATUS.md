@@ -3,8 +3,8 @@
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
 **Last updated:** 2026-09-26
-**Current pass:** Pass 4 (One tower + the wave loop): **done**, tagged `pass-04`. **First playable.**
-**Next up:** Pass 5 (MVP polish + playtest with Stefan)
+**Current pass:** Pass 5 (MVP polish + playtest): **in progress**
+**Next up:** rest of Pass 5, then Pass 6 (map generator v1)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
@@ -20,7 +20,9 @@
 - 28 agent skills installed in `.agents/skills` (symlinked into `.claude/skills`). All kept (D018); see [TOOLING.md](TOOLING.md).
 
 ## In progress
-- Nothing. Pass 5 is next, and it starts with Stefan playing the preview.
+- Pass 5. Playtest 1 (Stefan, 2026-09-26): "a little easy, adjust later"; mobs and towers need to be more prominent (bigger, glow); mobs should stay visible behind buildings; wants WASD pan + Q/E rotate.
+  - Done: bigger, self-lit mobs (acid green) with an additive halo, and an x-ray silhouette where a building hides them (D023). Mobs scale up with camera distance so they stay readable zoomed out; towers get half that. Towers bigger and self-lit with a glowing roof ring. WASD pans relative to the view, Q/E orbit (D023).
+  - Still to do (plan): sell/undo, range disc on hover/selection for existing towers, HP bars on damaged mobs, death pop, screen shake, wave intel panel, 3 stations / 10 waves, tuning (harder).
 
 ## How Claude builds and checks things (Claude Code on the Mac, since 2026-09-26)
 - Development moved from Cowork to **Claude Code running directly on Stefan's Mac** (see D010). npm, vitest, eslint and the dev server run natively in the project folder. The Cowork workarounds (a scratch copy of the project for Linux builds, checking the game through a published artifact) are no longer needed.

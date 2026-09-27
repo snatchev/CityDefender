@@ -11,6 +11,7 @@ import { CityMap, type GroundHandlers } from './CityMap';
 import { DevCamera } from './DevCamera';
 import { tileFrame, type TileFrame } from './coords';
 import { displayHeights } from './heights';
+import { KeyboardCamera } from './KeyboardCamera';
 import { pickTile } from './picking';
 import { Towers } from './Towers';
 import { Mobs } from './Mobs';
@@ -100,6 +101,7 @@ export function Scene() {
         maxDistance={2200}
         maxPolarAngle={Math.PI * 0.42}
       />
+      <KeyboardCamera />
       <SimDriver />
       {import.meta.env.DEV && <Stats className="fps-meter" />}
     </Canvas>
