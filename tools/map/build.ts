@@ -1,28 +1,40 @@
 /**
- * Map pipeline v0 (Pass 1, crude on purpose; heights added early, D019): `npm run map:build -- <city>`.
+ * Map pipeline v1 (Pass 6): `npm run map:build -- <city>`.
  *
  *   cached Overpass JSON → level frame (project, rotate onto the street grid, cut at the boundary
- *   streets; level.ts) → rasterize street centerlines → mark the goal block → snap stations to
- *   streets (stations.ts) → street labels (labels.ts) → per-tile building heights (heights.ts)
- *   → public/cities/<city>/city.json
+ *   streets; level.ts)
+ *   → building footprints and heights (footprints.ts) → streets painted into the gaps between
+ *   buildings → goal block → stations (stations.ts) → street labels (labels.ts)
+ *   → public/cities/<city>/city.json (sim) + buildings.json (render only)
  *
- * Pass 6 adds footprint meshes, street widths from lanes, slots and the street graph. See docs/IMPLEMENTATION_PLAN.md.
+ * Street graph, barricade slots, roof pads and corners are derived at load time by src/sim/slots.ts.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CityFileV0 } from '../../src/sim/cityFile';
+import type { BuildingsFileV0, CityFileV0 } from '../../src/sim/cityFile';
 import { cachePath, loadConfig, type OverpassResponse } from './config';
 import { fetchBuildings, fetchCity, fetchOsmBuildings } from './fetch';
-import { tileHeights } from './heights';
+import { buildingsFile, heightRows, loadFootprints, rasterizeBuildings } from './footprints';
 import { streetLabels } from './labels';
 import { buildLevel } from './level';
-import { Grid, markGoalBlock, paintStreet, T_STREET } from './raster';
+import {
+  fixDiagonalGaps,
+  Grid,
+  markGoalBlock,
+  paintStreetBetweenBuildings,
+  T_STREET,
+} from './raster';
 import { stationSpawns } from './stations';
 
 /** A landmark block larger than this means the ring road around it didn't rasterize closed. */
 const MAX_GOAL_TILES = 40 * 40;
 
-export async function buildCity(city: string): Promise<CityFileV0> {
+export interface BuildResult {
+  city: CityFileV0;
+  buildings: BuildingsFileV0;
+}
+
+export async function buildCity(city: string): Promise<BuildResult> {
   const cfg = loadConfig(city);
   await fetchCity(city);
   await fetchBuildings(city);
@@ -32,15 +44,17 @@ export async function buildCity(city: string): Promise<CityFileV0> {
   const level = buildLevel(cfg, osm);
   const { width, height } = level;
 
+  // Buildings first: streets are painted into the gaps between them (D026).
+  const fps = loadFootprints(city, cfg, level);
+  const raster = rasterizeBuildings(level, fps, cfg);
+  const blocked = (i: number) => raster.coverage[i]! >= cfg.streetBlockedCoverage;
+
   const grid = new Grid(width, height);
   level.ways.forEach((w, i) => {
-    const hw = w.tags.highway!;
-    paintStreet(
-      grid,
-      level.uvLines[i]!,
-      cfg.streetWidthTiles[hw] ?? cfg.streetWidthTiles.default ?? 2,
-    );
+    const halfM = cfg.streetHalfWidthM[w.tags.highway!] ?? cfg.streetHalfWidthM.default ?? 6;
+    paintStreetBetweenBuildings(grid, level.uvLines[i]!, halfM / cfg.tileM, blocked);
   });
+  const diagonalFixes = fixDiagonalGaps(grid);
 
   // Goal = the block containing the landmark's coordinate (D012). The goal is the level's origin.
   const g = level.toUV({ x: 0, y: 0 });
@@ -50,43 +64,51 @@ export async function buildCity(city: string): Promise<CityFileV0> {
 
   const spawns = stationSpawns(osm, level, grid, cfg);
   const labels = streetLabels(level, grid);
-  const heights = tileHeights(city, cfg, level, grid);
+  const heights = heightRows(grid, raster.heights);
+  const buildings = buildingsFile(level, fps, grid, cfg);
 
   const streetTiles = grid.cells.filter((c) => c === T_STREET).length;
   console.log(
     `[map:build] ${city}: grid rotated ${level.angleDeg.toFixed(2)}°, ${width}×${height} tiles ` +
       `(${((width * cfg.tileM) / 1000).toFixed(2)} × ${((height * cfg.tileM) / 1000).toFixed(2)} km), ` +
-      `${((100 * streetTiles) / grid.cells.length).toFixed(0)}% street, goal ${goalTiles} tiles, ` +
-      `${spawns.length} spawns, ${labels.length} labels, ` +
-      `${heights.cityFootprints} city + ${heights.osmFootprints} OSM footprints → ${heights.builtTiles} built tiles ` +
-      `(${heights.fromOsm} from OSM, tallest ${heights.tallestM} m)`,
+      `${((100 * streetTiles) / grid.cells.length).toFixed(0)}% street (${diagonalFixes} diagonal fixes), ` +
+      `goal ${goalTiles} tiles, ${spawns.length} spawns, ${labels.length} labels, ` +
+      `${fps.city.length} city + ${fps.osm.length} OSM footprints → ${heights.built} built tiles ` +
+      `(${raster.fromOsm} from OSM, tallest ${heights.tallestM} m), ${buildings.buildings.length} drawn outlines`,
   );
   for (const s of spawns)
     console.log(`  spawn ${s.name.padEnd(22)} (${s.tx}, ${s.ty})  ${s.goalDistM} m`);
 
   return {
-    version: 0,
-    meta: {
-      city: cfg.name,
-      title: cfg.title,
-      tileM: cfg.tileM,
-      width,
-      height,
-      gridRotationDeg: Number(level.angleDeg.toFixed(3)),
-      attribution: '© OpenStreetMap contributors',
-      osmTimestamp: osm.osm3s.timestamp_osm_base,
+    city: {
+      version: 0,
+      meta: {
+        city: cfg.name,
+        title: cfg.title,
+        tileM: cfg.tileM,
+        width,
+        height,
+        gridRotationDeg: Number(level.angleDeg.toFixed(3)),
+        attribution: '© OpenStreetMap contributors',
+        osmTimestamp: osm.osm3s.timestamp_osm_base,
+      },
+      rows: grid.rows(),
+      heightRows: heights.rows,
+      goal: { name: cfg.goal.name, tx: goalTx, ty: goalTy },
+      spawns,
+      labels,
     },
-    rows: grid.rows(),
-    heightRows: heights.heightRows,
-    goal: { name: cfg.goal.name, tx: goalTx, ty: goalTy },
-    spawns,
-    labels,
+    buildings,
   };
 }
 
-const city = process.argv[2] ?? 'philly';
-const file = await buildCity(city);
-const outDir = join('public', 'cities', city);
+const name = process.argv[2] ?? 'philly';
+const t0 = performance.now();
+const result = await buildCity(name);
+const outDir = join('public', 'cities', name);
 mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, 'city.json'), JSON.stringify(file, null, 1) + '\n');
-console.log(`[map:build] wrote ${join(outDir, 'city.json')}`);
+writeFileSync(join(outDir, 'city.json'), JSON.stringify(result.city, null, 1) + '\n');
+writeFileSync(join(outDir, 'buildings.json'), JSON.stringify(result.buildings) + '\n');
+console.log(
+  `[map:build] wrote ${outDir}/city.json + buildings.json in ${((performance.now() - t0) / 1000).toFixed(1)} s`,
+);

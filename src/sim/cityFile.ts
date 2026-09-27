@@ -34,6 +34,19 @@ export interface CityFileV0 {
   labels: CityLabel[];
 }
 
+/**
+ * `public/cities/<city>/buildings.json`, for rendering only (the sim never reads it): building
+ * outlines and street centerlines in tile units × `coordScale`, as flat [u0, v0, u1, v1, …] arrays.
+ */
+export interface BuildingsFileV0 {
+  version: 0;
+  coordScale: number;
+  /** `h` = real height (m); `rings[0]` is the outline, any further rings are courtyards. */
+  buildings: { h: number; rings: number[][] }[];
+  /** OSM `highway` class and centerline, for lane markings. */
+  streets: { kind: string; pts: number[] }[];
+}
+
 export interface CitySpawn {
   name: string;
   tx: number;

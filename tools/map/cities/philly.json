@@ -21,11 +21,16 @@
   },
   "tileM": 8,
   "highways": ["trunk", "primary", "secondary", "tertiary", "residential", "unclassified"],
-  "streetWidthTiles": {
-    "default": 2,
-    "trunk": 3,
-    "primary": 3
+  "streetHalfWidthM": {
+    "default": 6,
+    "trunk": 16,
+    "primary": 16,
+    "secondary": 9,
+    "tertiary": 9,
+    "residential": 6,
+    "unclassified": 5
   },
+  "streetBlockedCoverage": 0.5,
   "stationSnapMaxTiles": 12,
   "buildings": {
     "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/LI_BUILDING_FOOTPRINTS/FeatureServer/0/query",

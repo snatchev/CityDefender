@@ -48,20 +48,6 @@ export function samplePolyline(line: readonly UV[], step: number, visit: (p: UV)
   }
 }
 
-/**
- * Paint a street centerline with a square brush `widthTiles` wide. Because the grid is aligned to the
- * streets, axis-parallel streets come out exactly `widthTiles` wide; diagonals come out a bit fatter.
- */
-export function paintStreet(grid: Grid, line: readonly UV[], widthTiles: number): void {
-  samplePolyline(line, 0.25, ({ u, v }) => {
-    const tx0 = Math.round(u - widthTiles / 2);
-    const ty0 = Math.round(v - widthTiles / 2);
-    for (let dy = 0; dy < widthTiles; dy++) {
-      for (let dx = 0; dx < widthTiles; dx++) grid.set(tx0 + dx, ty0 + dy, T_STREET);
-    }
-  });
-}
-
 const N4 = [
   [1, 0],
   [-1, 0],
@@ -143,10 +129,17 @@ function insideRings(rings: readonly UV[][], u: number, v: number): boolean {
   return inside;
 }
 
+export interface HeightRaster {
+  /** Tallest footprint height per tile (m), or 0 where coverage is below `minCoverage` (open lot). */
+  heights: Float32Array;
+  /** Fraction of each tile covered by footprints (0..1). */
+  coverage: Float32Array;
+}
+
 /**
- * Per-tile building height (metres, row-major). Each tile is sampled on a `sub`×`sub` grid; a tile is
- * built if footprints cover at least `minCoverage` of its samples, and then takes the tallest height
- * among them. Uncovered tiles get 0 (open lot).
+ * Per-tile building heights and footprint coverage (row-major). Each tile is sampled on a
+ * `sub`×`sub` grid; a tile is built if footprints cover at least `minCoverage` of its samples, and
+ * then takes the tallest height among them.
  */
 export function rasterizeHeights(
   width: number,
@@ -154,7 +147,7 @@ export function rasterizeHeights(
   footprints: readonly Footprint[],
   minCoverage: number,
   sub = 4,
-): Float32Array {
+): HeightRaster {
   const sw = width * sub;
   const sh = height * sub;
   const samples = new Float32Array(sw * sh);
@@ -184,7 +177,8 @@ export function rasterizeHeights(
     }
   }
 
-  const out = new Float32Array(width * height);
+  const heights = new Float32Array(width * height);
+  const coverage = new Float32Array(width * height);
   const need = minCoverage * sub * sub;
   for (let ty = 0; ty < height; ty++) {
     for (let tx = 0; tx < width; tx++) {
@@ -199,8 +193,53 @@ export function rasterizeHeights(
           }
         }
       }
-      out[ty * width + tx] = covered >= need ? max : 0;
+      heights[ty * width + tx] = covered >= need ? max : 0;
+      coverage[ty * width + tx] = covered / (sub * sub);
     }
   }
-  return out;
+  return { heights, coverage };
+}
+
+/**
+ * Paint a street from its centerline: every tile whose centre is within `halfWidthTiles` of the line
+ * becomes street unless `blocked(i)` (a building stands there), so streets follow the real gaps between
+ * buildings (D026). The tile under the centerline itself is always street, so the network can't break.
+ */
+export function paintStreetBetweenBuildings(
+  grid: Grid,
+  line: readonly UV[],
+  halfWidthTiles: number,
+  blocked: (i: number) => boolean,
+): void {
+  const r = Math.ceil(halfWidthTiles);
+  samplePolyline(line, 0.25, ({ u, v }) => {
+    grid.set(Math.floor(u), Math.floor(v), T_STREET);
+    for (let ty = Math.floor(v) - r; ty <= Math.floor(v) + r; ty++) {
+      for (let tx = Math.floor(u) - r; tx <= Math.floor(u) + r; tx++) {
+        if (!grid.inBounds(tx, ty) || blocked(ty * grid.width + tx)) continue;
+        if (Math.hypot(tx + 0.5 - u, ty + 0.5 - v) <= halfWidthTiles) grid.set(tx, ty, T_STREET);
+      }
+    }
+  });
+}
+
+/**
+ * Close diagonal-only gaps: two street tiles that touch only at a corner get one of the two shared
+ * orthogonal neighbours, so 4-neighbour movement can follow diagonal streets. Returns tiles added.
+ */
+export function fixDiagonalGaps(grid: Grid): number {
+  let added = 0;
+  const s = (x: number, y: number) => grid.get(x, y) === T_STREET;
+  for (let ty = 0; ty < grid.height - 1; ty++) {
+    for (let tx = 0; tx < grid.width; tx++) {
+      if (!s(tx, ty)) continue;
+      for (const dx of [1, -1]) {
+        if (s(tx + dx, ty + 1) && !s(tx + dx, ty) && !s(tx, ty + 1)) {
+          grid.set(tx, ty + 1, T_STREET);
+          added++;
+        }
+      }
+    }
+  }
+  return added;
 }

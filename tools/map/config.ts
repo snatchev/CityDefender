@@ -13,8 +13,13 @@ export interface CityConfig {
   tileM: number;
   /** OSM `highway` values kept as streets. */
   highways: string[];
-  /** Street width in tiles per highway class, with a `default`. */
-  streetWidthTiles: Record<string, number>;
+  /**
+   * Max half-width (m) of each highway class, with a `default`: tiles within this of a centerline are
+   * street unless a building covers them (D026), so streets follow the real building gaps.
+   */
+  streetHalfWidthM: Record<string, number>;
+  /** Footprint coverage (0..1) at which a tile counts as building, not street. */
+  streetBlockedCoverage: number;
   /** Building footprints with heights (City of Philadelphia LI_BUILDING_FOOTPRINTS, ArcGIS REST). */
   buildings: {
     url: string;
