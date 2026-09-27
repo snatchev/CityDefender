@@ -3,6 +3,7 @@ import type { BackdropFileV0, BackdropLayer } from '../../src/sim/cityFile';
 import {
   backdropBuildingsCachePath,
   backdropOsmCachePath,
+  footprintHeightM,
   type CityConfig,
   type FootprintCollection,
   type OverpassResponse,
@@ -28,9 +29,7 @@ export function bakeBackdrop(city: string, cfg: CityConfig, level: Level): Backd
   for (const f of fc.features) {
     if (!f.geometry) continue;
     const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-    const raw =
-      Number(f.properties[b.heightField]) || Number(f.properties[b.fallbackHeightField]) || 0;
-    const heightM = raw > 0 ? raw * b.heightUnitM : b.defaultHeightM;
+    const heightM = footprintHeightM(f.properties, b);
     for (const poly of polys) fps.push({ heightM, rings: poly.map((ring) => ring.map(toTile)) });
   }
   // Tall OSM buildings fill skyline gaps (e.g. the Comcast towers are missing from the city data).

@@ -83,7 +83,7 @@ Full rationale is in [research/map-sources.md](research/map-sources.md). Summary
 - **Tile = 8 m.** A side street is about 2 tiles wide, and Broad or Market about 3–4. The grid is rotated to match Penn's street grid.
 - Tile types: `street`, `sidewalk/corner`, `building(height)`, `park`, `water`, `goal`, `station`.
 - **Level bounds v1:** Vine St → Spruce St, 18th St → 8th St (~1.3 × 1.2 km, ~160 × 150 tiles).
-- **Height compression:** display and gameplay height = √‑curve of real height. Ordering is preserved and skyscrapers don't wall off the camera.
+- **Heights:** buildings are drawn at their real height (the old "nothing taller than Billy Penn's hat" rule is long gone, and the skyline should show it). Gameplay height (tower range, DESIGN §7) uses a √‑curve of real height so skyscrapers don't dominate (D029).
 - **Landmarks:** City Hall (goal) and later ~5 hand‑modeled heroes. Everything else is an extruded footprint.
 
 ### 4.1 Placement

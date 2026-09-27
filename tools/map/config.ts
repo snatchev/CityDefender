@@ -28,6 +28,12 @@ export interface CityConfig {
     fallbackHeightField: string;
     /** Metres per height unit (feet → 0.3048). */
     heightUnitM: number;
+    /**
+     * Use the fallback (max) height when it's at most this many times the primary (approx) height:
+     * that catches spires and crowns the approx value averages away, while rejecting max values
+     * inflated by a taller neighbour (e.g. a podium next to a tower).
+     */
+    maxHeightTrustRatio: number;
     /** Height for footprints with no usable height. */
     defaultHeightM: number;
     /** Storey height used to turn OSM `building:levels` into metres. */
@@ -53,6 +59,18 @@ export interface CityConfig {
   };
   /** Max search distance when snapping a station to the nearest street tile. */
   stationSnapMaxTiles: number;
+}
+
+/** A city footprint's height in metres (D029): approx height, or max height when it's plausible. */
+export function footprintHeightM(
+  props: Record<string, string | number | null>,
+  b: CityConfig['buildings'],
+): number {
+  const approx = Number(props[b.heightField]) || 0;
+  const max = Number(props[b.fallbackHeightField]) || 0;
+  const raw =
+    approx > 0 && max > 0 ? (max <= approx * b.maxHeightTrustRatio ? max : approx) : approx || max;
+  return raw > 0 ? raw * b.heightUnitM : b.defaultHeightM;
 }
 
 export const MAP_DIR = 'tools/map';

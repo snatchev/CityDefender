@@ -39,7 +39,8 @@
     "heightUnitM": 0.3048,
     "defaultHeightM": 10,
     "minTileCoverage": 0.25,
-    "osmLevelM": 3.5
+    "osmLevelM": 3.5,
+    "maxHeightTrustRatio": 1.25
   },
   "backdrop": {
     "bbox": {

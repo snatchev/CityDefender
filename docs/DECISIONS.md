@@ -132,3 +132,7 @@ Consequences: map:build bakes `backdrop.json` from ~70k simplified city footprin
 **D028 · 2026-09-27 · Street graph and slots are derived at load time, in the sim.**
 Why: one implementation for real maps and test fixtures (tests exercise real logic), and no derived data to keep in sync in city.json.
 Consequences: `src/sim/slots.ts`: graph nodes are crossing tiles (both street runs longer than `maxBarricadeSpanTiles`) and stations; segments (block faces) connect them; one barricade per segment; roof pads (1–3 per run of similar-height buildings, on its street front) and street-level corners (intersection corners) are the only tower spots. Towers' range = base × min(cap, 1 + factor × height), with a minimum range for raised towers (DESIGN §7). Balance re-tuned: bug HP ×1.7 from wave 3.
+
+**D029 · 2026-09-27 · Draw buildings at real height; compress only gameplay height. Supersedes the display half of DESIGN §4's height compression.**
+Why: Stefan noticed the tall buildings looked missing: the √ curve drew the 297 m Comcast Center at 69 m, below the City Hall stand-in. Philadelphia's skyline is defined by towers well above City Hall.
+Consequences: buildings, backdrop and tower positions use real metres; `gameHeight()` (√ curve) stays for tower range and minimum range. City Hall stand-in at real proportions (48 m block, statue at 167 m). Footprint height = `max_hgt` when it's within 1.25× of `approx_hgt` (catches spires), else `approx_hgt` (rejects values inflated by taller neighbours).

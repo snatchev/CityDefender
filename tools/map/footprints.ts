@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { BuildingsFileV0 } from '../../src/sim/cityFile';
 import {
   buildingsCachePath,
+  footprintHeightM,
   osmBuildingsCachePath,
   type CityConfig,
   type FootprintCollection,
@@ -27,9 +28,7 @@ export function loadFootprints(city: string, cfg: CityConfig, level: Level): Foo
   for (const f of fc.features) {
     if (!f.geometry) continue;
     const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-    const raw =
-      Number(f.properties[b.heightField]) || Number(f.properties[b.fallbackHeightField]) || 0;
-    const heightM = raw > 0 ? raw * b.heightUnitM : b.defaultHeightM;
+    const heightM = footprintHeightM(f.properties, b);
     for (const poly of polys)
       cityFps.push({ heightM, rings: poly.map((ring) => ring.map(toTile)) });
   }

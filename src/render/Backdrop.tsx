@@ -2,7 +2,6 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Color, Object3D, type InstancedMesh } from 'three';
 import type { BackdropFileV0, BackdropLayer } from '../sim/cityFile';
 import { TILE_M } from '../sim/constants';
-import { gameHeight } from '../sim/height';
 import { buildingColor } from './buildingMesh';
 import { uvToWorld, type TileFrame } from './coords';
 
@@ -63,7 +62,7 @@ function LayerBoxes({
     const out: { cx: number; cy: number; h: number }[] = [];
     layer.rows.forEach((row, cy) => {
       row.split(',').forEach((v, cx) => {
-        const h = gameHeight(Number(v));
+        const h = Number(v); // real metres (D029)
         if (h > 0) out.push({ cx, cy, h });
       });
     });

@@ -1,15 +1,14 @@
 import { BufferAttribute, BufferGeometry, Color, ShapeUtils, Vector2 } from 'three';
 import type { BuildingsFileV0 } from '../sim/cityFile';
-import { gameHeight } from '../sim/height';
 import { uvToWorld, type TileFrame } from './coords';
 
 /** Low buildings (rowhouses, brick) … */
 const LOW = new Color('#c8b89b');
 /** … blend toward this for towers. */
 const HIGH = new Color('#9fb0c0');
-/** Display heights (m) between which the colour blends from low to high. */
-const TINT_FROM_M = 16;
-const TINT_TO_M = 55;
+/** Heights (m) between which the colour blends from low (rowhouses) to high (towers). */
+const TINT_FROM_M = 20;
+const TINT_TO_M = 120;
 /** Walls are drawn a little darker than roofs so the massing reads. */
 const WALL_SHADE = 0.86;
 
@@ -55,7 +54,7 @@ export function buildingGeometry(file: BuildingsFileV0, frame: TileFrame): Buffe
   };
 
   for (const b of file.buildings) {
-    const h = gameHeight(b.h);
+    const h = b.h; // real metres, drawn 1:1 (D029)
     if (h <= 0) continue;
     const roofColor = buildingColor(h, c).clone();
     const wallColor = roofColor.clone().multiplyScalar(WALL_SHADE);
