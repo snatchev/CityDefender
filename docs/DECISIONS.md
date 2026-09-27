@@ -105,3 +105,10 @@ Consequences:
 - Mobs scale with camera distance beyond 300 m so they stay readable zoomed out; towers get half that.
 - Keyboard camera: WASD pans relative to the view, Q/E orbit the target. Keys are matched by `KeyboardEvent.code` (layout-independent), ignored while typing, cleared on blur, and a tap moves at least one frame.
 - Dev: `__cd.focusTile(tx, ty, { distM, pitchDeg, yawDeg })` for reproducible screenshots.
+
+**D024 · 2026-09-26 · Pass 5 economy and feedback details.**
+Why: finish the MVP loop from the plan with playtest 1's "a little easy".
+Consequences:
+- Selling refunds 70% (`sellRefund`), except builds placed during the current prep, which refund 100% ("free undo", DESIGN §3.1). Towers sell any time; barricades only in prep (D006).
+- The sim keeps a 1-second effects log (`world.fx`: kills, barricade breaks). It's for visuals only and the sim never reads it back.
+- The run is now 10 waves over 3 stations, tuned so passive play loses and a strong tower-only bot wins with ~30 Integrity.

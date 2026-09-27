@@ -280,3 +280,24 @@ body,
 .hud-selected .hud-row {
   margin-top: 6px;
 }
+
+.hud-intel {
+  margin: -4px 0 10px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.hud-intel li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hud-intel-station {
+  padding: 0 5px;
+  background: #f28c28;
+  border-radius: 3px;
+  color: #1f1206;
+  font-weight: 600;
+}

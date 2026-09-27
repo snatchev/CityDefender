@@ -21,7 +21,7 @@ export function Hud() {
   return (
     <div className="hud">
       <div className="hud-title">City Defender</div>
-      <div className="hud-sub">Pass 4 · first playable{s.city ? ` · ${s.city.title}` : ''}</div>
+      <div className="hud-sub">Pass 5 · MVP{s.city ? ` · ${s.city.title}` : ''}</div>
 
       <div className="hud-top">
         <div aria-label="City Hall integrity">
@@ -35,6 +35,7 @@ export function Hud() {
       <div className="hud-phase" aria-live="polite">
         <PhaseLine />
       </div>
+      <WaveIntel />
 
       <dl className="hud-stats">
         <dt>Bugs on the streets</dt>
@@ -95,6 +96,26 @@ export function Hud() {
         </ul>
       )}
     </div>
+  );
+}
+
+/** Where this wave's bugs come from and how many (shown during prep and assault). */
+function WaveIntel() {
+  const intel = useHud((s) => s.waveIntel);
+  const phase = useHud((s) => s.phase);
+  const stations = useHud((s) => s.city?.stations);
+  if ((phase !== 'prep' && phase !== 'assault') || intel.length === 0 || !stations) return null;
+  return (
+    <ul className="hud-intel" aria-label="Wave intel">
+      {intel.map((g, i) => (
+        <li key={i}>
+          <span className="hud-intel-station">{stations[g.spawnIndex]}</span>
+          <span>
+            {g.count}× bugs{g.hpMul !== 1 ? `, HP ×${g.hpMul}` : ''}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

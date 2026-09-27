@@ -3,8 +3,8 @@
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
 **Last updated:** 2026-09-26
-**Current pass:** Pass 5 (MVP polish + playtest): **in progress**
-**Next up:** rest of Pass 5, then Pass 6 (map generator v1)
+**Current pass:** Pass 5 (MVP polish): **done**, tagged `pass-05`. Waiting on playtest 2 (the plan's acceptance: Stefan plays twice and wants a third run).
+**Next up:** playtest 2 notes, then Pass 6 (map generator v1)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
@@ -22,7 +22,7 @@
 ## In progress
 - Pass 5. Playtest 1 (Stefan, 2026-09-26): "a little easy, adjust later"; mobs and towers need to be more prominent (bigger, glow); mobs should stay visible behind buildings; wants WASD pan + Q/E rotate.
   - Done: bigger, self-lit mobs (acid green) with an additive halo, and an x-ray silhouette where a building hides them (D023). Mobs scale up with camera distance so they stay readable zoomed out; towers get half that. Towers bigger and self-lit with a glowing roof ring. WASD pans relative to the view, Q/E orbit (D023).
-  - Still to do (plan): sell/undo, range disc on hover/selection for existing towers, HP bars on damaged mobs, death pop, screen shake, wave intel panel, 3 stations / 10 waves, tuning (harder).
+  - Done: sell (70%) with free undo of this prep's builds; click a tower to select it (range disc, kills, Sell, Esc); hover shows range and sell value; right-click sells. HP bars on damaged bugs, death pops, screen shake on barricade breaks. Wave intel panel. 10 waves over 3 stations (Race-Vine; 11th Street from wave 4; Walnut-Locust from wave 6), tuned harder (see Known issues).
 
 ## How Claude builds and checks things (Claude Code on the Mac, since 2026-09-26)
 - Development moved from Cowork to **Claude Code running directly on Stefan's Mac** (see D010). npm, vitest, eslint and the dev server run natively in the project folder. The Cowork workarounds (a scratch copy of the project for Linux builds, checking the game through a published artifact) are no longer needed.
@@ -41,9 +41,11 @@
 - Camera isn't clamped to the level bounds (camera work is Pass 4–5).
 - Street labels are dense when zoomed out; no label culling or level-of-detail yet.
 
+## Deferred from Pass 5
+- Tracers are still 1-px lines (WebGL line width); thicker tracers need mesh lines or bloom (Pass 10).
+- Next-wave breach telegraph ("Tremors under 15th St") and interest/debrief summary: Pass 9.
+
 ## Deferred from Pass 4
-- Tower selling/undo, range disc on existing towers, HP bars, death pop, screen shake, wave intel panel: Pass 5 (as planned).
-- Tracers are 1-px lines and hard to see zoomed out; hit flash is a 1-tick white blink. Juice is Pass 5–10.
 - Tower height range bonus and roof pads: Pass 6.
 
 ## Deferred from Pass 3
@@ -54,7 +56,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
-- Balance (headless check on the real map, throwaway script): no towers → lost in wave 5; two towers only → lost in wave 5; a player who keeps buying well-placed MG Nests → won with ~72 Integrity, with all damage in the final two-station wave. Waves 1–3 are easy on purpose (teaching). About 3 min calling every wave early, about 5 min waiting out prep. Needs Stefan's playtest (Pass 5).
+- Balance, 10 waves (headless check on the real map, throwaway script, no barricades): no towers → lost in wave 5; two towers only → lost in wave 7; a bot that keeps buying well-placed MG Nests → won with ~30 Integrity, damage from wave 8 on. Humans can do better with barricades (merging routes into kill zones). About 6 min calling every wave early, about 11 min waiting out prep. Needs playtest 2.
 - The HUD's per-station route lines and the station labels can overlap the HUD panel on small windows.
 - A sawhorse (100 HP) falls to a 20-bug stream in ~4 s. Matches "for steering, not holding", but tune in Pass 5.
 - Testing note: pointer events dispatched from scripts get halved `offsetX/Y` on this HiDPI Chrome and confuse the camera controls. Test placement with real input: `__cd.focusTile(tx, ty)`, then DevTools `click`/`hover` on the "City map" element (it hits the canvas centre).
@@ -74,3 +76,4 @@
 | 2 | 2026-09-26 | ✅ typecheck, lint, 21/21 tests (mob arrival tick count + seeded determinism on fixtures). 400 mobs at 3× speed: 60 fps, worst frame 22 ms. All 12 stations reach City Hall | [pass-02.png](screenshots/pass-02.png) | The arrival test caught an off-by-one tick; fixed |
 | 3 | 2026-09-26 | ✅ typecheck, lint, 25/25 tests (span, detour, siege at the cheapest barricade, no oscillation). Real clicks in Chrome: +376 m preview matched the placed route (416 → 792 m), swarm rerouted, sealed station → siege on the cheaper sawhorse. Recompute ≈3.4 ms. 60 fps | [pass-03.png](screenshots/pass-03.png) | Tests caught a float-dust bug (band 0 with 1e-13 HP) |
 | 4 | 2026-09-26 | ✅ typecheck, lint, 27/27 tests (scripted run: phase sequence + seeded replay; a run can be lost). Real clicks: rooftop MG Nest placed and paid for, "Start wave" button, wave 1 cleared 12/12 with cash reconciling exactly. Headless balance on the real map (see Known issues). 60 fps | [pass-04.png](screenshots/pass-04.png) | First playable |
+| 5 | 2026-09-26 | ✅ typecheck, lint, 28/28 tests (+ free undo vs 70% sell). Real clicks: select tower → panel → Sell ($100 during the same prep; $70 after). WASD/QE via real key presses. Shake starts and settles with no camera drift. Intel panel lists wave 6's three stations. 60 fps | [pass-05.png](screenshots/pass-05.png) | Playtest 1 feedback applied; a shake bug (restart detection by tick order) found and fixed in the browser |

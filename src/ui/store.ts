@@ -29,6 +29,8 @@ interface HudState {
   waveCount: number;
   /** Seconds left in the prep/debrief countdown. */
   phaseSeconds: number;
+  /** The current wave's composition (wave intel, DESIGN §3.1). */
+  waveIntel: { spawnIndex: number; count: number; hpMul: number }[];
   /** Set once the WebGL renderer is up (Canvas onCreated). */
   renderer: string | null;
   /** Set once the city file has loaded; the scene renders the map from `game.city` after that. */
@@ -45,7 +47,7 @@ interface HudState {
   pushError: (message: string) => void;
 }
 
-export const useHud = create<HudState>()((set) => ({
+export const useHud = create<HudState>()((set, get) => ({
   tick: 0,
   simTime: 0,
   seed: 0,
@@ -59,6 +61,7 @@ export const useHud = create<HudState>()((set) => ({
   wave: 0,
   waveCount: 0,
   phaseSeconds: 0,
+  waveIntel: [],
   renderer: null,
   city: null,
   notice: null,
@@ -83,6 +86,14 @@ export const useHud = create<HudState>()((set) => ({
       wave: world.wave + 1,
       waveCount: world.waves.length,
       phaseSeconds: Math.ceil(world.phaseTicks / TICK_HZ),
+      waveIntel: sameIntel(get().waveIntel, world),
       barricades: world.barricades.length,
     }),
 }));
+
+/** Keep the previous array when the wave hasn't changed, so the intel panel doesn't re-render at 4 Hz. */
+function sameIntel(prev: HudState['waveIntel'], world: World): HudState['waveIntel'] {
+  const groups = world.waves[world.wave]?.groups ?? [];
+  const next = groups.map((g) => ({ spawnIndex: g.spawnIndex, count: g.count, hpMul: g.hpMul }));
+  return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+}
