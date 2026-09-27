@@ -155,6 +155,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 - VFX: muzzle flashes, splash rings, frost, lightning, acid, bug splat decals that fade.
 - Audio: bus/mixer, weapon sounds, siren on breach, radio chatter lines with Philly flavor.
 - Postprocessing: subtle bloom, SSAO, outline on selection. Day/night per wave.
+- Buildings (Stefan, 2026-09-27): real 3D shapes from OSM `building:part` (643 parts in the level: setback tiers, plus ~80 gabled/hipped/pyramidal/dome/cone roofs) with generated roof meshes; parapets and rooftop mechanical boxes on flat roofs; procedural window textures. Render only: the sim keeps per-tile heights, but roof-pad towers must sit on the drawn roof. City LiDAR (PASDA) stays in reserve.
 - Performance pass: 500 mobs plus effects at 60 fps on the target machine (profile with DevTools MCP traces).
 
 ### Pass 11: Replayability · timebox 2–3 days
