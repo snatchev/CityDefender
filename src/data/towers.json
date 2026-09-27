@@ -5,8 +5,8 @@
     "rangeM": 64,
     "damage": 4,
     "shotsPerS": 4,
-    "rangeHeightFactor": 0.015,
-    "rangeMaxMul": 1.8,
+    "rangeHeightFactor": 0.01,
+    "rangeMaxMul": 1.5,
     "minRangePerHeight": 0.5
   }
 }

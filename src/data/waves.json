@@ -28,7 +28,7 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 28,
-          "hpMul": 2.7,
+          "hpMul": 4.59,
           "intervalS": 0.4
         }
       ]
@@ -39,14 +39,14 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 18,
-          "hpMul": 2.9,
+          "hpMul": 4.93,
           "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 14,
-          "hpMul": 2.9,
+          "hpMul": 4.93,
           "intervalS": 0.6
         }
       ]
@@ -57,14 +57,14 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 26,
-          "hpMul": 4.2,
+          "hpMul": 7.14,
           "intervalS": 0.4
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 22,
-          "hpMul": 4.2,
+          "hpMul": 7.14,
           "intervalS": 0.45
         }
       ]
@@ -75,21 +75,21 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 14,
-          "hpMul": 4.0,
+          "hpMul": 6.8,
           "intervalS": 0.6
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 12,
-          "hpMul": 4.0,
+          "hpMul": 6.8,
           "intervalS": 0.6
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
           "count": 12,
-          "hpMul": 4.0,
+          "hpMul": 6.8,
           "intervalS": 0.6
         }
       ]
@@ -100,21 +100,21 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 20,
-          "hpMul": 5.0,
+          "hpMul": 8.5,
           "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 18,
-          "hpMul": 5.0,
+          "hpMul": 8.5,
           "intervalS": 0.5
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
           "count": 16,
-          "hpMul": 5.0,
+          "hpMul": 8.5,
           "intervalS": 0.55
         }
       ]
@@ -125,21 +125,21 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 28,
-          "hpMul": 6.8,
+          "hpMul": 11.56,
           "intervalS": 0.4
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 26,
-          "hpMul": 6.8,
+          "hpMul": 11.56,
           "intervalS": 0.4
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
           "count": 24,
-          "hpMul": 6.8,
+          "hpMul": 11.56,
           "intervalS": 0.45
         }
       ]
@@ -150,21 +150,21 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 20,
-          "hpMul": 6.8,
+          "hpMul": 11.56,
           "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 18,
-          "hpMul": 6.8,
+          "hpMul": 11.56,
           "intervalS": 0.5
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
           "count": 18,
-          "hpMul": 6.8,
+          "hpMul": 11.56,
           "intervalS": 0.5
         }
       ]
@@ -175,21 +175,21 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 32,
-          "hpMul": 8.4,
+          "hpMul": 14.28,
           "intervalS": 0.38
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 30,
-          "hpMul": 8.4,
+          "hpMul": 14.28,
           "intervalS": 0.38
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
           "count": 28,
-          "hpMul": 8.4,
+          "hpMul": 14.28,
           "intervalS": 0.42
         }
       ]

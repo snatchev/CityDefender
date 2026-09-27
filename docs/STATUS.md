@@ -3,8 +3,8 @@
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
 **Last updated:** 2026-09-26
-**Current pass:** Pass 5 (MVP polish): **done**, tagged `pass-05`. Waiting on playtest 2 (the plan's acceptance: Stefan plays twice and wants a third run).
-**Next up:** playtest 2 notes, then Pass 6 (map generator v1)
+**Current pass:** Pass 6 (Map generator v1): **done**, tagged `pass-06`
+**Next up:** Pass 7 (data-driven roster: Mortar, Cryo, Railgun; Carapace Beetle; armor and targeting modes)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
@@ -16,6 +16,12 @@
 - Pass 2: one mob (tag `pass-02`). Red "skitterling" spheres leave a station (HUD picker + "Send 20 bugs", or `__cd.spawnWave(n, stationIndex)`) and walk the real streets to City Hall, which loses Integrity per arrival. Pathing is a breadth-first distance field from the goal (D020). Mob stats in `src/data/mobs.json`, start Integrity and spawn interval in `src/data/rules.json`.
 - Pass 3: flow field + barricades (tag `pass-03`). Click a street to drop a Police Sawhorse across its full width; right-click removes it. Hovering shows a ghost barricade, the new route (dashed cyan) and a detour meter (`+376 m`). The selected station's current route is drawn in orange. Barricades are HP-weighted path costs (siege rule): bugs detour when that's cheaper, otherwise stop and break through the cheapest barricade. The field recomputes only on place/remove/destroy and at 25% HP bands (D021). Barricade tint goes yellow → red with damage.
 - Pass 4: first playable (tag `pass-04`). A run is 5 waves (`src/data/waves.json`): PREP (30 s countdown, "Start wave" ends it early for +$1/s skipped) → ASSAULT → DEBRIEF (4 s, clear bonus) → … → won, or lost at City Hall Integrity 0, with an end screen and "Play again". Click a rooftop overlooking a street for an MG Nest ($100, hitscan, 64 m range, targets "First"); click a street for a sawhorse ($25, prep only, right-click refunds). Cash from bounties ($4/kill), wave clear bonus and the early call. Routes and ghost routes now show every station active this wave. Rooftops are picked by marching the pointer ray through the height grid.
+- Pass 6: map generator v1 (tag `pass-06`).
+  - Streets follow the real gaps between building footprints (D026), so walkable streets match what's drawn. Buildings are drawn as real extruded footprints (one merged mesh) with dashed lane lines on major streets.
+  - Street graph, one barricade per block face, roof pads and street-corner tower spots are derived at load time in `src/sim/slots.ts` (D028). Towers go only on pads (◆) and corners (●); range grows with roof height, with a minimum range for raised towers. M toggles a map debug view.
+  - A decorative backdrop city out to the rivers (70k footprints baked to 16 m / 32 m height grids, LOD by distance), a gradient sky and horizon haze (D027, Stefan's request).
+  - City Hall hit feedback (flash, Integrity-scaled shake, HUD pulse), from playtest 2.
+  - Balance re-tuned for the new tower spots: bug HP ×1.7 from wave 3; gentler height bonus (see Known issues).
 - Real building heights (pulled forward from Pass 6 at Stefan's request, D019): per-tile heights from City of Philadelphia footprints, with OSM buildings filling the gaps (the Convention Center and Comcast Technology Center are missing from the city data). Drawn with the √ height curve from DESIGN §4. Open lots show as low grey slabs.
 - 28 agent skills installed in `.agents/skills` (symlinked into `.claude/skills`). All kept (D018); see [TOOLING.md](TOOLING.md).
 
@@ -41,6 +47,12 @@
 - Camera isn't clamped to the level bounds (camera work is Pass 4–5).
 - Street labels are dense when zoomed out; no label culling or level-of-detail yet.
 
+## Deferred from Pass 6
+- Sidewalk tiles (DESIGN §4 tile types): corners are street-level spots at intersection corners instead.
+- Rivers and backdrop streets (IDEAS, Pass 10). Landmark models (Pass 10).
+- Overture fallback for heights: OSM covered the gaps we found.
+- Very short stub streets (runs under ~7 tiles) merge into the segment they join, so they share its one-barricade limit.
+
 ## Deferred from Pass 5
 - Tracers are still 1-px lines (WebGL line width); thicker tracers need mesh lines or bloom (Pass 10).
 - Next-wave breach telegraph ("Tremors under 15th St") and interest/debrief summary: Pass 9.
@@ -56,7 +68,8 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
-- Balance, 10 waves (headless check on the real map, throwaway script, no barricades): no towers → lost in wave 5; two towers only → lost in wave 7; a bot that keeps buying well-placed MG Nests → won with ~30 Integrity, damage from wave 8 on. Humans can do better with barricades (merging routes into kill zones). About 6 min calling every wave early, about 11 min waiting out prep. Needs playtest 2.
+- Balance after Pass 6 (headless bot on the real map, no barricades): two towers only → lost in wave 6; a bot that keeps buying well-placed towers on pads/corners → won with ~37 Integrity, damage from wave 6 on. Street corners put towers right on the route, which is why HP went up ×1.7. Needs a playtest.
+- (Pre-Pass 6) Balance, 10 waves (headless check on the real map, throwaway script, no barricades): no towers → lost in wave 5; two towers only → lost in wave 7; a bot that keeps buying well-placed MG Nests → won with ~30 Integrity, damage from wave 8 on. Humans can do better with barricades (merging routes into kill zones). About 6 min calling every wave early, about 11 min waiting out prep. Needs playtest 2.
 - The HUD's per-station route lines and the station labels can overlap the HUD panel on small windows.
 - A sawhorse (100 HP) falls to a 20-bug stream in ~4 s. Matches "for steering, not holding", but tune in Pass 5.
 - Testing note: pointer events dispatched from scripts get halved `offsetX/Y` on this HiDPI Chrome and confuse the camera controls. Test placement with real input: `__cd.focusTile(tx, ty)`, then DevTools `click`/`hover` on the "City map" element (it hits the canvas centre).
@@ -79,3 +92,4 @@
 | 5 | 2026-09-26 | ✅ typecheck, lint, 28/28 tests (+ free undo vs 70% sell). Real clicks: select tower → panel → Sell ($100 during the same prep; $70 after). WASD/QE via real key presses. Shake starts and settles with no camera drift. Intel panel lists wave 6's three stations. 60 fps | [pass-05.png](screenshots/pass-05.png) | Playtest 1 feedback applied; a shake bug (restart detection by tick order) found and fixed in the browser |
 | 5b | 2026-09-27 | ✅ review/refactor (D025): 31 files, −189 lines net. typecheck, lint, 28/28 tests. `map:build` output byte-identical. Real clicks: build, select, Restart (now also clears the selection panel). Scripted wave 1 cleared, cash reconciles, 61 fps | – | Structure only, no gameplay change |
 | 5c | 2026-09-27 | ✅ City Hall hit feedback: red flash, shake that grows as Integrity drops, HUD Integrity pulses on each hit and turns red under 25. Checked in Chrome by stepping to a hit (flash visible, shake measured) | – | Playtest 2 request |
+| 6 | 2026-09-27 | ✅ typecheck, lint, 33/33 tests (+ street graph, pads, one barricade per block, height range). map:build 1.3 s incl. backdrop. Real clicks: tower on a corner (street level) and on a pad (range 82 m / min 9 m on a 19 m roof), M debug view. Backdrop + sky at 60 fps; live wave 60 fps. Headless re-balance | [pass-06.png](screenshots/pass-06.png), [backdrop](screenshots/pass-06-backdrop.png) | Includes City Hall hit feedback and Stefan's backdrop/sky request |

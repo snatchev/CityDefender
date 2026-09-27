@@ -108,7 +108,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 
 ## Milestone B: Make it Philadelphia (Passes 6–7)
 
-### Pass 6: Map generator v1 · timebox 2–3 days
+### Pass 6: Map generator v1 · timebox 2–3 days · ✅ done 2026-09-27 (see D026–D028; backdrop + sky added)
 **Deliverable:** real Center City. Buildings at real (compressed) heights, correct street widths, precomputed slots.
 - ✅ *Done early (D019):* City of Philadelphia footprints (`approx_hgt`) rasterized to per-tile heights, with OSM buildings as the fallback, drawn with the √ curve. Remaining here: footprint meshes, and Overture if OSM gaps show up.
 - Clip and simplify with mapshaper. Drop footprints under 40 m². Merge rowhouse runs.

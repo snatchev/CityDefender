@@ -38,7 +38,7 @@ export function Hud() {
   return (
     <div className="hud">
       <div className="hud-title">City Defender</div>
-      <div className="hud-sub">Pass 5 · MVP{s.city ? ` · ${s.city.title}` : ''}</div>
+      <div className="hud-sub">Pass 6 · real Philadelphia{s.city ? ` · ${s.city.title}` : ''}</div>
 
       <div className="hud-top">
         <div aria-label="City Hall integrity">

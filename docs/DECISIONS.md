@@ -120,3 +120,15 @@ Consequences:
 - Game/UI: `restartRun()` (planning.ts) is the one way to start a run; it also clears selection, hover and notices. `loadCity` only loads. Unused store fields were removed and the dev-only `spawnWave` moved to the dev hook.
 - Render: `view.ts` (controls type, view distance, `zoomScale`), `renderAlpha()` in game.ts, `indexToWorld()` in coords.ts, and pointer input in `pointer.ts` (was picking.ts plus handlers in Scene). LabelLayer compares camera matrices directly.
 - Map tool: `build.ts` split into step modules. The rebuilt `city.json` is byte-identical.
+
+**D026 · 2026-09-27 · Streets are painted into the gaps between real buildings, not widened by lane tags.**
+Why: lane-based widths never match the drawn footprints, so bugs would walk through walls. Painting streets only where no building stands keeps the sim and the picture in agreement, and gets real widths for free.
+Consequences: a tile is street if it lies within its class's max half-width (`streetHalfWidthM`) of a centerline and footprint coverage is below `streetBlockedCoverage`; the centerline tile itself is always street, and diagonal-only gaps are closed. Replaces the plan's "street width from lanes".
+
+**D027 · 2026-09-27 · Backdrop city and sky (Stefan's request).**
+Why: the level should sit in a real city, not float in grey.
+Consequences: map:build bakes `backdrop.json` from ~70k simplified city footprints plus tall OSM buildings into coarse height grids (16 m cells within 700 m of the level, 32 m beyond), render only, never read by the sim. A gradient sky dome follows the camera; fog and background share the horizon haze. drei `<Sky>` was tried and saturated to white under R3F's tone mapping.
+
+**D028 · 2026-09-27 · Street graph and slots are derived at load time, in the sim.**
+Why: one implementation for real maps and test fixtures (tests exercise real logic), and no derived data to keep in sync in city.json.
+Consequences: `src/sim/slots.ts`: graph nodes are crossing tiles (both street runs longer than `maxBarricadeSpanTiles`) and stations; segments (block faces) connect them; one barricade per segment; roof pads (1–3 per run of similar-height buildings, on its street front) and street-level corners (intersection corners) are the only tower spots. Towers' range = base × min(cap, 1 + factor × height), with a minimum range for raised towers (DESIGN §7). Balance re-tuned: bug HP ×1.7 from wave 3.
