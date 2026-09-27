@@ -3,7 +3,9 @@ import { useFrame } from '@react-three/fiber';
 import { useRef, type ComponentRef } from 'react';
 import { AdditiveBlending, Color, Object3D, type InstancedMesh } from 'three';
 import { game, renderAlpha } from '../game';
+import rulesData from '../data/rules.json';
 import { TICK_DT } from '../sim/constants';
+import type { FxEvent } from '../sim/world';
 import { tileToWorld, type TileFrame } from './coords';
 
 const MAX_POPS = 256;
@@ -15,17 +17,22 @@ const POP_COLOR = new Color('#e6ff9a');
 const BLACK = new Color('#000000');
 /** Shake strength when a barricade breaks (drei CameraShake intensity, decays to 0). */
 const BREAK_SHAKE = 0.9;
+/** Shake when a bug reaches City Hall: small at full Integrity, growing as it runs out. */
+const GOAL_SHAKE_MIN = 0.25;
+const GOAL_SHAKE_MAX = 0.8;
 
 /**
  * Feedback effects driven by `world.fx` (DESIGN §10 "readable feedback", §10.4 siege drama):
  * - death pop: an additive burst that grows and fades where a bug died,
- * - screen shake when a barricade is destroyed.
+ * - screen shake when a barricade is destroyed, and when a bug reaches City Hall (stronger as
+ *   Integrity runs low; City Hall itself flashes in CityHall.tsx).
  * Reads the sim every frame; never sets React state.
  */
 export function Effects({ frame }: { frame: TileFrame }) {
   const pops = useRef<InstancedMesh>(null);
   const shake = useRef<ComponentRef<typeof CameraShake>>(null);
-  const lastBreakTick = useRef(-1);
+  /** Newest event tick already reacted to, per event list. */
+  const seen = useRef({ breaks: -1, goalHits: -1 });
   /** `resetWorld` replaces `world.fx`, so a new object means a restart: forget old events. */
   const seenFx = useRef<object | null>(null);
   const dummy = useRef(new Object3D());
@@ -58,12 +65,16 @@ export function Effects({ frame }: { frame: TileFrame }) {
 
     if (seenFx.current !== world.fx) {
       seenFx.current = world.fx;
-      lastBreakTick.current = -1;
+      seen.current = { breaks: -1, goalHits: -1 };
     }
-    const lastBreak = world.fx.barricadeBreaks[world.fx.barricadeBreaks.length - 1];
-    if (lastBreak && lastBreak.tick > lastBreakTick.current) {
-      lastBreakTick.current = lastBreak.tick;
-      shake.current?.setIntensity(BREAK_SHAKE);
+    const bump = (strength: number) => {
+      const s = shake.current;
+      if (s) s.setIntensity(Math.max(s.getIntensity(), strength)); // rapid hits keep it going
+    };
+    if (isNew(world.fx.barricadeBreaks, seen.current, 'breaks')) bump(BREAK_SHAKE);
+    if (isNew(world.fx.goalHits, seen.current, 'goalHits')) {
+      const lost = 1 - world.integrity / rulesData.startIntegrity;
+      bump(GOAL_SHAKE_MIN + (GOAL_SHAKE_MAX - GOAL_SHAKE_MIN) * lost);
     }
   });
 
@@ -87,4 +98,12 @@ export function Effects({ frame }: { frame: TileFrame }) {
       />
     </>
   );
+}
+
+/** True (and remembered) when `events` has an event newer than the last one seen under `key`. */
+function isNew<K extends string>(events: FxEvent[], seen: Record<K, number>, key: K): boolean {
+  const last = events[events.length - 1];
+  if (!last || last.tick <= seen[key]) return false;
+  seen[key] = last.tick;
+  return true;
 }

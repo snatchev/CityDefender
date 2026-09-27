@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { game } from '../game';
 import { useHud } from '../ui/store';
 import { Barricades } from './Barricades';
+import { CityHall } from './CityHall';
 import { CityMap } from './CityMap';
 import { tileFrame } from './coords';
 import { DevCamera } from './DevCamera';
@@ -63,7 +64,7 @@ export function Scene() {
         </>
       )}
 
-      <CityHallPlaceholder />
+      <CityHall />
 
       <MapControls
         makeDefault
@@ -77,25 +78,5 @@ export function Scene() {
       <SimDriver />
       {import.meta.env.DEV && <Stats className="fps-meter" />}
     </Canvas>
-  );
-}
-
-/** Stand-in for the goal until the real landmark model (Pass 10). */
-function CityHallPlaceholder() {
-  return (
-    <group>
-      <mesh position={[0, 25, 0]}>
-        <boxGeometry args={[80, 50, 80]} />
-        <meshStandardMaterial color="#efe9dc" />
-      </mesh>
-      <mesh position={[0, 80, 0]}>
-        <boxGeometry args={[18, 60, 18]} />
-        <meshStandardMaterial color="#e4dccb" />
-      </mesh>
-      <mesh position={[0, 118, 0]}>
-        <coneGeometry args={[4, 16, 8]} />
-        <meshStandardMaterial color="#d69e2e" metalness={0.6} roughness={0.35} />
-      </mesh>
-    </group>
   );
 }

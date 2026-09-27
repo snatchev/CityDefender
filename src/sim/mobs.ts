@@ -147,6 +147,7 @@ export function stepMobs(world: World): void {
     if (reached) {
       world.integrity = Math.max(0, world.integrity - stats.goalDamage);
       world.stats.leaked++;
+      world.fx.goalHits.push({ tick: world.tick, x: m.toX, y: m.toY });
     } else {
       survivors.push(m);
     }

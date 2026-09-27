@@ -59,11 +59,13 @@ export interface FxEvent {
 export interface WorldFx {
   kills: FxEvent[];
   barricadeBreaks: FxEvent[];
+  /** A bug reached City Hall (one event per bug). */
+  goalHits: FxEvent[];
 }
 
 /** Effects events are kept this many ticks (1 s), then dropped. */
 const FX_KEEP_TICKS = TICK_HZ;
-const freshFx = (): WorldFx => ({ kills: [], barricadeBreaks: [] });
+const freshFx = (): WorldFx => ({ kills: [], barricadeBreaks: [], goalHits: [] });
 
 export interface WorldStats {
   spawned: number;
@@ -147,8 +149,9 @@ export function tickWorld(world: World): void {
   tickPhase(world);
   world.tick += 1;
   const oldest = world.tick - FX_KEEP_TICKS;
-  world.fx.kills = world.fx.kills.filter((e) => e.tick >= oldest);
-  world.fx.barricadeBreaks = world.fx.barricadeBreaks.filter((e) => e.tick >= oldest);
+  for (const key of Object.keys(world.fx) as (keyof WorldFx)[]) {
+    world.fx[key] = world.fx[key].filter((e) => e.tick >= oldest);
+  }
 }
 
 export function simTimeSeconds(world: World): number {

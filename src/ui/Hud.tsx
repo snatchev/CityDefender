@@ -6,6 +6,9 @@ import { restartRun, selectTower, sellTowerById } from '../planning';
 import { usePlan } from './planStore';
 import { useHud } from './store';
 
+/** Integrity below this shows in red (DESIGN §3.2 lives). */
+const LOW_INTEGRITY = 25;
+
 const SPEEDS = [
   { label: 'Pause', scale: 0 },
   { label: '1×', scale: 1 },
@@ -25,7 +28,14 @@ export function Hud() {
 
       <div className="hud-top">
         <div aria-label="City Hall integrity">
-          City Hall <strong className="hud-big">{s.integrity}</strong>
+          City Hall{' '}
+          <strong
+            // Re-keyed on every change so the CSS pulse replays on each hit.
+            key={s.integrity}
+            className={`hud-big hud-integrity${s.integrity < LOW_INTEGRITY ? ' low' : ''}`}
+          >
+            {s.integrity}
+          </strong>
         </div>
         <div aria-label="Cash">
           <strong className="hud-big hud-cash">${s.cash}</strong>

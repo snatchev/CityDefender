@@ -301,3 +301,29 @@ body,
   color: #1f1206;
   font-weight: 600;
 }
+
+/* City Hall Integrity: pulses on every hit (the element is re-keyed), red when low. */
+.hud-integrity {
+  display: inline-block;
+  animation: integrity-hit 0.45s ease-out;
+}
+
+.hud-integrity.low {
+  color: #c62828;
+}
+
+@keyframes integrity-hit {
+  0% {
+    transform: scale(1.35);
+    color: #e5484d;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-integrity {
+    animation: none;
+  }
+}
