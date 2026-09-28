@@ -2,10 +2,17 @@ import { describe, expect, it } from 'vitest';
 import rulesData from '../data/rules.json';
 import { LOOP } from './__fixtures__/maps';
 import { parseAsciiMap } from './asciiMap';
-import { barricadeSpan, damageBarricade, placeBarricade, type Barricade } from './barricades';
+import {
+  BARRICADES,
+  barricadeSpan,
+  damageBarricade,
+  placeBarricade,
+  type Barricade,
+} from './barricades';
 import { TICK_HZ } from './constants';
 import { tracePath } from './flow';
 import { queueWave } from './mobs';
+import { startRun } from './phase';
 import { createWorld, tickWorld, type World } from './world';
 
 // LOOP: S at (1,1), G at (7,1). Top route 6 tiles; the detour round the bottom is 10 tiles.
@@ -64,5 +71,33 @@ describe('barricades (siege rule)', () => {
     expect(w.stats.barricadesDestroyed).toBe(1);
     // One recompute per band crossed below full (75%, 50%, 25%) plus one when it's destroyed.
     expect(w.fieldVersion - before).toBe(rulesData.barricadeHpBands);
+  });
+});
+
+describe('Pass 8 barricades', () => {
+  it('prices by width, spike strips wear out, and Blast Walls repair at the next prep', () => {
+    const w = createWorld(3, parseAsciiMap(LOOP));
+    w.cash = 100_000;
+    // Width-scaled cost: a one-tile-wide street costs one tile's worth.
+    const cash0 = w.cash;
+    const wall = placeBarricade(w, 3, 1, 'blastWall') as Barricade;
+    expect(cash0 - w.cash).toBe(BARRICADES.blastWall.costPerTile * wall.tiles.length);
+    // A spike strip goes on the detour the wall forces; traps don't block or reroute.
+    const version = w.fieldVersion;
+    const spikes = placeBarricade(w, 4, 3, 'spikeStrip') as Barricade; // on the detour the wall forces
+    expect(typeof spikes).toBe('object');
+    expect(w.fieldVersion).toBe(version);
+    // Crawlers crossing it take damage and wear it down; worn out, it's gone.
+    queueWave(w, { count: BARRICADES.spikeStrip.hp + 5, intervalS: 0.2 });
+    for (let i = 0; i < 120 * TICK_HZ && w.traps.length > 0; i++) tickWorld(w);
+    expect(w.traps).toHaveLength(0);
+    // The blast wall repairs when a new prep starts.
+    damageBarricade(w, wall, 10);
+    startRun(w, [{ groups: [] }, { groups: [] }]);
+    w.phase = 'debrief';
+    w.phaseTicks = 1;
+    tickWorld(w);
+    expect(w.phase).toBe('prep');
+    expect(wall.hp).toBe(wall.maxHp);
   });
 });

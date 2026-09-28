@@ -35,6 +35,10 @@ export type Ghost =
       routes: Route[];
       /** Total change in route length versus now, in metres. */
       detourM: number;
+      /** Price of building it across this street (cost scales with width), when placeable. */
+      cost: number | null;
+      /** A trap (spike strip): no route change to report. */
+      trap: boolean;
     }
   | {
       kind: 'tower';

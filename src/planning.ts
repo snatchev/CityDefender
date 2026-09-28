@@ -1,6 +1,8 @@
 import type { TargetingMode } from './data/schema';
 import { game, publish, restart } from './game';
 import {
+  BARRICADES,
+  barricadeCost,
   barricadeSellValue,
   barricadeSpan,
   barricadeUpgrade,
@@ -74,7 +76,9 @@ function refreshGhost(): void {
   const i = ty * w.map.width + tx;
   const tool = usePlan.getState().tool;
   const tower = w.towers.find((t) => t.id === w.towerAt[i]);
-  const barricade = w.barricades.find((b) => b.id === w.barricadeAt[i]);
+  const barricade =
+    w.barricades.find((b) => b.id === w.barricadeAt[i]) ??
+    w.traps.find((b) => b.id === w.trapAt[i]);
 
   // With a tower tool the preview snaps to the nearest free spot that type can use.
   const spot = tool?.kind === 'tower' ? snapTowerSpot(tx, ty, tool.type) : null;
@@ -134,14 +138,18 @@ function refreshGhost(): void {
         upgradeCost: barricadeUpgrade(barricade)!.cost,
         routes: [],
         detourM: 0,
+        cost: null,
+        trap: false,
       },
     });
     return;
   }
 
   if (barricade || tool?.kind === 'barricade') {
+    const type = tool?.kind === 'barricade' ? tool.type : 'sawhorse';
+    const trap = BARRICADES[type].kind === 'trap';
     const span = canEditBarricades(w)
-      ? barricadeSpan(w, tx, ty)
+      ? barricadeSpan(w, tx, ty, BARRICADES[type].kind)
       : 'barricades go up during prep only';
     if (typeof span === 'string') {
       usePlan.setState({
@@ -156,11 +164,14 @@ function refreshGhost(): void {
           upgradeCost: null,
           routes: [],
           detourM: 0,
+          cost: null,
+          trap,
         },
       });
       return;
     }
-    const preview = previewField(w, span);
+    const cost = barricadeCost(type, span.tiles.length);
+    const preview = previewField(w, span, type);
     const routes = routesFrom(preview.field, preview.extraCost);
     const now = usePlan.getState().routes;
     const len = (rs: Route[]) => rs.reduce((sum, r) => sum + r.lengthM, 0);
@@ -171,11 +182,13 @@ function refreshGhost(): void {
         ty,
         tiles: span.tiles,
         axis: span.axis,
-        error: null,
+        error: w.cash < cost ? `needs $${cost}` : null,
         sellValue: null,
         upgradeCost: null,
-        routes,
-        detourM: len(routes) - len(now),
+        routes: trap ? [] : routes,
+        detourM: trap ? 0 : len(routes) - len(now),
+        cost,
+        trap,
       },
     });
     return;
@@ -291,7 +304,7 @@ export function sellAt(tx: number, ty: number): string | null {
   if (!w.map) return 'no map';
   const i = ty * w.map.width + tx;
   if (w.towerAt[i]) return sellTowerById(w.towerAt[i]!);
-  const id = w.barricadeAt[i];
+  const id = w.barricadeAt[i] || w.trapAt[i];
   if (!id) return null;
   const err = dismantleBarricade(w, id);
   return afterEdit(err ? `Can't sell: ${err}` : null);

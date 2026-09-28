@@ -132,7 +132,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 
 ## Milestone C: Full threat model (Passes 8–9)
 
-### Pass 8: Fliers, diggers, sappers · timebox 2–3 days
+### Pass 8: Fliers, diggers, sappers · timebox 2–3 days · ✅ done 2026-09-27 (see D036–D038)
 - **Wasp Drone** plus a separate flier flow field (ignores barricades), rendered at roof height. **Flak Battery** and **Tesla Coil** (chain; hits air).
 - **Tunneler Grub** plus sewer traversal, buried state, manhole surfacing. **Seismic Pulse**.
 - **Acid Spitter** (ranged barricade damage).

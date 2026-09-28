@@ -6,6 +6,7 @@ import {
   CylinderGeometry,
   Object3D,
   SphereGeometry,
+  TorusGeometry,
   type BufferGeometry,
   type InstancedMesh,
 } from 'three';
@@ -45,6 +46,9 @@ const LOOKS: Record<TowerType, TowerLook> = {
   mortar: { color: '#ff7a45', muzzleM: 10, geometry: mortarGeometry },
   cryo: { color: '#aef0ff', muzzleM: 8, geometry: cryoGeometry },
   railgun: { color: '#a970ff', muzzleM: 6.5, geometry: railgunGeometry },
+  flak: { color: '#9fd66b', muzzleM: 9, geometry: flakGeometry },
+  tesla: { color: '#f5f06a', muzzleM: 13, geometry: teslaGeometry },
+  seismic: { color: '#d99a5b', muzzleM: 4, geometry: seismicGeometry },
 };
 
 export function towerColor(type: TowerType): string {
@@ -214,6 +218,47 @@ function railgunGeometry(): BufferGeometry {
   const railR = railL.clone();
   railR.translate(2, 0, 0);
   return merge([base, mount, railL, railR]);
+}
+
+/** Flak Battery: a turret with two barrels pointing steeply up. */
+function flakGeometry(): BufferGeometry {
+  const base = new CylinderGeometry(6, 7, 4, 12);
+  base.translate(0, 2, 0);
+  const turret = new BoxGeometry(6, 3.5, 5);
+  turret.translate(0, 5.5, 0);
+  const barrels = [-1.4, 1.4].map((x) => {
+    const b = new CylinderGeometry(0.7, 0.8, 8, 8);
+    b.rotateX(0.5);
+    b.translate(x, 8.5, 2.2);
+    return b;
+  });
+  return merge([base, turret, ...barrels]);
+}
+
+/** Tesla Coil: a slim column wrapped in rings, topped by a ball. */
+function teslaGeometry(): BufferGeometry {
+  const column = new CylinderGeometry(1.4, 3, 11, 10);
+  column.translate(0, 5.5, 0);
+  const rings = [3, 5.5, 8].map((y) => {
+    const ring = new TorusGeometry(2.6, 0.45, 6, 16);
+    ring.rotateX(Math.PI / 2);
+    ring.translate(0, y, 0);
+    return ring;
+  });
+  const ball = new SphereGeometry(2.4, 12, 10);
+  ball.translate(0, 13, 0);
+  return merge([column, ...rings, ball]);
+}
+
+/** Seismic Pulse: a squat drum with a hammer piston on top. */
+function seismicGeometry(): BufferGeometry {
+  const drum = new CylinderGeometry(6, 6.5, 3.5, 16);
+  drum.translate(0, 1.75, 0);
+  const piston = new CylinderGeometry(1.6, 1.6, 4, 10);
+  piston.translate(0, 5.5, 0);
+  const hammer = new CylinderGeometry(3.2, 3.2, 1.6, 12);
+  hammer.translate(0, 8, 0);
+  return merge([drum, piston, hammer]);
 }
 
 function merge(parts: BufferGeometry[]): BufferGeometry {

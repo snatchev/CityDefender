@@ -6,14 +6,30 @@ import { BARRICADES, type BarricadeType } from '../sim/barricades';
 import { TILE_M } from '../sim/constants';
 import { TOWERS, type TowerType } from '../sim/towers';
 import { towerColor } from '../render/Towers';
-import { CryoIcon, JerseyIcon, MgNestIcon, MortarIcon, RailgunIcon, SawhorseIcon } from './icons';
+import {
+  BlastWallIcon,
+  BusWallIcon,
+  CryoIcon,
+  FlakIcon,
+  JerseyIcon,
+  MgNestIcon,
+  MortarIcon,
+  RailgunIcon,
+  SawhorseIcon,
+  SeismicIcon,
+  SpikeStripIcon,
+  TeslaIcon,
+} from './icons';
 import { usePlan, type BuildTool } from './planStore';
 import { useHud } from './store';
 
 interface Item {
   tool: BuildTool;
   name: string;
-  cost: number;
+  /** Cheapest possible price (towers: the build cost; barricades: one tile), for the "poor" dim. */
+  minCost: number;
+  /** Price as shown on the button. */
+  costLabel: string;
   icon: ReactNode;
   color: string;
   /** Barricades only go up during planning. */
@@ -21,16 +37,36 @@ interface Item {
   stats: [label: string, value: string][];
 }
 
-const BARRICADE_ORDER: BarricadeType[] = ['sawhorse', 'jersey'];
-const TOWER_ORDER: TowerType[] = ['mgNest', 'mortar', 'cryo', 'railgun'];
+const BARRICADE_ORDER: BarricadeType[] = [
+  'sawhorse',
+  'jersey',
+  'busWall',
+  'blastWall',
+  'spikeStrip',
+];
+const TOWER_ORDER: TowerType[] = [
+  'mgNest',
+  'mortar',
+  'cryo',
+  'railgun',
+  'flak',
+  'tesla',
+  'seismic',
+];
 const BARRICADE_COLOR = '#f2c14e';
 const ICONS: Record<BarricadeType | TowerType, ReactNode> = {
   sawhorse: <SawhorseIcon />,
   jersey: <JerseyIcon />,
+  busWall: <BusWallIcon />,
+  blastWall: <BlastWallIcon />,
+  spikeStrip: <SpikeStripIcon />,
   mgNest: <MgNestIcon />,
   mortar: <MortarIcon />,
   cryo: <CryoIcon />,
   railgun: <RailgunIcon />,
+  flak: <FlakIcon />,
+  tesla: <TeslaIcon />,
+  seismic: <SeismicIcon />,
 };
 const TARGETING_LABEL = {
   first: 'first in line',
@@ -45,19 +81,30 @@ function barricadeItem(type: BarricadeType): Item {
   const from = (Object.keys(BARRICADES) as BarricadeType[]).find(
     (k) => BARRICADES[k].upgradeTo === type,
   );
-  const stats: Item['stats'] = [
-    ['HP', String(b.hp)],
-    ['Detour value', `${Math.round(b.hp * rulesData.barricadeCostPerHp * TILE_M)} m`],
-    ['Placement', 'street, one per block'],
-  ];
-  if (from) {
-    stats.push([`From a ${BARRICADES[from].name}`, `$${b.cost - BARRICADES[from].cost}`]);
-  }
-  stats.push(['Build', 'prep only']);
+  const stats: Item['stats'] =
+    b.kind === 'trap'
+      ? [
+          ['Damage', `${b.trapDamage} to each bug crossing`],
+          ['Lasts', `${b.hp} crossings`],
+          ['Blocks', "nothing: bugs don't reroute"],
+        ]
+      : [
+          ['HP', String(b.hp)],
+          ['Detour value', `${Math.round(b.hp * rulesData.barricadeCostPerHp * TILE_M)} m`],
+        ];
+  if (b.repairsBetweenWaves) stats.push(['Repairs', 'to full before every wave']);
+  stats.push(['Price', `$${b.costPerTile} per tile of street width`]);
+  if (from)
+    stats.push([
+      `From a ${BARRICADES[from].name}`,
+      `$${b.costPerTile - BARRICADES[from].costPerTile}/tile`,
+    ]);
+  stats.push(['Placement', 'street, one per block, prep only']);
   return {
     tool: { kind: 'barricade', type },
     name: b.name,
-    cost: b.cost,
+    minCost: b.costPerTile,
+    costLabel: `$${b.costPerTile}/tile`,
     icon: ICONS[type],
     color: BARRICADE_COLOR,
     prepOnly: true,
@@ -69,25 +116,36 @@ function towerItem(type: TowerType): Item {
   const d: TowerDef = TOWERS[type];
   const t = d.tiers[0]!;
   const stats: Item['stats'] = [['Role', d.role]];
-  switch (d.damageType) {
-    case 'explosive':
-      stats.push(['Damage', `${t.damage} explosive, ${t.splashM} m splash`]);
+  switch (d.attack) {
+    case 'shell':
+      stats.push(['Damage', `${t.damage} ${d.damageType}, ${t.splashM} m splash`]);
       stats.push(['Fire rate', `1 shell / ${round(1 / t.shotsPerS)} s`]);
       break;
-    case 'cryo':
+    case 'cone':
       stats.push(['Slow', `to ${Math.round(t.slowMul! * 100)}% speed for ${t.slowS} s`]);
       stats.push(['Spray', `${t.coneDeg}° cone, ${t.shotsPerS}/s`]);
       break;
-    case 'pierce':
-      stats.push(['Damage', `${t.damage}, ignores armor`]);
-      stats.push(['Fire rate', `1 shot / ${round(1 / t.shotsPerS)} s`]);
+    case 'chain':
+      stats.push(['Damage', `${t.damage}, jumps to ${t.chains} more (${t.chainRangeM} m)`]);
+      stats.push(['Fire rate', `${t.shotsPerS}/s`]);
+      break;
+    case 'pulse':
+      stats.push(['Damage', `${t.damage} to everything around it`]);
+      stats.push(['Diggers', `forced up for ${t.revealS} s, stunned ${t.stunS} s`]);
+      stats.push(['Fire rate', `1 pulse / ${round(1 / t.shotsPerS)} s`]);
       break;
     default:
-      stats.push([
-        'Damage',
-        `${t.damage} × ${t.shotsPerS}/s (DPS ${round(t.damage * t.shotsPerS)})`,
-      ]);
+      if (d.damageType === 'pierce') {
+        stats.push(['Damage', `${t.damage}, ignores armor`]);
+        stats.push(['Fire rate', `1 shot / ${round(1 / t.shotsPerS)} s`]);
+      } else {
+        stats.push([
+          'Damage',
+          `${t.damage} × ${t.shotsPerS}/s (DPS ${round(t.damage * t.shotsPerS)})`,
+        ]);
+      }
   }
+  stats.push(['Hits', d.targets.join(' + ')]);
   const maxRange = Math.round(t.rangeM * d.rangeMaxMul);
   let range =
     maxRange > t.rangeM ? `${t.rangeM} m, up to ${maxRange} m on high roofs` : `${t.rangeM} m`;
@@ -103,7 +161,8 @@ function towerItem(type: TowerType): Item {
   return {
     tool: { kind: 'tower', type },
     name: d.name,
-    cost: t.cost,
+    minCost: t.cost,
+    costLabel: `$${t.cost}`,
     icon: ICONS[type],
     color: towerColor(type),
     prepOnly: false,
@@ -130,7 +189,7 @@ export function BuildBar() {
       {hover && (
         <div className="build-card" role="tooltip">
           <div className="build-card-title">
-            {hover.name} <span className="build-card-cost">${hover.cost}</span>
+            {hover.name} <span className="build-card-cost">{hover.costLabel}</span>
           </div>
           <dl>
             {hover.stats.map(([k, v]) => (
@@ -145,7 +204,7 @@ export function BuildBar() {
       {ITEMS.map((item, k) => {
         const active = same(tool, item.tool);
         const unavailable = item.prepOnly && !planning;
-        const poor = cash < item.cost;
+        const poor = cash < item.minCost;
         const firstTower = k === BARRICADE_ORDER.length;
         return (
           <button
@@ -163,7 +222,7 @@ export function BuildBar() {
               {item.icon}
             </span>
             <span className="build-name">{item.name}</span>
-            <span className={`build-cost${poor ? ' poor' : ''}`}>${item.cost}</span>
+            <span className={`build-cost${poor ? ' poor' : ''}`}>{item.costLabel}</span>
           </button>
         );
       })}

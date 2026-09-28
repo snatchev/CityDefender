@@ -13,10 +13,16 @@ export const BARRICADE_HEIGHT_M = 2.5;
 export const BARRICADE_THICK_M = 3;
 const BROKEN = new Color('#b3261e');
 
-/** Per type (DESIGN §8): healthy colour and size relative to the sawhorse. */
+/**
+ * Per type (DESIGN §8): healthy colour and size relative to the sawhorse. A spike strip is a low,
+ * dark mat across the street.
+ */
 const LOOKS: Record<BarricadeType, { color: Color; height: number; thick: number }> = {
   sawhorse: { color: new Color('#f2c14e'), height: 1, thick: 1 },
   jersey: { color: new Color('#c9c4b8'), height: 1.5, thick: 1.4 },
+  busWall: { color: new Color('#3d7fd6'), height: 2.4, thick: 1.8 },
+  blastWall: { color: new Color('#5a5f66'), height: 3.2, thick: 2 },
+  spikeStrip: { color: new Color('#8a2b2b'), height: 0.16, thick: 0.8 },
 };
 
 /** Size of one barricade tile's box, [x, z], for a barricade spanning `axis`. */
@@ -25,7 +31,7 @@ export function barricadeBox(axis: 'x' | 'y'): [number, number] {
 }
 
 /**
- * All barricades as one InstancedMesh, one box per tile. Read from `game.world` every frame; the
+ * All barricades and spike strips as one InstancedMesh, one box per tile. Read from `game.world` every frame; the
  * colour shifts from the type's colour (police yellow, concrete) to red as HP drops (the "crack tint").
  */
 export function Barricades({ frame }: { frame: TileFrame }) {
@@ -39,7 +45,7 @@ export function Barricades({ frame }: { frame: TileFrame }) {
     if (!mesh || !map) return;
     const o = dummy.current;
     let n = 0;
-    for (const b of game.world.barricades) {
+    for (const b of [...game.world.barricades, ...game.world.traps]) {
       const look = LOOKS[b.type];
       const [bx, bz] = barricadeBox(b.axis);
       const [sx, sz] = b.axis === 'x' ? [bx, bz * look.thick] : [bx * look.thick, bz];

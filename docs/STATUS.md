@@ -3,8 +3,8 @@
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
 **Last updated:** 2026-09-27
-**Current pass:** Pass 7 (Data-driven roster I): **done**, tagged `pass-07`
-**Next up:** Pass 8 (fliers, diggers, sappers: Wasp Drone + Flak/Tesla, Tunneler Grub + Seismic Pulse, Acid Spitter; more barricades)
+**Current pass:** Pass 8 (Fliers, diggers, sappers): **done**, tagged `pass-08`
+**Next up:** Pass 9 (full run structure: 20-wave script with mini-boss and Brood Mother, breach telegraphs, interest, Council Grants, tier-3 upgrades, stars, save/resume)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
@@ -22,6 +22,11 @@
   - A decorative backdrop city out to the rivers (70k footprints baked to 16 m / 32 m height grids, LOD by distance), a gradient sky and horizon haze (D027, Stefan's request).
   - City Hall hit feedback (flash, Integrity-scaled shake, HUD pulse), from playtest 2.
   - Balance re-tuned for the new tower spots: bug HP ×1.7 from wave 3; gentler height bonus (see Known issues).
+- Pass 8: fliers, diggers, sappers (tag `pass-08`, D036–D038).
+  - Bugs have a layer. **Wasp Drones** fly at roof height on a barricade-free route field (walls and ground-only towers don't stop them). **Tunneler Grubs** travel under the streets on the same field, buried and untargetable except for 3 s after crossing a manhole and for good within 10 tiles of City Hall; they show as a moving mound of earth. **Acid Spitters** stop once a wall on their route is within 48 m and melt it from there.
+  - Towers attack by type (`attack` in the table): **Flak Battery** (air-only splash shells), **Tesla Coil** (chain lightning to 3 more bugs, hits air, +1 jump off a Wet bug), **Seismic Pulse** (hits everything around it, forces buried grubs up for 3 s and stuns them). Cryo now also makes bugs Wet. Each tower lists what it can hit (ground, air).
+  - Barricades: **Bus Wall** (1200 HP) and **Blast Wall** (3000 HP, repairs to full before every wave) extend the upgrade chain; **Spike Strip** is a trap that doesn't block or reroute, hurts every crawler crossing and wears out after 40 crossings. Prices are **per tile of street width**, so blocking Broad costs more than a side street; the preview shows the price.
+  - Wave script: wasps from wave 2, grubs from 4, spitters from 5, all three in the late waves.
 - Tower placement snapping (Stefan, after Pass 7, D035): with a tower tool picked, the preview snaps to the nearest free spot that tower can use within 4 tiles of the pointer, drawn as a see-through model of the tower on a pulsing ring plus its range. No spot in reach: no preview, no label, clicks do nothing. The only label left is money ("needs $100"). Spot markers for the picked tower grow and brighten; the others hide. A click builds exactly where the preview is. Screenshot: [placement-snap.png](screenshots/placement-snap.png).
 - Pass 7: data-driven roster I (tag `pass-07`, D032–D034).
   - Balance tables with zod schemas (`src/data/schema.ts`), checked by `schema.test.ts`; the sim imports only the inferred types.
@@ -62,6 +67,12 @@
 - Camera isn't clamped to the level bounds (camera work is Pass 4–5).
 - Street labels are dense when zoomed out; no label culling or level-of-detail yet.
 
+## Deferred from Pass 8
+- Acid Spitters damaging corner towers (DESIGN §6 "beats corner towers"): towers have no HP yet.
+- Diggers surfacing through the underground concourse network, sewer-burst events (IDEAS).
+- City skins for barricades (DESIGN calls T3 the "SEPTA Bus Wall"; the table says "Bus Wall" and the SEPTA look belongs in Philadelphia's city data, see the multi-city note).
+- Wasp and grub animations (wing flap, burrowing dirt), real models (Pass 10).
+
 ## Deferred from Pass 7
 - Tier 3 branching upgrades (Pass 9). Cryo "wet" + Tesla synergy (Pass 8). Width-scaled barricade cost (Pass 8).
 - Mortar craters that slow (a DESIGN §7 upgrade idea); mortar shells don't lead moving targets (they land where the target was, on purpose).
@@ -89,6 +100,8 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Balance after Pass 8 (throwaway headless bot on the real map, no barricades, calls every wave early): MG Nests only → lost in wave 8; the Pass 7 mix (MG, Mortar, Cryo, Railgun) → won with 14 Integrity but let every wasp through; a Pass 8 mix (adds Flak and Seismic on the wasp and grub routes) → stopped every wasp and all but 2 grubs, then lost in wave 10 with $734 unspent (the bot stops buying when a Flak or Seismic spot isn't useful). The bot is sensitive to small strategy changes, so treat these as direction, not precision. Needs a playtest.
+- Sim matchup tests (`matchups.test.ts`): walls + Mortar + Cryo stop a swarm but not one of 30 wasps; one Flak stops most; two MG Nests let 12 of 12 grubs through, with a Seismic Pulse 0; a guarded Jersey Barrier holds a swarm but spitters melt it from outside the guards' reach, and a Railgun behind it keeps it standing; Cryo + Tesla out-kill Tesla alone.
 - Balance after Pass 7 (throwaway headless bot on the real map, calls every wave early, no barricades): MG Nests only → lost in wave 8 (beetles shrug off MG chip damage); a mixed bot (mortars, railguns once beetles are coming, one cryo, upgrades) → won with 27 Integrity and $840 unspent. Needs a playtest.
 - Sim matchup test (`matchups.test.ts`, one tower alone on a straight street, kills per $100): vs a tight swarm Mortar 22.9, MG 7.0, Railgun 5.8; vs 16 beetles Railgun 7.1, Mortar 2.3, MG 1.0.
 - Perf measuring caveat (2026-09-27): halfway through the perf check the Mac dropped to `CPU_Speed_Limit = 28` (`pmset -g therm`) with Messages, Spotlight and Photos indexing busy; every scene, even with no bugs drawn, fell to ~35 ms frames and there were multi-second stalls. Check `pmset -g therm` and Activity Monitor before trusting a perf number.
@@ -122,3 +135,4 @@
 | 6 | 2026-09-27 | ✅ typecheck, lint, 33/33 tests (+ street graph, pads, one barricade per block, height range). map:build 1.3 s incl. backdrop. Real clicks: tower on a corner (street level) and on a pad (range 82 m / min 9 m on a 19 m roof), M debug view. Backdrop + sky at 60 fps; live wave 60 fps. Headless re-balance | [pass-06.png](screenshots/pass-06.png), [backdrop](screenshots/pass-06-backdrop.png) | Includes City Hall hit feedback and Stefan's backdrop/sky request |
 | 6b | 2026-09-27 | ✅ typecheck, lint, 33/33 tests. UI checked with real hover/clicks. Perf at 1440×900 (dpr 2): dev build idle 60 fps, 26 draw calls, 507k tris, 65 MB heap; 400 bugs + 10 towers at 3× 60 fps, 929k tris, 72 MB. Production build: idle 60 fps / 23 calls / 42 MB heap; heavy 60 fps apart from one stall that coincided with macOS CPU throttling. Main-thread JS per frame ~1.3 ms (dev) | [ui-pass.png](screenshots/ui-pass.png) | Minimap: static layer cached, overlay at 20 Hz. Dev hook: `renderInfo()`, `setVisible(name, on)`, `build` picks a tool |
 | 7 | 2026-09-27 | ✅ typecheck, lint, 50/50 tests (+ damage formula, table schemas, matchups: Mortar vs swarm, Railgun vs beetles). Real clicks: select a Railgun, Upgrade $200 → tier 2 (172 m), targeting dropdown, Cryo refused on a roof pad. Sawhorse → Jersey upgrade keeps damage (60/100 → 360/400). Wave 3 with beetles played in Chrome. 400 bugs (80 beetles) + 12 mixed towers at 3×: 60 fps, p95 17.6 ms, 37 draw calls | [pass-07.png](screenshots/pass-07.png) | Headless re-balance with beetles |
+| 8 | 2026-09-27 | ✅ typecheck, lint, 62/62 tests (+ per-bug matchups, width cost, spike wear, Blast Wall repair). Chrome: all seven towers placed, a mixed wave of wasps, grubs and spitters played; Jersey Barrier on Broad rerouted the route via 15th, spike strip beside it. 420 bugs of five types + 14 towers of seven types at 3×: 60 fps, p95 17.4 ms, 52 draw calls | [pass-08.png](screenshots/pass-08.png) | Headless re-balance with the new bugs |

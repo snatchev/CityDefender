@@ -29,7 +29,7 @@
 
 ## Barricades & the maze
 - 🎯 **Siege rule** (barricades as HP‑weighted path costs). → Pass 3
-- 🎯 **Width‑scaled cost:** blocking Broad costs more than a side street. → Pass 8
+- 🎯 **Width‑scaled cost:** blocking Broad costs more than a side street. → done in Pass 8
 - ⚙️ **Barricade damage persists** between waves, and repair costs money. → Pass 9
 - ⚙️ **Gates:** a barricade you can toggle open/closed during the assault (limited uses). A mid‑wave maze switch.
 - ⚙️ **Barricade decay** for cheap types (sawhorses fall apart after N waves).

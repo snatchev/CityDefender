@@ -12,5 +12,6 @@
   "barricadeHpBands": 4,
   "maxBarricadeSpanTiles": 6,
   "sellRefund": 0.7,
-  "armorMinDamageFraction": 0.25
+  "armorMinDamageFraction": 0.25,
+  "wetExtraChains": 1
 }

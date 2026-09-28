@@ -1,15 +1,42 @@
 {
   "sawhorse": {
     "name": "Police Sawhorse",
+    "kind": "wall",
     "tier": 1,
     "hp": 100,
-    "cost": 25,
+    "costPerTile": 8,
     "upgradeTo": "jersey"
   },
   "jersey": {
     "name": "Jersey Barrier",
+    "kind": "wall",
     "tier": 2,
     "hp": 400,
-    "cost": 90
+    "costPerTile": 28,
+    "upgradeTo": "busWall"
+  },
+  "busWall": {
+    "name": "Bus Wall",
+    "kind": "wall",
+    "tier": 3,
+    "hp": 1200,
+    "costPerTile": 70,
+    "upgradeTo": "blastWall"
+  },
+  "blastWall": {
+    "name": "Blast Wall",
+    "kind": "wall",
+    "tier": 4,
+    "hp": 3000,
+    "costPerTile": 160,
+    "repairsBetweenWaves": true
+  },
+  "spikeStrip": {
+    "name": "Spike Strip",
+    "kind": "trap",
+    "tier": 1,
+    "hp": 40,
+    "costPerTile": 12,
+    "trapDamage": 12
   }
 }

@@ -80,6 +80,94 @@ export function RailgunIcon() {
   );
 }
 
+export function BusWallIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="2" y="9" width="28" height="15" rx="3" fill="currentColor" />
+      <rect x="5" y="12" width="5" height="5" rx="1" fill="#1b1d22" />
+      <rect x="12" y="12" width="5" height="5" rx="1" fill="#1b1d22" />
+      <rect x="19" y="12" width="5" height="5" rx="1" fill="#1b1d22" />
+      <circle cx="8" cy="25" r="2.5" fill="currentColor" />
+      <circle cx="24" cy="25" r="2.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function BlastWallIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="3" y="6" width="26" height="22" rx="1.5" fill="currentColor" />
+      <path
+        d="M3 13 H29 M3 20 H29 M11 6 V13 M21 13 V20 M11 20 V28"
+        stroke="#1b1d22"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+export function SpikeStripIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="2" y="20" width="28" height="5" rx="1" fill="currentColor" />
+      <path
+        d="M4 20 L7 12 L10 20 M10 20 L13 12 L16 20 M16 20 L19 12 L22 20 M22 20 L25 12 L28 20"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+export function FlakIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="6" y="20" width="20" height="8" rx="2" fill="currentColor" />
+      <rect
+        x="9"
+        y="4"
+        width="4"
+        height="17"
+        rx="1.5"
+        fill="currentColor"
+        transform="rotate(-15 11 20)"
+      />
+      <rect
+        x="19"
+        y="4"
+        width="4"
+        height="17"
+        rx="1.5"
+        fill="currentColor"
+        transform="rotate(15 21 20)"
+      />
+    </svg>
+  );
+}
+
+export function TeslaIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="7" r="5" fill="currentColor" />
+      <rect x="13" y="12" width="6" height="16" rx="2" fill="currentColor" />
+      <path d="M9 16 H23 M9 21 H23" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function SeismicIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <path
+        d="M2 18 H8 L11 10 L15 26 L19 6 L22 18 H30"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function SpeedIcon({ scale }: { scale: number }) {
   if (scale === 0) {
     return (

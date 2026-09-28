@@ -36,8 +36,10 @@ export interface MapSlots {
   pads: number[];
   /** Street-level corners: the corner tiles of each intersection. */
   corners: number[];
-  /** Where diggers will surface (Pass 8): one or more per longer segment. */
+  /** Where diggers surface (DESIGN §5.5): one or more per longer segment. */
   manholes: number[];
+  /** 1 on manhole tiles, per tile. */
+  manholeAt: Uint8Array;
 }
 
 /** Buildings within this many metres of each other's height merge into one "building run" for pads. */
@@ -109,6 +111,9 @@ export function deriveSlots(map: TileMap, heightsM?: Float32Array): MapSlots {
   const corners = intersectionCorners(map, nodes);
   for (const c of corners) towerSlot[c] = Slot.Corner;
 
+  const manholeTiles = segments.flatMap((s) => manholes(map, s));
+  const manholeAt = new Uint8Array(n);
+  for (const m of manholeTiles) manholeAt[m] = 1;
   return {
     segmentOf,
     segments,
@@ -117,7 +122,8 @@ export function deriveSlots(map: TileMap, heightsM?: Float32Array): MapSlots {
     towerSlot,
     pads,
     corners,
-    manholes: segments.flatMap((s) => manholes(map, s)),
+    manholes: manholeTiles,
+    manholeAt,
   };
 }
 

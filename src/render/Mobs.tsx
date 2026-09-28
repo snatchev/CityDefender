@@ -14,7 +14,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { game, renderAlpha } from '../game';
 import { TICK_DT, TILE_M } from '../sim/constants';
-import { mobSpeedMps, type Mob, type MobType } from '../sim/mobs';
+import { isBuried, mobSpeedMps, type Mob, type MobType } from '../sim/mobs';
 import { tileToWorld, type TileFrame } from './coords';
 import { viewDistance, zoomScale } from './view';
 
@@ -35,6 +35,13 @@ const HALO_FULL_ZOOM = 2.5;
 const XRAY_OPACITY = 0.75;
 /** Mobs are spread up to this far from the tile centre line so a swarm doesn't render as one ball. */
 const SPREAD_M = 2.5;
+/** A buried digger shows as a low mound of churned earth moving along the street. */
+const BURIED_COLOR = new Color('#6b4f36');
+const BURIED_SQUASH = 0.25;
+const BURIED_WIDEN = 1.3;
+/** Fliers bob up and down this much (m) a few times a second. */
+const BOB_M = 1.2;
+const BOB_HZ = 1.6;
 
 interface MobLook {
   /** Rough body radius (m): halo size, HP bar height, tracer target height. */
@@ -43,17 +50,42 @@ interface MobLook {
   /** Flat colour for the part hidden behind buildings (x-ray silhouette). */
   xray: string;
   geometry: () => BufferGeometry;
+  /** Fliers: height above the street (DESIGN §5.4 "at roof height"). */
+  altitudeM?: number;
 }
 
-/** How each mob type looks (DESIGN §6, §11): acid-green skittering swarm, gold armored beetles. */
+/**
+ * How each mob type looks (DESIGN §6, §11): acid-green skittering swarm, gold armored beetles,
+ * magenta wasps in the air, salmon grubs (a dirt mound while buried), teal acid spitters.
+ */
 const LOOKS: Record<MobType, MobLook> = {
   skitterling: { radiusM: 3.5, color: '#7dff3a', xray: '#c6ff4d', geometry: () => bugGeometry(1) },
   beetle: { radiusM: 5.5, color: '#ffc93a', xray: '#ffe07a', geometry: () => beetleGeometry() },
+  wasp: {
+    radiusM: 3,
+    color: '#ff4fd8',
+    xray: '#ff9aea',
+    geometry: () => waspGeometry(),
+    altitudeM: 26,
+  },
+  grub: { radiusM: 4.5, color: '#ff8c69', xray: '#ffb49c', geometry: () => grubGeometry() },
+  spitter: { radiusM: 4, color: '#2ef2c9', xray: '#8cffe6', geometry: () => spitterGeometry() },
 };
 
 export function mobRadiusM(type: MobType): number {
   return LOOKS[type].radiusM;
 }
+
+/** Height of a mob's centre above the street this frame (fliers fly, the rest sit on the street). */
+export function mobCentreY(m: Mob, zoom: number): number {
+  const look = LOOKS[m.type];
+  if (look.altitudeM === undefined) return look.radiusM * 0.6 * zoom;
+  const bob = Math.sin((performance.now() / 1000) * BOB_HZ * 2 * Math.PI + m.id) * BOB_M;
+  return look.altitudeM + bob + look.radiusM * 0.6 * zoom;
+}
+
+/** Height a flier's shots are aimed at (no bob: shots are drawn from sim data, not per mob). */
+export const FLIER_AIM_Y_M = 26;
 
 /** All mobs, one layer per type. */
 export function Mobs({ frame }: { frame: TileFrame }) {
@@ -109,8 +141,23 @@ function MobLayer({ type, frame }: { type: MobType; frame: TileFrame }) {
     for (const m of world.mobs) {
       if (m.type !== type || n >= MAX_MOBS) continue;
       const [wx, wz] = mobWorldXZ(m, frame, alpha);
-      o.position.set(wx, look.radiusM * 0.6 * zoom, wz);
+      const buried = isBuried(world, m);
       o.rotation.set(0, mobYaw(m, frame), 0);
+      if (buried) {
+        // A mound of earth: flat, wide, brown; no glow and no x-ray (it's under the street).
+        o.position.set(wx, look.radiusM * BURIED_SQUASH * zoom, wz);
+        o.scale.set(zoom * BURIED_WIDEN, zoom * BURIED_SQUASH, zoom * BURIED_WIDEN);
+        o.updateMatrix();
+        b.setMatrixAt(n, o.matrix);
+        b.setColorAt(n, BURIED_COLOR);
+        o.scale.setScalar(0);
+        o.updateMatrix();
+        x.setMatrixAt(n, o.matrix);
+        h.setMatrixAt(n, o.matrix);
+        n++;
+        continue;
+      }
+      o.position.set(wx, mobCentreY(m, zoom), wz);
       o.scale.setScalar(zoom);
       o.updateMatrix();
       b.setMatrixAt(n, o.matrix);
@@ -235,6 +282,52 @@ function beetleGeometry(): BufferGeometry {
   const head = new SphereGeometry(1.8, 10, 8);
   head.translate(0, 0.2, 5.4);
   return merge([shell, ridge, head, ...legs(4, 5.2, 3, 1)]);
+}
+
+/** Wasp Drone: a slim striped body, a stinger and two pairs of flat wings, facing +z. */
+function waspGeometry(): BufferGeometry {
+  const thorax = new SphereGeometry(1, 10, 8);
+  thorax.scale(1, 1, 1.4);
+  const abdomen = new SphereGeometry(1, 10, 8);
+  abdomen.scale(1.1, 1.1, 2);
+  abdomen.translate(0, -0.2, -2.6);
+  const head = new SphereGeometry(0.8, 8, 6);
+  head.translate(0, 0.2, 1.9);
+  const wings: BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    for (const k of [0, 1]) {
+      const wing = new BoxGeometry(3.6, 0.1, 1.4);
+      wing.translate(side * 2, 0.9, 0.4 - k * 1.3);
+      wing.rotateZ(side * 0.25);
+      wings.push(wing);
+    }
+  }
+  return merge([thorax, abdomen, head, ...wings]);
+}
+
+/** Tunneler Grub: a fat segmented worm with a round mouth end, facing +z. */
+function grubGeometry(): BufferGeometry {
+  const segments: BufferGeometry[] = [];
+  for (let k = 0; k < 5; k++) {
+    const r = 1.9 - Math.abs(k - 1.5) * 0.25;
+    const seg = new SphereGeometry(r, 10, 8);
+    seg.translate(0, 0, 3 - k * 1.8);
+    segments.push(seg);
+  }
+  return merge(segments);
+}
+
+/** Acid Spitter: a bloated acid sac on six legs with a raised spout at the front, facing +z. */
+function spitterGeometry(): BufferGeometry {
+  const sac = new SphereGeometry(1, 12, 10);
+  sac.scale(2.2, 2, 2.6);
+  sac.translate(0, 0.6, -0.8);
+  const head = new SphereGeometry(1.1, 10, 8);
+  head.translate(0, 0.4, 2.2);
+  const spout = new BoxGeometry(0.6, 0.6, 2);
+  spout.rotateX(-0.6);
+  spout.translate(0, 1.4, 3);
+  return merge([sac, head, spout, ...legs(1.8, 2.4, 3, 0.5)]);
 }
 
 function merge(parts: BufferGeometry[]): BufferGeometry {

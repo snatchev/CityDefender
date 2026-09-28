@@ -3,21 +3,35 @@
     "name": "MG Nest",
     "role": "cheap single-target",
     "slots": ["pad", "corner"],
+    "attack": "hit",
     "damageType": "kinetic",
+    "targets": ["ground", "air"],
     "targeting": "first",
     "rangeHeightFactor": 0.01,
     "rangeMaxMul": 1.5,
     "minRangePerHeight": 0.5,
     "tiers": [
-      { "cost": 100, "rangeM": 64, "damage": 4, "shotsPerS": 4 },
-      { "cost": 90, "rangeM": 72, "damage": 6, "shotsPerS": 4.5 }
+      {
+        "cost": 100,
+        "rangeM": 64,
+        "damage": 4,
+        "shotsPerS": 4
+      },
+      {
+        "cost": 90,
+        "rangeM": 72,
+        "damage": 6,
+        "shotsPerS": 4.5
+      }
     ]
   },
   "mortar": {
     "name": "Mortar",
     "role": "splash, beats swarms",
     "slots": ["pad"],
+    "attack": "shell",
     "damageType": "explosive",
+    "targets": ["ground"],
     "targeting": "first",
     "rangeHeightFactor": 0.01,
     "rangeMaxMul": 1.4,
@@ -47,7 +61,9 @@
     "name": "Cryo Sprayer",
     "role": "slows everything in a cone",
     "slots": ["corner"],
+    "attack": "cone",
     "damageType": "cryo",
+    "targets": ["ground"],
     "targeting": "first",
     "rangeHeightFactor": 0,
     "rangeMaxMul": 1,
@@ -60,7 +76,8 @@
         "shotsPerS": 2,
         "coneDeg": 50,
         "slowMul": 0.5,
-        "slowS": 1.5
+        "slowS": 1.5,
+        "wetS": 3
       },
       {
         "cost": 100,
@@ -69,7 +86,8 @@
         "shotsPerS": 2,
         "coneDeg": 60,
         "slowMul": 0.4,
-        "slowS": 2
+        "slowS": 2,
+        "wetS": 4
       }
     ]
   },
@@ -77,14 +95,118 @@
     "name": "Railgun",
     "role": "pierces armor, long range",
     "slots": ["pad"],
+    "attack": "hit",
     "damageType": "pierce",
+    "targets": ["ground", "air"],
     "targeting": "strongest",
     "rangeHeightFactor": 0.02,
     "rangeMaxMul": 1.8,
     "minRangePerHeight": 0.5,
     "tiers": [
-      { "cost": 225, "rangeM": 110, "damage": 60, "shotsPerS": 0.4 },
-      { "cost": 200, "rangeM": 125, "damage": 95, "shotsPerS": 0.45 }
+      {
+        "cost": 225,
+        "rangeM": 110,
+        "damage": 60,
+        "shotsPerS": 0.4
+      },
+      {
+        "cost": 200,
+        "rangeM": 125,
+        "damage": 95,
+        "shotsPerS": 0.45
+      }
+    ]
+  },
+  "flak": {
+    "name": "Flak Battery",
+    "role": "air-burst splash, air only",
+    "slots": ["pad"],
+    "attack": "shell",
+    "damageType": "explosive",
+    "targets": ["air"],
+    "targeting": "first",
+    "rangeHeightFactor": 0.01,
+    "rangeMaxMul": 1.5,
+    "minRangePerHeight": 0,
+    "tiers": [
+      {
+        "cost": 150,
+        "rangeM": 90,
+        "damage": 10,
+        "shotsPerS": 1.2,
+        "splashM": 14,
+        "shellS": 0.3
+      },
+      {
+        "cost": 130,
+        "rangeM": 100,
+        "damage": 16,
+        "shotsPerS": 1.4,
+        "splashM": 16,
+        "shellS": 0.3
+      }
+    ]
+  },
+  "tesla": {
+    "name": "Tesla Coil",
+    "role": "chain lightning, hits air; +1 jump off wet bugs",
+    "slots": ["corner", "pad"],
+    "attack": "chain",
+    "damageType": "energy",
+    "targets": ["ground", "air"],
+    "targeting": "first",
+    "rangeHeightFactor": 0.005,
+    "rangeMaxMul": 1.2,
+    "minRangePerHeight": 0.3,
+    "tiers": [
+      {
+        "cost": 160,
+        "rangeM": 44,
+        "damage": 9,
+        "shotsPerS": 1,
+        "chains": 3,
+        "chainRangeM": 20,
+        "chainFalloff": 0.8
+      },
+      {
+        "cost": 140,
+        "rangeM": 50,
+        "damage": 14,
+        "shotsPerS": 1.1,
+        "chains": 4,
+        "chainRangeM": 24,
+        "chainFalloff": 0.85
+      }
+    ]
+  },
+  "seismic": {
+    "name": "Seismic Pulse",
+    "role": "reveals and stuns buried grubs",
+    "slots": ["corner"],
+    "attack": "pulse",
+    "damageType": "kinetic",
+    "targets": ["ground"],
+    "targeting": "closest",
+    "rangeHeightFactor": 0,
+    "rangeMaxMul": 1,
+    "minRangePerHeight": 0,
+    "tiers": [
+      {
+        "cost": 120,
+        "rangeM": 40,
+        "damage": 4,
+        "shotsPerS": 0.5,
+        "revealS": 3,
+        "stunS": 1
+      },
+      {
+        "cost": 100,
+        "rangeM": 48,
+        "damage": 7,
+        "shotsPerS": 0.6,
+        "revealS": 4,
+        "stunS": 1.5
+      }
     ]
   }
 }

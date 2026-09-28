@@ -3,7 +3,8 @@ import { useRef } from 'react';
 import { Color, Object3D, Vector3, type InstancedMesh } from 'three';
 import { game, renderAlpha } from '../game';
 import { type TileFrame } from './coords';
-import { mobRadiusM, mobWorldXZ } from './Mobs';
+import { mobCentreY, mobRadiusM, mobWorldXZ } from './Mobs';
+import { isBuried } from '../sim/mobs';
 import { viewDistance, zoomScale } from './view';
 
 const MAX_BARS = 1024;
@@ -37,10 +38,10 @@ export function HpBars({ frame }: { frame: TileFrame }) {
     o.quaternion.copy(camera.quaternion);
     let n = 0;
     for (const m of game.world.mobs) {
-      if (m.hp >= m.maxHp || m.hp <= 0 || n >= MAX_BARS) continue;
+      if (m.hp >= m.maxHp || m.hp <= 0 || n >= MAX_BARS || isBuried(game.world, m)) continue;
       const frac = m.hp / m.maxHp;
       const [x, z] = mobWorldXZ(m, frame, alpha);
-      const y = (2 * mobRadiusM(m.type) + GAP_M) * zoom;
+      const y = mobCentreY(m, zoom) + (1.4 * mobRadiusM(m.type) + GAP_M) * zoom;
       o.position.set(x, y, z);
       o.scale.set(WIDTH_M * zoom, HEIGHT_M * zoom, 1);
       o.updateMatrix();

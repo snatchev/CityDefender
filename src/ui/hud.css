@@ -271,8 +271,8 @@
   display: grid;
   grid-template-rows: auto auto auto;
   justify-items: center;
-  width: 92px;
-  padding: 8px 4px 6px;
+  width: 82px;
+  padding: 7px 3px 5px;
   border: 1px solid rgb(255 255 255 / 0.08);
   border-radius: 10px;
   background: rgb(255 255 255 / 0.04);
@@ -308,7 +308,7 @@
 }
 
 .build-name {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 

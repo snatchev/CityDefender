@@ -1,5 +1,6 @@
 import rulesData from '../data/rules.json';
-import { recomputeField, type Barricade } from './barricades';
+import { recomputeField, repairBarricades, type Barricade } from './barricades';
+import { flowField } from './flow';
 import { TICK_DT, TICK_HZ } from './constants';
 import type { TileMap } from './map';
 import { deriveSlots, type MapSlots } from './slots';
@@ -34,11 +35,22 @@ export interface World {
   field: Float64Array | null;
   /** Extra cost per tile from barricades, the input the field was computed with. */
   extraCost: Float64Array | null;
+  /**
+   * Flow field without barricade costs, for fliers and diggers (DESIGN §5.4–5.5). Fixed per map;
+   * its values count tiles to the goal.
+   */
+  freeField: Float64Array | null;
+  /** All-zero extra cost, the input `freeField` was computed with. */
+  zeroCost: Float64Array | null;
   /** Bumped on every field recompute, so the UI knows when to redraw routes. */
   fieldVersion: number;
   barricades: Barricade[];
   /** Barricade id per tile, 0 = none. */
   barricadeAt: Int32Array;
+  /** Traps (spike strips): span a street like barricades but never block or reroute. */
+  traps: Barricade[];
+  /** Trap id per tile, 0 = none. */
+  trapAt: Int32Array;
   nextBarricadeId: number;
   /** Number of fixed ticks simulated since the run started. */
   tick: number;
@@ -63,12 +75,16 @@ export interface FxEvent {
 
 export interface SplashFx extends FxEvent {
   radiusM: number;
+  /** Tower type that fired it (effects colour it). */
+  source: string;
 }
 
 export interface WorldFx {
   kills: FxEvent[];
-  /** A mortar shell landed. */
+  /** A shell (Mortar, Flak) burst. */
   splashes: SplashFx[];
+  /** A Seismic Pulse went off. */
+  pulses: SplashFx[];
   barricadeBreaks: FxEvent[];
   /** A bug reached City Hall (one event per bug). */
   goalHits: FxEvent[];
@@ -76,7 +92,13 @@ export interface WorldFx {
 
 /** Effects events are kept this many ticks (1 s), then dropped. */
 const FX_KEEP_TICKS = TICK_HZ;
-const freshFx = (): WorldFx => ({ kills: [], splashes: [], barricadeBreaks: [], goalHits: [] });
+const freshFx = (): WorldFx => ({
+  kills: [],
+  splashes: [],
+  pulses: [],
+  barricadeBreaks: [],
+  goalHits: [],
+});
 
 export interface WorldStats {
   spawned: number;
@@ -124,11 +146,15 @@ export function createWorld(seed: number, map: TileMap | null = null): World {
     slots: null,
     field: null,
     extraCost: null,
+    freeField: null,
+    zeroCost: null,
     fieldVersion: 0,
     towers: [],
     towerAt: new Int32Array(0),
     barricades: [],
     barricadeAt: new Int32Array(0),
+    traps: [],
+    trapAt: new Int32Array(0),
   };
   if (map) setMap(world, map);
   return world;
@@ -140,6 +166,10 @@ export function setMap(world: World, map: TileMap): void {
   world.slots = deriveSlots(map, map.heightsM);
   world.barricades = [];
   world.barricadeAt = new Int32Array(map.width * map.height);
+  world.traps = [];
+  world.trapAt = new Int32Array(map.width * map.height);
+  world.zeroCost = new Float64Array(map.width * map.height);
+  world.freeField = flowField(map, world.zeroCost);
   world.towers = [];
   world.towerAt = new Int32Array(map.width * map.height);
   recomputeField(world);
@@ -160,12 +190,15 @@ export function tickWorld(world: World): void {
   tickSpawners(world);
   stepMobs(world);
   fireTowers(world);
+  const phaseBefore = world.phase;
   tickPhase(world);
+  if (phaseBefore === 'debrief' && world.phase === 'prep') repairBarricades(world);
   world.tick += 1;
   const oldest = world.tick - FX_KEEP_TICKS;
   const fx = world.fx;
   fx.kills = fx.kills.filter((e) => e.tick >= oldest);
   fx.splashes = fx.splashes.filter((e) => e.tick >= oldest);
+  fx.pulses = fx.pulses.filter((e) => e.tick >= oldest);
   fx.barricadeBreaks = fx.barricadeBreaks.filter((e) => e.tick >= oldest);
   fx.goalHits = fx.goalHits.filter((e) => e.tick >= oldest);
 }

@@ -124,9 +124,11 @@ function ghostLabel(ghost: Ghost): string | null {
   if (ghost.sellValue !== null) return `right-click: sell $${ghost.sellValue}`;
   if (ghost.error) return ghost.error;
   if (ghost.kind === 'tower') return null;
-  if (ghost.routes.some((r) => r.siege)) return 'bugs will break through a barricade';
-  if (ghost.detourM === 0) return 'no change';
-  return `${ghost.detourM > 0 ? '+' : ''}${Math.round(ghost.detourM)} m`;
+  const price = ghost.cost !== null ? ` · $${ghost.cost}` : '';
+  if (ghost.trap) return `spike strip${price}`;
+  if (ghost.routes.some((r) => r.siege)) return `bugs will break through a barricade${price}`;
+  if (ghost.detourM === 0) return `no change${price}`;
+  return `${ghost.detourM > 0 ? '+' : ''}${Math.round(ghost.detourM)} m${price}`;
 }
 
 /** A see-through model of the tower on the spot it would be built, over a pulsing ring. */

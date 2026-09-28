@@ -1,8 +1,8 @@
 import { TICK_DT, TICK_HZ, TILE_M } from './constants';
 import mobsData from '../data/mobs.json';
 import rulesData from '../data/rules.json';
-import type { MobDef } from '../data/schema';
-import { damageBarricade } from './barricades';
+import type { MobDef, TargetLayer } from '../data/schema';
+import { crossTrap, damageBarricade } from './barricades';
 import { cheapestNeighbours } from './flow';
 import type { World } from './world';
 
@@ -25,6 +25,14 @@ export interface Mob {
   /** Slowed (Cryo) until this tick, moving at `slowMul` × speed meanwhile. */
   slowUntilTick: number;
   slowMul: number;
+  /** Wet (Cryo) until this tick: Tesla chains jump once more off a wet target. */
+  wetUntilTick: number;
+  /** Stunned (Seismic Pulse) until this tick: doesn't move or attack. */
+  stunUntilTick: number;
+  /** Diggers: above ground until this tick (after a manhole or a Seismic Pulse). */
+  surfacedUntilTick: number;
+  /** Spitters: last spit, for effects (target position in tile coordinates). */
+  lastSpit: { tick: number; x: number; y: number } | null;
   fromX: number;
   fromY: number;
   toX: number;
@@ -35,6 +43,26 @@ export interface Mob {
 /** Mob position in (continuous) tile coordinates. */
 export function mobPos(m: Mob): [number, number] {
   return [m.fromX + (m.toX - m.fromX) * m.t, m.fromY + (m.toY - m.fromY) * m.t];
+}
+
+/** A buried digger: underground, untargetable by anything but a Seismic Pulse (DESIGN §5.5). */
+export function isBuried(world: World, m: Mob): boolean {
+  const def = MOBS[m.type];
+  if (def.layer !== 'digger' || world.tick < m.surfacedUntilTick) return false;
+  // Close to the goal it surfaces for good. The barricade-free field counts tiles to the goal.
+  const toGoal = world.freeField?.[m.toY * world.map!.width + m.toX] ?? Infinity;
+  return toGoal > def.surfaceNearGoalTiles!;
+}
+
+/** What a tower sees this mob as: flying, on the ground (surfaced diggers too), or nothing (buried). */
+export function targetLayer(world: World, m: Mob): TargetLayer | null {
+  const layer = MOBS[m.type].layer;
+  if (layer === 'air') return 'air';
+  return isBuried(world, m) ? null : 'ground';
+}
+
+export function isWet(world: World, m: Mob): boolean {
+  return world.tick < m.wetUntilTick;
 }
 
 /** Speed this tick in metres per second, after any slow. */
@@ -105,6 +133,10 @@ export function spawnMob(world: World, spawnIndex: number, type: MobType, hpMul 
     lastHitTick: -1,
     slowUntilTick: 0,
     slowMul: 1,
+    wetUntilTick: 0,
+    stunUntilTick: 0,
+    surfacedUntilTick: 0,
+    lastSpit: null,
     fromX: tx,
     fromY: ty,
     toX: tx,
@@ -128,26 +160,39 @@ export function tickSpawners(world: World): void {
 }
 
 /**
- * Advance every mob one tick along the flow field. A mob whose cheapest next tile is a barricade stops
- * and attacks it (siege rule, DESIGN §5.2). A mob that arrives on a goal tile damages City Hall and
- * is removed. Ties between equally cheap next tiles are broken with the seeded RNG, so a swarm spreads
- * over the street's lanes but a seed always replays the same.
+ * Advance every mob one tick (DESIGN §5). Crawlers (`ground`) follow the barricade-weighted flow
+ * field: a crawler whose cheapest next tile is a barricade stops and attacks it (siege rule), a
+ * spitter stops earlier, as soon as a barricade on its route is within spitting range, and spits at
+ * it; crossing a spike strip hurts. Fliers and diggers follow the barricade-free field and never
+ * touch barricades or traps; a digger crossing a manhole surfaces for a while. Stunned mobs stand
+ * still. A mob that arrives on a goal tile damages City Hall and is removed. Ties between equally
+ * cheap next tiles are broken with the seeded RNG, so a swarm spreads over the street's lanes but a
+ * seed always replays the same.
  */
 export function stepMobs(world: World): void {
   const map = world.map;
-  if (!map || !world.field) return;
+  if (!map || !world.field || !world.freeField) return;
   const survivors: Mob[] = [];
   for (const m of world.mobs) {
     const stats = MOBS[m.type];
+    if (world.tick < m.stunUntilTick) {
+      survivors.push(m);
+      continue;
+    }
+    const crawler = stats.layer === 'ground';
+    const field = crawler ? world.field : world.freeField;
+    const extra = crawler ? world.extraCost! : world.zeroCost!;
     const fullBudget = (mobSpeedMps(world, m) * TICK_DT) / TILE_M; // tiles per tick
     let budget = fullBudget;
-    const arrived = () => m.t >= 1 && world.field![m.toY * map.width + m.toX] === 0;
+    const arrived = () => m.t >= 1 && field[m.toY * map.width + m.toX] === 0;
     let reached = arrived(); // only if it spawned on a goal tile
-    while (budget > 0 && !reached) {
+    while (budget > 0 && !reached && m.hp > 0) {
       if (m.t >= 1) {
-        const next = nextTile(world, m.toY * map.width + m.toX);
+        const here = m.toY * map.width + m.toX;
+        if (stats.spitRangeM && spit(world, m, here, budget / fullBudget)) break;
+        const next = nextTile(world, here, field, extra);
         if (next === null) break; // stranded (unreachable): wait in place
-        const bId = world.barricadeAt[next]!;
+        const bId = crawler ? world.barricadeAt[next]! : 0;
         if (bId !== 0) {
           // Siege: spend the rest of this tick hitting the barricade instead of moving.
           const b = world.barricades.find((x) => x.id === bId)!;
@@ -160,24 +205,62 @@ export function stepMobs(world: World): void {
         m.toX = next % map.width;
         m.toY = (next - m.toX) / map.width;
         m.t = 0;
+        if (crawler && world.trapAt[next] !== 0) crossTrap(world, m, next);
+        if (stats.layer === 'digger' && world.slots?.manholeAt[next]) {
+          m.surfacedUntilTick = Math.max(
+            m.surfacedUntilTick,
+            world.tick + Math.round(stats.surfaceS! * TICK_HZ),
+          );
+        }
       }
       const used = Math.min(budget, 1 - m.t);
       m.t += used;
       budget -= used;
       reached = arrived(); // counts the tick the mob steps onto the goal
     }
-    if (reached) {
+    if (reached && m.hp > 0) {
       world.integrity = Math.max(0, world.integrity - stats.goalDamage);
       world.stats.leaked++;
       world.fx.goalHits.push({ tick: world.tick, x: m.toX, y: m.toY });
     } else {
-      survivors.push(m);
+      survivors.push(m); // dead ones (a trap) are cleared and paid for with the tower kills
     }
   }
   world.mobs = survivors;
 }
 
-function nextTile(world: World, here: number): number | null {
-  const options = cheapestNeighbours(world.map!, world.field!, world.extraCost!, here);
+/**
+ * Sapper (DESIGN §6): look ahead along this spitter's route; if a barricade is within spitting range,
+ * spit at it for the rest of the tick (`share` of a full tick) and report true. The look-ahead takes
+ * the first cheapest step each time (no RNG), so it never disturbs the seeded tie-breaks.
+ */
+function spit(world: World, m: Mob, here: number, share: number): boolean {
+  const map = world.map!;
+  const stats = MOBS[m.type];
+  const reach = Math.floor(stats.spitRangeM! / TILE_M);
+  let at = here;
+  for (let k = 0; k < reach; k++) {
+    const next = cheapestNeighbours(map, world.field!, world.extraCost!, at)[0];
+    if (next === undefined) return false;
+    const bId = world.barricadeAt[next]!;
+    if (bId !== 0) {
+      const b = world.barricades.find((x) => x.id === bId)!;
+      m.lastSpit = { tick: world.tick, x: next % map.width, y: Math.floor(next / map.width) };
+      damageBarricade(world, b, stats.spitDps! * TICK_DT * share);
+      return true;
+    }
+    if (world.field![next] === 0) return false; // reached the goal first
+    at = next;
+  }
+  return false;
+}
+
+function nextTile(
+  world: World,
+  here: number,
+  field: Float64Array,
+  extra: Float64Array,
+): number | null {
+  const options = cheapestNeighbours(world.map!, field, extra, here);
   return options.length === 0 ? null : world.rng.pick(options);
 }

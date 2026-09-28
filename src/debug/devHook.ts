@@ -3,7 +3,7 @@ import { callWave, game, publish, setTimeScale } from '../game';
 import { buildAt, restartRun, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
 import type { BarricadeType } from '../sim/barricades';
-import { queueWave } from '../sim/mobs';
+import { queueWave, type MobType } from '../sim/mobs';
 import { TOWERS, upgradeTower, type TowerType } from '../sim/towers';
 import type { Scene, WebGLRenderer } from 'three';
 import { usePlan, type Ghost } from '../ui/planStore';
@@ -21,7 +21,7 @@ export interface DevHook {
   setSeed(seed: number): void;
   setTimeScale(scale: number): void;
   /** Queue `count` extra crawlers at spawn `spawnIndex` (index into `city.spawns`), outside the wave script. */
-  spawnWave(count?: number, spawnIndex?: number): void;
+  spawnWave(count?: number, spawnIndex?: number, type?: MobType): void;
   /**
    * Build `type` at (tx, ty) as a click with that tool would (default: an MG Nest on a tower spot, a
    * sawhorse on any other street). A barricade type on a barricade upgrades it. Error or null.
@@ -114,8 +114,8 @@ export function installDevHook(): void {
     callWave,
     focusTile: (tx, ty, view) => cameraBridge.focusTile?.(tx, ty, view),
     setTimeScale,
-    spawnWave(count = 20, spawnIndex = 0) {
-      queueWave(game.world, { count, spawnIndex });
+    spawnWave(count = 20, spawnIndex = 0, type = 'skitterling') {
+      queueWave(game.world, { count, spawnIndex, type });
       publish();
     },
     step(n = 1) {

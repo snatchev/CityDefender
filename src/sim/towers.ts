@@ -1,10 +1,11 @@
-import type { DamageType, TargetingMode, TowerDef, TowerTier } from '../data/schema';
+import rulesData from '../data/rules.json';
+import type { DamageType, TargetLayer, TargetingMode, TowerDef, TowerTier } from '../data/schema';
 import towersData from '../data/towers.json';
 import { TICK_DT, TICK_HZ, TILE_M } from './constants';
 import { hitDamage } from './damage';
 import { builtNow, sellValue, type BuiltAt } from './economy';
 import { gameHeight } from './height';
-import { MOBS, mobPos, slowMob, type Mob } from './mobs';
+import { isWet, MOBS, mobPos, slowMob, targetLayer, type Mob } from './mobs';
 import { isOver } from './phase';
 import { Slot } from './slots';
 import type { World } from './world';
@@ -26,17 +27,24 @@ export interface Tower {
   cooldown: number;
   /** Height the tower stands at (gameplay metres; 0 on a street corner). Sets its range (DESIGN §7). */
   heightM: number;
-  /** Most recent shot, for tracers and sprays: where it was aimed, in tile coordinates. */
-  lastShot: { tick: number; x: number; y: number } | null;
+  /** Most recent shot, for tracers and sprays: where it was aimed (tile coordinates), and at a flier? */
+  lastShot: { tick: number; x: number; y: number; air: boolean } | null;
+  /** Tesla: the mobs the last lightning chain passed through, target first (tile coordinates). */
+  lastChain: { x: number; y: number; air: boolean }[];
   built: BuiltAt;
   /** Everything paid for it (build + upgrades); selling refunds a share of this. */
   spent: number;
   kills: number;
 }
 
-/** A mortar shell in flight. It lands on a fixed point, so a target that keeps moving can dodge it. */
+/**
+ * A shell in flight (Mortar, Flak). It lands on a fixed point, so a target that keeps moving can
+ * dodge it, and splashes only the layers its tower can hit.
+ */
 export interface Shell {
   towerId: number;
+  towerType: TowerType;
+  targets: TargetLayer[];
   fromX: number;
   fromY: number;
   /** Impact point (tile coordinates). */
@@ -156,6 +164,7 @@ export function placeTower(
     heightM: siteHeight(world, ty * world.map!.width + tx),
     cooldown: 0,
     lastShot: null,
+    lastChain: [],
     built: builtNow(world),
     spent: cost,
     kills: 0,
@@ -206,13 +215,26 @@ export function sellTower(world: World, id: number): string | null {
   return null;
 }
 
-/** Mobs a tower can reach right now: alive and between its minimum and maximum range. */
+/** Can this tower hit this mob now? (Layer rules: DESIGN §5.4–5.5, §7; buried diggers never.) */
+function canTarget(world: World, def: TowerDef, m: Mob): boolean {
+  const layer = targetLayer(world, m);
+  return layer !== null && def.targets.includes(layer);
+}
+
+/**
+ * Mobs a tower can reach right now: alive, between its minimum and maximum range, and on a layer it
+ * can hit. A pulse reaches everything on or under the ground, buried diggers included.
+ */
 function inRange(world: World, t: Tower): Mob[] {
+  const def = TOWERS[t.type];
   const r = towerRange(t.type, t.heightM, t.tier);
   const maxTiles = r.maxM / TILE_M;
   const minTiles = r.minM / TILE_M;
   return world.mobs.filter((m) => {
     if (m.hp <= 0) return false;
+    if (def.attack === 'pulse' ? MOBS[m.type].layer === 'air' : !canTarget(world, def, m)) {
+      return false;
+    }
     const [x, y] = mobPos(m);
     const d = Math.hypot(x - t.tx, y - t.ty);
     return d <= maxTiles && d >= minTiles;
@@ -226,8 +248,10 @@ function inRange(world: World, t: Tower): Mob[] {
  */
 export function acquireTarget(world: World, t: Tower, candidates: Mob[]): Mob | null {
   const width = world.map!.width;
-  const field = world.field!;
-  const remaining = (m: Mob) => field[m.toY * width + m.toX]! + (1 - m.t);
+  const remaining = (m: Mob) => {
+    const field = MOBS[m.type].layer === 'ground' ? world.field! : world.freeField!;
+    return field[m.toY * width + m.toX]! + (1 - m.t);
+  };
   const key: Record<TargetingMode, (m: Mob) => number> = {
     first: remaining,
     last: (m) => -remaining(m),
@@ -259,16 +283,21 @@ function hit(world: World, m: Mob, raw: number, type: DamageType, tower: Tower |
   if (m.hp <= 0 && tower) tower.kills++;
 }
 
-/** Fire one shot at `target`, by damage type: shells for explosive, a cone for cryo, else a hit. */
+/** Fire one shot at `target`, by the tower's attack (schema.ts ATTACKS). */
 function fire(world: World, t: Tower, target: Mob, candidates: Mob[]): void {
   const def = TOWERS[t.type];
   const stats = towerTier(t);
   const [x, y] = mobPos(target);
-  t.lastShot = { tick: world.tick, x, y };
-  switch (def.damageType) {
-    case 'explosive':
+  t.lastShot = { tick: world.tick, x, y, air: MOBS[target.type].layer === 'air' };
+  switch (def.attack) {
+    case 'hit':
+      hit(world, target, stats.damage, def.damageType, t);
+      return;
+    case 'shell':
       world.shells.push({
         towerId: t.id,
+        towerType: t.type,
+        targets: def.targets,
         fromX: t.tx,
         fromY: t.ty,
         x,
@@ -280,23 +309,90 @@ function fire(world: World, t: Tower, target: Mob, candidates: Mob[]): void {
         splashTiles: stats.splashM! / TILE_M,
       });
       return;
-    case 'cryo': {
-      // Everything in range inside the cone aimed at the target is hit and slowed.
+    case 'cone': {
+      // Everything in range inside the cone aimed at the target is hit, slowed and wetted.
       const aim = Math.atan2(y - t.ty, x - t.tx);
       const half = ((stats.coneDeg! / 2) * Math.PI) / 180;
       const slowTicks = Math.round(stats.slowS! * TICK_HZ);
+      const wetTicks = Math.round((stats.wetS ?? 0) * TICK_HZ);
       for (const m of candidates) {
         const [mx, my] = mobPos(m);
         const off = Math.abs(angleDiff(Math.atan2(my - t.ty, mx - t.tx), aim));
         if (m !== target && off > half) continue;
         slowMob(world, m, stats.slowMul!, slowTicks);
+        m.wetUntilTick = Math.max(m.wetUntilTick, world.tick + wetTicks);
         hit(world, m, stats.damage, def.damageType, t);
       }
       return;
     }
-    default:
-      hit(world, target, stats.damage, def.damageType, t);
+    case 'chain':
+      chain(world, t, target);
+      return;
+    case 'pulse':
+      pulse(world, t, candidates);
+      return;
   }
+}
+
+/**
+ * Tesla (DESIGN §7): lightning hits the target, then jumps to the nearest mob it hasn't hit within
+ * jump reach, `chains` times, losing `chainFalloff` of its damage per jump. A wet target (Cryo) adds
+ * `wetExtraChains` jumps. Ties go to the lower id.
+ */
+function chain(world: World, t: Tower, target: Mob): void {
+  const def = TOWERS[t.type];
+  const stats = towerTier(t);
+  const jumps = stats.chains! + (isWet(world, target) ? rulesData.wetExtraChains : 0);
+  const reach = stats.chainRangeM! / TILE_M;
+  const struck = new Set<Mob>([target]);
+  let at = target;
+  let dmg = stats.damage;
+  hit(world, target, dmg, def.damageType, t);
+  const point = (m: Mob) => {
+    const [px, py] = mobPos(m);
+    return { x: px, y: py, air: MOBS[m.type].layer === 'air' };
+  };
+  t.lastChain = [point(target)];
+  for (let j = 0; j < jumps; j++) {
+    const [ax, ay] = mobPos(at);
+    let next: Mob | null = null;
+    let nextD = Infinity;
+    for (const m of world.mobs) {
+      if (struck.has(m) || m.hp <= 0 || !canTarget(world, def, m)) continue;
+      const [mx, my] = mobPos(m);
+      const d = Math.hypot(mx - ax, my - ay);
+      if (d <= reach && (d < nextD || (d === nextD && next && m.id < next.id))) {
+        next = m;
+        nextD = d;
+      }
+    }
+    if (!next) break;
+    dmg *= stats.chainFalloff!;
+    hit(world, next, dmg, def.damageType, t);
+    struck.add(next);
+    t.lastChain.push(point(next));
+    at = next;
+  }
+}
+
+/**
+ * Seismic Pulse (DESIGN §5.5, §7): everything on or under the ground in range takes the damage;
+ * buried diggers are forced up for `revealS` (towers can hit them) and diggers are stunned.
+ */
+function pulse(world: World, t: Tower, candidates: Mob[]): void {
+  const def = TOWERS[t.type];
+  const stats = towerTier(t);
+  const revealTicks = Math.round(stats.revealS! * TICK_HZ);
+  const stunTicks = Math.round(stats.stunS! * TICK_HZ);
+  for (const m of candidates) {
+    if (MOBS[m.type].layer === 'digger') {
+      m.surfacedUntilTick = Math.max(m.surfacedUntilTick, world.tick + revealTicks);
+      m.stunUntilTick = Math.max(m.stunUntilTick, world.tick + stunTicks);
+    }
+    hit(world, m, stats.damage, def.damageType, t);
+  }
+  const r = towerRange(t.type, t.heightM, t.tier);
+  world.fx.pulses.push({ tick: world.tick, x: t.tx, y: t.ty, radiusM: r.maxM, source: t.type });
 }
 
 function angleDiff(a: number, b: number): number {
@@ -304,7 +400,7 @@ function angleDiff(a: number, b: number): number {
   return d > Math.PI ? d - 2 * Math.PI : d < -Math.PI ? d + 2 * Math.PI : d;
 }
 
-/** Shells that land this tick damage every mob within their splash radius (DESIGN §7). */
+/** Shells that land this tick damage every mob they can hit within their splash radius. */
 function landShells(world: World): void {
   const flying = [];
   for (const s of world.shells) {
@@ -314,11 +410,19 @@ function landShells(world: World): void {
     }
     const tower = world.towers.find((t) => t.id === s.towerId);
     for (const m of world.mobs) {
+      const layer = targetLayer(world, m);
+      if (layer === null || !s.targets.includes(layer)) continue;
       const [x, y] = mobPos(m);
       if (Math.hypot(x - s.x, y - s.y) <= s.splashTiles)
         hit(world, m, s.damage, s.damageType, tower);
     }
-    world.fx.splashes.push({ tick: world.tick, x: s.x, y: s.y, radiusM: s.splashTiles * TILE_M });
+    world.fx.splashes.push({
+      tick: world.tick,
+      x: s.x,
+      y: s.y,
+      radiusM: s.splashTiles * TILE_M,
+      source: s.towerType,
+    });
   }
   world.shells = flying;
 }

@@ -1,6 +1,7 @@
 {
   "skitterling": {
     "name": "Skitterling",
+    "layer": "ground",
     "hp": 10,
     "speedMps": 10,
     "armor": 0,
@@ -10,11 +11,46 @@
   },
   "beetle": {
     "name": "Carapace Beetle",
+    "layer": "ground",
     "hp": 90,
     "speedMps": 5,
     "armor": 6,
     "goalDamage": 5,
     "barricadeDps": 6,
     "bounty": 15
+  },
+  "wasp": {
+    "name": "Wasp Drone",
+    "layer": "air",
+    "hp": 8,
+    "speedMps": 15,
+    "armor": 0,
+    "goalDamage": 1,
+    "barricadeDps": 0,
+    "bounty": 3
+  },
+  "grub": {
+    "name": "Tunneler Grub",
+    "layer": "digger",
+    "hp": 60,
+    "speedMps": 6,
+    "armor": 2,
+    "goalDamage": 3,
+    "barricadeDps": 0,
+    "bounty": 10,
+    "surfaceS": 3,
+    "surfaceNearGoalTiles": 10
+  },
+  "spitter": {
+    "name": "Acid Spitter",
+    "layer": "ground",
+    "hp": 30,
+    "speedMps": 7,
+    "armor": 1,
+    "goalDamage": 2,
+    "barricadeDps": 1,
+    "bounty": 8,
+    "spitRangeM": 48,
+    "spitDps": 10
   }
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import rulesData from '../data/rules.json';
 import { callWave, game } from '../game';
 import { MOBS } from '../sim/mobs';
+import { TOWERS } from '../sim/towers';
 import { TARGETING_MODES, type TargetingMode } from '../data/schema';
 import {
   restartRun,
@@ -191,6 +192,10 @@ function SelectedTowerCard() {
               ))}
             </select>
           </dd>
+        </div>
+        <div>
+          <dt>Hits</dt>
+          <dd>{TOWERS[sel.type].targets.join(' + ')}</dd>
         </div>
         <div>
           <dt>Kills</dt>
