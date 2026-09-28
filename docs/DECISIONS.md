@@ -157,3 +157,7 @@ Consequences: `sim/damage.ts hitDamage(raw, type, armor)`, unit-tested. Cryo hit
 Why: DESIGN §7–8; tier 3 branches arrive in Pass 9.
 Consequences: a tower tracks everything spent on it, and selling refunds 70% of that (100% during the prep it was built in). Barricade upgrades cost the price difference and add the HP difference, so damage already taken stays taken; the flow field is recomputed. Clicking a sawhorse with the Jersey Barrier tool upgrades it.
 
+**D035 · 2026-09-27 · Tower placement snaps to spots; the cursor's see-through cone follows the mouse (Stefan's feedback).**
+Why: single-tile spots were hard to hit, especially roofs at an angle, and the "not a tower spot" label was annoying.
+Consequences: `nearestTowerSite` (sim/towers.ts, tested) finds the nearest free spot the type can use within `TOWER_SNAP_TILES` (4); the ghost and the click both use it, and a map click with a tower tool builds on the previewed spot (`clickMap`). The cursor's see-through cone (D030) now aims at where the pointer ray meets the street and is updated before picking, instead of at the hovered or snapped tile: that fed back into picking (a pick moved the cone, which changed the next pick) and made the preview hop between roofs. Side effect: the cursor cone is always on while the pointer is over the map, not only when something is hovered.
+

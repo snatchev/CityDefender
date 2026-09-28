@@ -79,6 +79,37 @@ export function towerSiteError(
   return null;
 }
 
+/**
+ * The free spot for a `type` tower nearest to (tx, ty), within `radiusTiles` (Chebyshev square,
+ * nearest by straight-line distance, ties to the lower tile index), or null. Used to snap placement
+ * to the spot the player is pointing near.
+ */
+export function nearestTowerSite(
+  world: World,
+  tx: number,
+  ty: number,
+  type: TowerType,
+  radiusTiles: number,
+): [number, number] | null {
+  const map = world.map;
+  if (!map || !world.slots) return null;
+  let best: [number, number] | null = null;
+  let bestD = Infinity;
+  for (let y = ty - radiusTiles; y <= ty + radiusTiles; y++) {
+    for (let x = tx - radiusTiles; x <= tx + radiusTiles; x++) {
+      if (x < 0 || y < 0 || x >= map.width || y >= map.height) continue;
+      if (world.slots.towerSlot[y * map.width + x] === Slot.None) continue;
+      if (towerSiteError(world, x, y, type)) continue;
+      const d = Math.hypot(x - tx, y - ty);
+      if (d < bestD) {
+        best = [x, y];
+        bestD = d;
+      }
+    }
+  }
+  return best;
+}
+
 /** Gameplay height of a tower spot: the roof for a pad, street level for a corner. */
 export function siteHeight(world: World, i: number): number {
   return world.slots?.towerSlot[i] === Slot.Pad ? gameHeight(world.map?.heightsM?.[i] ?? 0) : 0;

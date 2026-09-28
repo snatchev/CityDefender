@@ -94,4 +94,5 @@
 ## City flavor: events, power-ups, debuffs and landmarks (Stefan, 2026-09-27)
 - 🏙️ Every city gets its own set of **special events** (good and bad), **power-ups** and **debuffs** drawn from local culture, for example in Philadelphia the "Broad Street Bullies" sweeping a street clear, or dirt-bike "wheelie boys" knocking barricades down.
 - 🏙️ Fill each map with **popular, beloved and locally hated landmarks and signs**, so locals recognise their city.
+- **Philadelphia first** (Stefan, 2026-09-27), built so other cities plug in: generic mechanics in `src/sim/`, per-city content in data keyed by city (like `waves.json`).
 - Research first, build later: candidate events, characters and landmarks for Boston, NYC, Philadelphia, San Francisco and Portland (Oregon) are in [research/city-flavor.md](research/city-flavor.md).

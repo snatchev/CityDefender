@@ -38,10 +38,13 @@ export type Ghost =
     }
   | {
       kind: 'tower';
+      /** The spot the preview snapped to (or the existing tower's tile). */
       tx: number;
       ty: number;
+      type: TowerType;
       /** Tower name (the tool's, or the existing tower's). */
       name: string;
+      /** Why it can't be built right now (only money: out-of-reach spots get no ghost at all). */
       error: string | null;
       rangeM: number;
       /** Raised towers can't hit closer than this (0 at street level). */

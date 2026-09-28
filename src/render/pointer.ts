@@ -1,9 +1,9 @@
 import type { ThreeEvent } from '@react-three/fiber';
-import { Vector3, type Ray } from 'three';
-import { buildAt, hoverTile, sellAt } from '../planning';
+import { Plane, Vector3, type Ray } from 'three';
+import { clickMap, hoverTile, sellAt } from '../planning';
 import type { TileMap } from '../sim/map';
 import { worldToTile, type TileFrame } from './coords';
-import { seeThroughFade } from './seeThrough';
+import { seeThroughFade, setSeeThroughCursor } from './seeThrough';
 
 /** Ray-march step along the pointer ray, in metres. */
 const STEP_M = 1;
@@ -12,6 +12,14 @@ const CLICK_SLOP_PX = 5;
 /** Roofs faded more than this by the see-through cutaway don't catch the pointer. */
 const PICK_THROUGH_FADE = 0.5;
 const probe = new Vector3();
+const street = new Plane(new Vector3(0, 1, 0), 0);
+
+/**
+ * Where the pointer ray meets street level, or null when the pointer is off the map. The cursor's
+ * see-through cone aims here: it depends only on the mouse, never on the picked tile, so picking
+ * can't feed back into the cutaway and hop between roofs.
+ */
+export const pointerStreet = { point: new Vector3(), active: false };
 
 /** Pointer handlers for the ground plane mesh. */
 export interface GroundHandlers {
@@ -22,8 +30,8 @@ export interface GroundHandlers {
 }
 
 /**
- * Pointer input on the map: hover previews, left-click builds (barricade on a street, MG Nest on a
- * rooftop, or selects a tower), right-click sells a tower or barricade. The tile comes from
+ * Pointer input on the map: hover previews, left-click builds with the picked tool (a tower lands on
+ * the spot its preview snapped to) or selects a tower, right-click sells a tower or barricade. The tile comes from
  * `pickTile`, so roofs are picked, not the ground behind them. Clicks that end a camera drag are
  * ignored.
  */
@@ -35,12 +43,18 @@ export function groundHandlers(
   const maxHeight = heights.reduce((m, h) => Math.max(m, h), 0);
   const tileAt = (ray: Ray) => pickTile(ray, frame, map, heights, maxHeight);
   return {
-    onPointerMove: (e) => hoverTile(tileAt(e.ray)),
-    onPointerOut: () => hoverTile(null),
+    onPointerMove: (e) => {
+      pointerStreet.active = e.ray.intersectPlane(street, pointerStreet.point) !== null;
+      setSeeThroughCursor(pointerStreet.active ? pointerStreet.point : null);
+      hoverTile(tileAt(e.ray));
+    },
+    onPointerOut: () => {
+      pointerStreet.active = false;
+      hoverTile(null);
+    },
     onClick: (e) => {
       if (e.delta > CLICK_SLOP_PX) return;
-      const tile = tileAt(e.ray);
-      if (tile) buildAt(tile[0], tile[1]);
+      clickMap(tileAt(e.ray));
     },
     onContextMenu: (e) => {
       e.nativeEvent.preventDefault();

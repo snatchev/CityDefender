@@ -13,6 +13,7 @@ import {
 import { TILE_M } from './sim/constants';
 import { tracePath } from './sim/flow';
 import {
+  nearestTowerSite,
   placeTower,
   sellTower,
   setTargeting,
@@ -20,7 +21,6 @@ import {
   TOWERS,
   towerRange,
   towerSellValue,
-  towerSiteError,
   upgradeCost,
   upgradeTower,
   type TowerType,
@@ -76,21 +76,48 @@ function refreshGhost(): void {
   const tower = w.towers.find((t) => t.id === w.towerAt[i]);
   const barricade = w.barricades.find((b) => b.id === w.barricadeAt[i]);
 
-  if (tower || tool?.kind === 'tower') {
-    const type = tower?.type ?? (tool as { type: TowerType }).type;
-    const range = towerRange(type, tower?.heightM ?? siteHeight(w, i), tower?.tier ?? 0);
+  // With a tower tool the preview snaps to the nearest free spot that type can use.
+  const spot = tool?.kind === 'tower' ? snapTowerSpot(tx, ty, tool.type) : null;
+  if (spot && tool?.kind === 'tower') {
+    const [sx, sy] = spot;
+    const range = towerRange(tool.type, siteHeight(w, sy * w.map.width + sx));
+    const cost = TOWERS[tool.type].tiers[0]!.cost;
+    usePlan.setState({
+      ghost: {
+        kind: 'tower',
+        tx: sx,
+        ty: sy,
+        type: tool.type,
+        name: TOWERS[tool.type].name,
+        error: w.cash < cost ? `needs $${cost}` : null,
+        rangeM: range.maxM,
+        minRangeM: range.minM,
+        sellValue: null,
+      },
+    });
+    return;
+  }
+
+  if (tower) {
+    const range = towerRange(tower.type, tower.heightM, tower.tier);
     usePlan.setState({
       ghost: {
         kind: 'tower',
         tx,
         ty,
-        name: TOWERS[type].name,
-        error: tower ? null : towerSiteError(w, tx, ty, type),
+        type: tower.type,
+        name: TOWERS[tower.type].name,
+        error: null,
         rangeM: range.maxM,
         minRangeM: range.minM,
-        sellValue: tower ? towerSellValue(w, tower) : null,
+        sellValue: towerSellValue(w, tower),
       },
     });
+    return;
+  }
+
+  if (tool?.kind === 'tower') {
+    usePlan.setState({ ghost: null }); // no spot for this tower nearby: no preview, no nagging
     return;
   }
 
@@ -218,9 +245,44 @@ export function buildAt(
     const err = upgradeBarricade(w, existing.id);
     return afterEdit(err ? `Can't upgrade: ${err}` : null);
   }
-  const result =
-    tool.kind === 'tower' ? placeTower(w, tx, ty, tool.type) : placeBarricade(w, tx, ty, tool.type);
+  if (tool.kind === 'tower') {
+    const spot = snapTowerSpot(tx, ty, tool.type);
+    if (!spot) return null; // nowhere near a spot for this tower: ignore the click
+    const result = placeTower(w, spot[0], spot[1], tool.type);
+    return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
+  }
+  const result = placeBarricade(w, tx, ty, tool.type);
   return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
+}
+
+/**
+ * A left click on the map. With a tower tool the tower goes exactly where its preview is showing
+ * (hover and click pick tiles separately, and the see-through cutaway can shift between them, so
+ * re-picking could land on a different roof). Everything else goes through `buildAt`.
+ */
+export function clickMap(tile: [number, number] | null): string | null {
+  const tool = usePlan.getState().tool;
+  const ghost = usePlan.getState().ghost;
+  if (
+    tool?.kind === 'tower' &&
+    ghost?.kind === 'tower' &&
+    ghost.sellValue === null &&
+    ghost.type === tool.type
+  ) {
+    const result = placeTower(game.world, ghost.tx, ghost.ty, tool.type);
+    return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
+  }
+  return tile ? buildAt(tile[0], tile[1], tool) : null;
+}
+
+/**
+ * Tower placement snaps to the nearest free spot for the type within this many tiles of the pointer
+ * (spots are single tiles and hard to hit exactly, especially on roofs seen at an angle).
+ */
+const TOWER_SNAP_TILES = 4;
+
+function snapTowerSpot(tx: number, ty: number, type: TowerType): [number, number] | null {
+  return nearestTowerSite(game.world, tx, ty, type, TOWER_SNAP_TILES);
 }
 
 /** Right click: sell the tower or dismantle the barricade on this tile. */

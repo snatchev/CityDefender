@@ -4,7 +4,7 @@ import { GRID, LOOP } from './__fixtures__/maps';
 import { parseAsciiMap } from './asciiMap';
 import { placeBarricade } from './barricades';
 import { N4, Tile, tileAt } from './map';
-import { towerRange } from './towers';
+import { nearestTowerSite, placeTower, towerRange } from './towers';
 import { createWorld } from './world';
 
 describe('street graph and slots', () => {
@@ -57,5 +57,27 @@ describe('tower range and height (DESIGN §7)', () => {
     expect(mid.maxM).toBeCloseTo(rangeM * (1 + s.rangeHeightFactor * 20));
     expect(mid.minM).toBeCloseTo(s.minRangePerHeight * 20);
     expect(towerRange('mgNest', 10_000).maxM).toBeCloseTo(rangeM * s.rangeMaxMul);
+  });
+});
+
+describe('placement snapping', () => {
+  it('snaps to the nearest free spot the tower type can use, within the radius', () => {
+    const w = createWorld(1, parseAsciiMap(GRID));
+    w.cash = 10_000;
+    const W = w.map!.width;
+    const [cx, cy] = [w.slots!.corners[0]! % W, Math.floor(w.slots!.corners[0]! / W)];
+    // Pointing right at a corner picks it; a tile away still finds it.
+    expect(nearestTowerSite(w, cx, cy, 'cryo', 2)).toEqual([cx, cy]);
+    const near = nearestTowerSite(w, cx + 1, cy, 'cryo', 2)!;
+    expect(Math.hypot(near[0] - (cx + 1), near[1] - cy)).toBeLessThanOrEqual(1);
+    // Taken spots are skipped.
+    placeTower(w, cx, cy, 'cryo');
+    expect(nearestTowerSite(w, cx, cy, 'cryo', 2)).not.toEqual([cx, cy]);
+    // Nothing in reach: null, never a far-away spot.
+    expect(nearestTowerSite(w, cx, cy, 'cryo', 0)).toBeNull();
+    // Roof-only towers never snap to street corners.
+    const pads = new Set(w.slots!.pads);
+    const m = nearestTowerSite(w, cx, cy, 'mortar', 3);
+    if (m) expect(pads.has(m[1] * W + m[0])).toBe(true);
   });
 });

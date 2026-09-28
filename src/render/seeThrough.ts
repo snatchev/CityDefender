@@ -56,6 +56,14 @@ export function updateSeeThrough(cam: Vector3, target: Vector3, cursor: Vector3 
   uniforms.uSeeCamRadius.value = state.camRadius;
 }
 
+/**
+ * Move just the cursor's sight line (call on pointer move, before picking), so a pick sees the same
+ * cutaway the next frame draws. Null folds it onto the orbit target line.
+ */
+export function setSeeThroughCursor(cursor: Vector3 | null): void {
+  state.focus[1].copy(cursor ?? state.focus[0]);
+}
+
 /** Cutaway strength (0..1) at a world point, for one sight line. Mirrors the shader below. */
 function lineFade(p: Vector3, focus: Vector3, radius: number): number {
   const ab = focus.clone().sub(state.cam);

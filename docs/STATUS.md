@@ -22,6 +22,7 @@
   - A decorative backdrop city out to the rivers (70k footprints baked to 16 m / 32 m height grids, LOD by distance), a gradient sky and horizon haze (D027, Stefan's request).
   - City Hall hit feedback (flash, Integrity-scaled shake, HUD pulse), from playtest 2.
   - Balance re-tuned for the new tower spots: bug HP ×1.7 from wave 3; gentler height bonus (see Known issues).
+- Tower placement snapping (Stefan, after Pass 7, D035): with a tower tool picked, the preview snaps to the nearest free spot that tower can use within 4 tiles of the pointer, drawn as a see-through model of the tower on a pulsing ring plus its range. No spot in reach: no preview, no label, clicks do nothing. The only label left is money ("needs $100"). Spot markers for the picked tower grow and brighten; the others hide. A click builds exactly where the preview is. Screenshot: [placement-snap.png](screenshots/placement-snap.png).
 - Pass 7: data-driven roster I (tag `pass-07`, D032–D034).
   - Balance tables with zod schemas (`src/data/schema.ts`), checked by `schema.test.ts`; the sim imports only the inferred types.
   - Towers: MG Nest (kinetic, pads + corners), **Mortar** (explosive splash, shells land where the target was, 40 m minimum range, pads), **Cryo Sprayer** (slows everything in a cone, corners), **Railgun** (pierces armor, long range that grows most with height, pads). Each has two tiers (upgrade in the tower card) and a targeting mode (first, last, strongest, weakest, closest).

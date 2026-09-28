@@ -103,8 +103,8 @@ export function Scene() {
           <Mobs frame={frame} />
           <HpBars frame={frame} />
           <Effects frame={frame} />
-          <PlanOverlay frame={frame} />
-          <SeeThroughDriver frame={frame} />
+          <PlanOverlay frame={frame} heights={heights} />
+          <SeeThroughDriver />
           <CameraBridge frame={frame} heights={heights} width={map.width} />
         </>
       )}
