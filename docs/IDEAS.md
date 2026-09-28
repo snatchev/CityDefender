@@ -90,3 +90,8 @@
 - 🏙️ Optional side objectives: "Keep LOVE Park clear this wave" or "Protect the Reading Terminal Market loading dock" for bonus cash.
 - 🏙️ Barricade skins: SEPTA buses, sanitation trucks, Mummers float (joke tier).
 - 🏙️ The William Penn statue gets a hard hat when integrity drops below 50%.
+
+## City flavor: events, power-ups, debuffs and landmarks (Stefan, 2026-09-27)
+- 🏙️ Every city gets its own set of **special events** (good and bad), **power-ups** and **debuffs** drawn from local culture, for example in Philadelphia the "Broad Street Bullies" sweeping a street clear, or dirt-bike "wheelie boys" knocking barricades down.
+- 🏙️ Fill each map with **popular, beloved and locally hated landmarks and signs**, so locals recognise their city.
+- Research first, build later: candidate events, characters and landmarks for Boston, NYC, Philadelphia, San Francisco and Portland (Oregon) are in [research/city-flavor.md](research/city-flavor.md).

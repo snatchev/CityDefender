@@ -166,6 +166,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 
 ### Beyond: see [IDEAS.md](IDEAS.md)
 Destruction (voxelize on damage), active abilities, more cities, endless mode, campaign map.
+City flavor: per-city special events, power-ups, debuffs and landmarks (research in [research/city-flavor.md](research/city-flavor.md)).
 
 ---
 
