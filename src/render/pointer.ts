@@ -3,6 +3,7 @@ import { Plane, Vector3, type Ray } from 'three';
 import { clickMap, hoverTile, sellAt } from '../planning';
 import type { TileMap } from '../sim/map';
 import { worldToTile, type TileFrame } from './coords';
+import { usePlan } from '../ui/planStore';
 import { seeThroughFade, setSeeThroughCursor } from './seeThrough';
 
 /** Ray-march step along the pointer ray, in metres. */
@@ -20,6 +21,14 @@ const street = new Plane(new Vector3(0, 1, 0), 0);
  * can't feed back into the cutaway and hop between roofs.
  */
 export const pointerStreet = { point: new Vector3(), active: false };
+
+/**
+ * The cursor's see-through cone, if it should be on: only while a build tool is picked (to place
+ * behind tall buildings). Otherwise moving the mouse would dither whatever it passes over (Stefan).
+ */
+export function cursorCutaway(): Vector3 | null {
+  return pointerStreet.active && usePlan.getState().tool ? pointerStreet.point : null;
+}
 
 /** Pointer handlers for the ground plane mesh. */
 export interface GroundHandlers {
@@ -45,7 +54,7 @@ export function groundHandlers(
   return {
     onPointerMove: (e) => {
       pointerStreet.active = e.ray.intersectPlane(street, pointerStreet.point) !== null;
-      setSeeThroughCursor(pointerStreet.active ? pointerStreet.point : null);
+      setSeeThroughCursor(cursorCutaway());
       hoverTile(tileAt(e.ray));
     },
     onPointerOut: () => {

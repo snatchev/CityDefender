@@ -173,3 +173,7 @@ Consequences: the schema requires the tier fields each attack needs. `targets` l
 Why: DESIGN §8 and IDEAS "width-scaled cost": where you block should matter. Spike strips must not become path costs or they'd reroute bugs.
 Consequences: `barricades.json` has `kind` (wall, trap) and `costPerTile`; a barricade stores what was spent, and refunds use that. Traps live in `world.traps` (one per block face, never on a wall's tiles), damage crawlers entering their tiles and lose one `hp` per crossing. Walls with `repairsBetweenWaves` go back to full when a prep starts. Upgrade chain Sawhorse → Jersey → Bus Wall → Blast Wall. The T3 wall is "Bus Wall" in the table; a Philadelphia SEPTA skin belongs in city data later (multi-city rule).
 
+**D039 · 2026-09-29 · The cursor's see-through cone is on only while a build tool is picked (Stefan).**
+Why: since D035 the cutaway followed the mouse everywhere, so just moving the pointer dithered whatever it passed over, which looked bad.
+Consequences: `cursorCutaway()` (render/pointer.ts) returns the pointer's street point only when a build tool is selected; otherwise only the camera → orbit-target cone (D030) cuts away. Placement behind tall buildings still works because the cone is on whenever you're placing.
+
