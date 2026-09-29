@@ -100,6 +100,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Fixed 2026-09-29: a sharp edge along the bottom of the camera cutaway, worst at shallow angles (Stefan). The cutaway now eases out below the sight line and near the target (D041).
 - Fixed 2026-09-29: moving the mouse dithered buildings under the pointer (Stefan). The cutaway now follows the camera only, never the mouse (D040); the centre-of-screen cutaway (D030) is unchanged.
 - Balance after Pass 8 (throwaway headless bot on the real map, no barricades, calls every wave early): MG Nests only → lost in wave 8; the Pass 7 mix (MG, Mortar, Cryo, Railgun) → won with 14 Integrity but let every wasp through; a Pass 8 mix (adds Flak and Seismic on the wasp and grub routes) → stopped every wasp and all but 2 grubs, then lost in wave 10 with $734 unspent (the bot stops buying when a Flak or Seismic spot isn't useful). The bot is sensitive to small strategy changes, so treat these as direction, not precision. Needs a playtest.
 - Sim matchup tests (`matchups.test.ts`): walls + Mortar + Cryo stop a swarm but not one of 30 wasps; one Flak stops most; two MG Nests let 12 of 12 grubs through, with a Seismic Pulse 0; a guarded Jersey Barrier holds a swarm but spitters melt it from outside the guards' reach, and a Railgun behind it keeps it standing; Cryo + Tesla out-kill Tesla alone.

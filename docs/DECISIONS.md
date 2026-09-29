@@ -181,3 +181,7 @@ Consequences: `cursorCutaway()` (render/pointer.ts) returns the pointer's street
 Why: Stefan: "I don't think it should ever do that, only the camera." Even gated to build mode (D039), a cutaway that moves with the pointer looked bad.
 Consequences: `seeThrough.ts` has one sight line, camera → orbit target (screen centre), in the shader and in the CPU mirror used by picking. The pointer-street tracking and the pre-pick cursor update are gone. Picking still looks through buildings the camera cutaway has faded; since that depends only on the camera, the same mouse position always picks the same tile, so snapping stays stable. Placing behind a tall building means moving the camera, or relying on snapping to a nearby spot.
 
+**D041 · 2026-09-29 · The cutaway eases out instead of cutting off (Stefan: "a sharp cut-off along the bottom", worst at shallow camera angles).**
+Why: two hard thresholds drew edges across buildings: surfaces more than 0.15 × the cone radius below the sight line were never faded (at shallow angles that line runs through building faces), and the cutaway stopped dead at 97% of the way to the target.
+Consequences: the fade is now radial × below × nearEnd, each a smoothstep: below the sight line it eases out over 0–0.5 × the local cone radius; toward the target it eases out between 80% and 97% of the way. The CPU mirror used by picking matches the shader.
+

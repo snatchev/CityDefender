@@ -19,10 +19,17 @@ const RADIUS_MAX_M = 160;
 const CAMERA_END_FRACTION = 0.3;
 /**
  * Only surfaces above the sight line can hide the target; below it (low buildings the line passes
- * over) stay solid. Allowance below the line, as a fraction of the local cone radius.
+ * over) stay solid. The cutaway eases out between these depths below the line, as fractions of the
+ * local cone radius (a band, not a hard edge: at shallow camera angles the line runs through
+ * building faces, and a hard threshold drew a sharp cut across them).
  */
-const BELOW_LINE_ALLOWANCE = 0.15;
-/** Stop the cutaway just short of the target, so the street being looked at stays solid. */
+const BELOW_LINE_FADE_START = 0.0;
+const BELOW_LINE_FADE_END = 0.5;
+/**
+ * The cutaway eases out between these fractions of the way to the target, so the street being
+ * looked at stays solid without a hard edge.
+ */
+const T_FADE_START = 0.8;
 const T_END = 0.97;
 
 /** Live state, written once per frame by `updateSeeThrough`, read by every patched material. */
@@ -60,8 +67,11 @@ export function seeThroughFade(p: Vector3): number {
   if (t <= 0 || t >= T_END) return 0;
   const onLine = state.cam.clone().addScaledVector(ab, t);
   const r = state.camRadius + (state.radius - state.camRadius) * t; // cone: wide at the camera
-  if (p.y < onLine.y - r * BELOW_LINE_ALLOWANCE) return 0; // below the sight line: not in the way
-  return 1 - smoothstep(r * 0.6, r, p.distanceTo(onLine));
+  const radial = 1 - smoothstep(r * 0.6, r, p.distanceTo(onLine));
+  // Below the sight line (not in the way) and close to the target, ease out rather than cut.
+  const below = 1 - smoothstep(r * BELOW_LINE_FADE_START, r * BELOW_LINE_FADE_END, onLine.y - p.y);
+  const nearEnd = 1 - smoothstep(T_FADE_START, T_END, t);
+  return radial * below * nearEnd;
 }
 
 function smoothstep(a: number, b: number, x: number): number {
@@ -100,8 +110,10 @@ export function withSeeThrough<M extends Material>(material: M): M {
           if (t <= 0.0 || t >= ${T_END.toFixed(2)}) return 0.0;
           vec3 onLine = uSeeCam + ab * t;
           float r = mix(uSeeCamRadius, uSeeRadius, t);
-          if (vSeeWorld.y < onLine.y - r * ${BELOW_LINE_ALLOWANCE.toFixed(2)}) return 0.0;
-          return 1.0 - smoothstep(r * 0.6, r, length(vSeeWorld - onLine));
+          float radial = 1.0 - smoothstep(r * 0.6, r, length(vSeeWorld - onLine));
+          float below = 1.0 - smoothstep(r * ${BELOW_LINE_FADE_START.toFixed(2)}, r * ${BELOW_LINE_FADE_END.toFixed(2)}, onLine.y - vSeeWorld.y);
+          float nearEnd = 1.0 - smoothstep(${T_FADE_START.toFixed(2)}, ${T_END.toFixed(2)}, t);
+          return radial * below * nearEnd;
         }
         float bayer4(vec2 p) {
           int x = int(mod(p.x, 4.0));
@@ -121,6 +133,6 @@ export function withSeeThrough<M extends Material>(material: M): M {
         }`,
       );
   };
-  material.customProgramCacheKey = () => 'see-through-v4';
+  material.customProgramCacheKey = () => 'see-through-v5';
   return material;
 }
