@@ -1,10 +1,9 @@
 import type { ThreeEvent } from '@react-three/fiber';
-import { Plane, Vector3, type Ray } from 'three';
+import { Vector3, type Ray } from 'three';
 import { clickMap, hoverTile, sellAt } from '../planning';
 import type { TileMap } from '../sim/map';
 import { worldToTile, type TileFrame } from './coords';
-import { usePlan } from '../ui/planStore';
-import { seeThroughFade, setSeeThroughCursor } from './seeThrough';
+import { seeThroughFade } from './seeThrough';
 
 /** Ray-march step along the pointer ray, in metres. */
 const STEP_M = 1;
@@ -13,23 +12,6 @@ const CLICK_SLOP_PX = 5;
 /** Roofs faded more than this by the see-through cutaway don't catch the pointer. */
 const PICK_THROUGH_FADE = 0.5;
 const probe = new Vector3();
-const street = new Plane(new Vector3(0, 1, 0), 0);
-
-/**
- * Where the pointer ray meets street level, or null when the pointer is off the map. The cursor's
- * see-through cone aims here: it depends only on the mouse, never on the picked tile, so picking
- * can't feed back into the cutaway and hop between roofs.
- */
-export const pointerStreet = { point: new Vector3(), active: false };
-
-/**
- * The cursor's see-through cone, if it should be on: only while a build tool is picked (to place
- * behind tall buildings). Otherwise moving the mouse would dither whatever it passes over (Stefan).
- */
-export function cursorCutaway(): Vector3 | null {
-  return pointerStreet.active && usePlan.getState().tool ? pointerStreet.point : null;
-}
-
 /** Pointer handlers for the ground plane mesh. */
 export interface GroundHandlers {
   onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
@@ -52,15 +34,8 @@ export function groundHandlers(
   const maxHeight = heights.reduce((m, h) => Math.max(m, h), 0);
   const tileAt = (ray: Ray) => pickTile(ray, frame, map, heights, maxHeight);
   return {
-    onPointerMove: (e) => {
-      pointerStreet.active = e.ray.intersectPlane(street, pointerStreet.point) !== null;
-      setSeeThroughCursor(cursorCutaway());
-      hoverTile(tileAt(e.ray));
-    },
-    onPointerOut: () => {
-      pointerStreet.active = false;
-      hoverTile(null);
-    },
+    onPointerMove: (e) => hoverTile(tileAt(e.ray)),
+    onPointerOut: () => hoverTile(null),
     onClick: (e) => {
       if (e.delta > CLICK_SLOP_PX) return;
       clickMap(tileAt(e.ray));

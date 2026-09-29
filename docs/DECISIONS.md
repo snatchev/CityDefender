@@ -177,3 +177,7 @@ Consequences: `barricades.json` has `kind` (wall, trap) and `costPerTile`; a bar
 Why: since D035 the cutaway followed the mouse everywhere, so just moving the pointer dithered whatever it passed over, which looked bad.
 Consequences: `cursorCutaway()` (render/pointer.ts) returns the pointer's street point only when a build tool is selected; otherwise only the camera → orbit-target cone (D030) cuts away. Placement behind tall buildings still works because the cone is on whenever you're placing.
 
+**D040 · 2026-09-29 · The see-through cutaway follows the camera only, never the mouse. Supersedes D039 and the cursor half of D030/D035.**
+Why: Stefan: "I don't think it should ever do that, only the camera." Even gated to build mode (D039), a cutaway that moves with the pointer looked bad.
+Consequences: `seeThrough.ts` has one sight line, camera → orbit target (screen centre), in the shader and in the CPU mirror used by picking. The pointer-street tracking and the pre-pick cursor update are gone. Picking still looks through buildings the camera cutaway has faded; since that depends only on the camera, the same mouse position always picks the same tile, so snapping stays stable. Placing behind a tall building means moving the camera, or relying on snapping to a nearby spot.
+
