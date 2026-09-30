@@ -1,4 +1,10 @@
-import { Vector3, type Material, type WebGLProgramParametersWithUniforms } from 'three';
+import {
+  Vector3,
+  Vector4,
+  type Material,
+  type PerspectiveCamera,
+  type WebGLProgramParametersWithUniforms,
+} from 'three';
 
 /**
  * See-through buildings (D030, D040): anything between the camera and what it's looking at (the
@@ -7,6 +13,10 @@ import { Vector3, type Material, type WebGLProgramParametersWithUniforms } from 
  * at the camera (so a tower the camera is right next to fades) and narrow at the target (so the street
  * being looked at and its neighbours stay solid). Surfaces inside the cone are dithered away ("screen
  * door" transparency: stays opaque to the GPU, so no sorting problems) leaving a faint silhouette.
+ *
+ * Route cutaway (D049): while a route is focused, anything drawn in front of it on screen fades
+ * almost completely, wherever the camera is. The route is projected to screen space every frame; a
+ * building pixel near the projected route and closer to the camera than the route there is removed.
  */
 
 /** Share of pixels removed at the core of the cutaway (the rest keep a ghost of the building). */
@@ -32,6 +42,16 @@ const BELOW_LINE_FADE_END = 0.5;
 const T_FADE_START = 0.8;
 const T_END = 0.97;
 
+/** Share of pixels removed in front of a focused route: stronger than the camera cutaway. */
+const ROUTE_MAX_FADE = 0.95;
+/** Half-width of the cleared band around the route (m at the route's depth), with a floor in pixels. */
+const ROUTE_RADIUS_M = 14;
+const ROUTE_MIN_RADIUS_PX = 20;
+/** A surface must be this much closer than the route to count as in front of it (m). */
+const ROUTE_DEPTH_MARGIN_M = 2;
+/** Most route corners the shader takes; longer routes are thinned evenly. */
+export const MAX_ROUTE_POINTS = 48;
+
 /** Live state, written once per frame by `updateSeeThrough`, read by every patched material. */
 const state = {
   cam: new Vector3(),
@@ -41,14 +61,66 @@ const state = {
   camRadius: 0,
 };
 
+/** The focused route: world points, and each frame their screen position, depth and band radius. */
+const route = {
+  world: [] as Vector3[],
+  /** (x px, y px, view depth m, radius px); radius 0 marks a point behind the camera. */
+  screen: Array.from({ length: MAX_ROUTE_POINTS }, () => new Vector4()),
+  count: 0,
+  camera: null as PerspectiveCamera | null,
+  bufferW: 1,
+  bufferH: 1,
+};
+
 const uniforms = {
   uSeeCam: { value: state.cam },
   uSeeTarget: { value: state.target },
   uSeeRadius: { value: 0 },
   uSeeCamRadius: { value: 0 },
+  uRoute: { value: route.screen },
+  uRouteCount: { value: 0 },
 };
 
-export function updateSeeThrough(cam: Vector3, target: Vector3): void {
+/** Focus the route cutaway on a polyline (world points at street level), or turn it off. */
+export function setRouteCutaway(points: readonly Vector3[] | null): void {
+  const pts = points ?? [];
+  const n = Math.min(pts.length, MAX_ROUTE_POINTS);
+  route.world =
+    pts.length <= MAX_ROUTE_POINTS
+      ? pts.map((p) => p.clone())
+      : Array.from({ length: n }, (_, k) =>
+          pts[Math.round((k * (pts.length - 1)) / (n - 1))]!.clone(),
+        );
+  route.count = route.world.length;
+  uniforms.uRouteCount.value = 0;
+}
+
+const tmp = new Vector3();
+
+/** Project a world point for the route cutaway: [x px, y px, depth m] in the drawing buffer. */
+function toScreen(
+  p: Vector3,
+  cam: PerspectiveCamera,
+  w: number,
+  h: number,
+): [number, number, number] {
+  tmp.copy(p).applyMatrix4(cam.matrixWorldInverse);
+  const depth = -tmp.z;
+  tmp.applyMatrix4(cam.projectionMatrix);
+  return [((tmp.x + 1) / 2) * w, ((tmp.y + 1) / 2) * h, depth];
+}
+
+/**
+ * Called every frame with the camera, its orbit target and the drawing buffer size (px), before
+ * anything is drawn.
+ */
+export function updateSeeThrough(
+  camera: PerspectiveCamera,
+  target: Vector3,
+  bufferW: number,
+  bufferH: number,
+): void {
+  const cam = camera.position;
   const dist = cam.distanceTo(target);
   state.cam.copy(cam);
   state.target.copy(target);
@@ -56,10 +128,60 @@ export function updateSeeThrough(cam: Vector3, target: Vector3): void {
   state.camRadius = dist * CAMERA_END_FRACTION;
   uniforms.uSeeRadius.value = state.radius;
   uniforms.uSeeCamRadius.value = state.camRadius;
+
+  route.camera = camera;
+  route.bufferW = bufferW;
+  route.bufferH = bufferH;
+  if (route.count > 0) {
+    camera.updateMatrixWorld();
+    const focalPx = bufferH / 2 / Math.tan((camera.fov * Math.PI) / 360);
+    const minPx = (ROUTE_MIN_RADIUS_PX * bufferH) / 1000;
+    route.world.forEach((p, k) => {
+      const [x, y, depth] = toScreen(p, camera, bufferW, bufferH);
+      const r = depth > camera.near ? Math.max(minPx, (ROUTE_RADIUS_M * focalPx) / depth) : 0;
+      route.screen[k]!.set(x, y, depth, r);
+    });
+  }
+  uniforms.uRouteCount.value = route.count;
 }
 
-/** Cutaway strength (0..1) at a world point, CPU side, so picking can look through faded buildings. Mirrors the shader below. */
+/** Route cutaway strength (0..1) for a surface at screen (x, y) px and view depth, as in the shader. */
+function routeFade(x: number, y: number, depth: number): number {
+  let fade = 0;
+  for (let k = 0; k + 1 < route.count; k++) {
+    const a = route.screen[k]!;
+    const b = route.screen[k + 1]!;
+    if (a.w <= 0 || b.w <= 0) continue;
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const t = Math.min(
+      1,
+      Math.max(0, ((x - a.x) * abx + (y - a.y) * aby) / Math.max(abx * abx + aby * aby, 1e-4)),
+    );
+    const d = Math.hypot(x - (a.x + abx * t), y - (a.y + aby * t));
+    const r = a.w + (b.w - a.w) * t;
+    const routeDepth = 1 / (1 / a.z + (1 / b.z - 1 / a.z) * t); // 1/depth is linear on screen
+    if (depth < routeDepth - ROUTE_DEPTH_MARGIN_M)
+      fade = Math.max(fade, 1 - smoothstep(r * 0.7, r, d));
+  }
+  return fade;
+}
+
+/**
+ * Cutaway strength (0..1) at a world point, CPU side, so picking can look through faded buildings.
+ * Mirrors the shader below: the stronger of the camera and the route cutaway.
+ */
 export function seeThroughFade(p: Vector3): number {
+  const cam = route.camera;
+  let viaRoute = 0;
+  if (cam && route.count > 1) {
+    const [x, y, depth] = toScreen(p, cam, route.bufferW, route.bufferH);
+    viaRoute = routeFade(x, y, depth);
+  }
+  return Math.max(viaRoute, lineFade(p));
+}
+
+function lineFade(p: Vector3): number {
   const ab = state.target.clone().sub(state.cam);
   const len2 = ab.lengthSq();
   if (len2 === 0) return 0;
@@ -121,6 +243,26 @@ export function withSeeThrough<M extends Material>(material: M): M {
           float nearEnd = 1.0 - smoothstep(${T_FADE_START.toFixed(2)}, ${T_END.toFixed(2)}, t);
           return radial * below * nearEnd;
         }
+        uniform vec4 uRoute[${MAX_ROUTE_POINTS}];
+        uniform int uRouteCount;
+        float routeCut() {
+          float fade = 0.0;
+          vec2 f = gl_FragCoord.xy;
+          float depth = vViewPosition.z;
+          for (int k = 0; k < ${MAX_ROUTE_POINTS - 1}; k++) {
+            if (k + 1 >= uRouteCount) break;
+            vec4 a = uRoute[k];
+            vec4 b = uRoute[k + 1];
+            if (a.w <= 0.0 || b.w <= 0.0) continue;
+            vec2 ab = b.xy - a.xy;
+            float t = clamp(dot(f - a.xy, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
+            float d = length(f - (a.xy + ab * t));
+            float r = mix(a.w, b.w, t);
+            float routeDepth = 1.0 / mix(1.0 / a.z, 1.0 / b.z, t);
+            if (depth < routeDepth - ${ROUTE_DEPTH_MARGIN_M.toFixed(1)}) fade = max(fade, 1.0 - smoothstep(r * 0.7, r, d));
+          }
+          return fade;
+        }
         float bayer4(vec2 p) {
           int x = int(mod(p.x, 4.0));
           int y = int(mod(p.y, 4.0));
@@ -134,11 +276,11 @@ export function withSeeThrough<M extends Material>(material: M): M {
         '#include <clipping_planes_fragment>',
         `#include <clipping_planes_fragment>
         {
-          float fade = seeLine();
-          if (bayer4(gl_FragCoord.xy) < fade * ${MAX_FADE.toFixed(2)}) discard;
+          float fade = max(seeLine() * ${MAX_FADE.toFixed(2)}, routeCut() * ${ROUTE_MAX_FADE.toFixed(2)});
+          if (bayer4(gl_FragCoord.xy) < fade) discard;
         }`,
       );
   };
-  material.customProgramCacheKey = () => `${prevKey()}|see-through-v5`;
+  material.customProgramCacheKey = () => `${prevKey()}|see-through-v6`;
   return material;
 }

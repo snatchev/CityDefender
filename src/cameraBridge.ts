@@ -12,6 +12,13 @@ export interface CameraView {
 export const cameraBridge = {
   /** Centre the view on a tile (null until the scene is up). */
   focusTile: null as ((tx: number, ty: number, view?: CameraView) => void) | null,
+  /**
+   * Glide to look at a world point (x, y, z) from a view, over `seconds`; mouse or keyboard camera
+   * input takes over at once (null until the scene is up).
+   */
+  flyTo: null as
+    | ((target: [number, number, number], view: Required<CameraView>, seconds: number) => void)
+    | null,
   view: {
     /** Tile under the orbit target. */
     tx: 0,

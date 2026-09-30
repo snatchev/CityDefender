@@ -5,6 +5,8 @@ import { ELITES, MOBS } from '../sim/mobs';
 import { TOWERS } from '../sim/towers';
 import { TARGETING_MODES, type TargetingMode } from '../data/schema';
 import {
+  clearRouteFocus,
+  focusRoute,
   repairSelectedWall,
   restartRun,
   selectTool,
@@ -56,7 +58,10 @@ export function Hud() {
   );
 }
 
-/** Esc puts the build tool down, then closes the tower card. M toggles the map debug view. */
+/**
+ * Esc puts the build tool down, then closes the tower card and lets go of a focused route.
+ * M toggles the map debug view.
+ */
 function useHotkeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -66,6 +71,7 @@ function useHotkeys() {
         else {
           selectTower(null);
           selectWall(null);
+          clearRouteFocus();
         }
       }
       if (e.code === 'KeyM') usePlan.setState((p) => ({ debugMap: !p.debugMap }));
@@ -158,6 +164,7 @@ function WaveIntel() {
   const phase = useHud((s) => s.phase);
   const breaches = useHud((s) => s.breaches);
   const stations = useHud((s) => s.city?.stations);
+  const focused = usePlan((p) => p.focus?.station);
   if ((phase !== 'prep' && phase !== 'assault') || intel.length === 0 || !stations) return null;
   return (
     <ul className="wave-intel" aria-label="Wave intel">
@@ -168,7 +175,14 @@ function WaveIntel() {
       ))}
       {intel.map((g, i) => (
         <li key={i}>
-          <span className="station-chip">{stations[g.spawnIndex]}</span>
+          <button
+            type="button"
+            className={`station-chip${g.spawnIndex === focused ? ' focused' : ''}`}
+            title="Show this route"
+            onClick={() => focusRoute(g.spawnIndex)}
+          >
+            {stations[g.spawnIndex]}
+          </button>
           <span className={`intel-mob ${g.type}${MOBS[g.type].boss ? ' boss' : ''}`}>
             {g.elite ? `${ELITES[g.elite].name} ` : ''}
             {g.count}× {MOBS[g.type].name}

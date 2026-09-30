@@ -71,6 +71,11 @@ interface PlanState {
   /** Map debug overlay (street graph, slots), toggled in the debug menu or with M. */
   debugMap: boolean;
   tool: BuildTool | null;
+  /**
+   * The route being looked at (click a route with no tool, D049): its station, and a counter that
+   * goes up on every click so clicking the same route again re-frames the camera.
+   */
+  focus: { station: number; seq: number } | null;
 }
 
 export interface SelectedTower {
@@ -116,4 +121,5 @@ export const usePlan = create<PlanState>()(() => ({
   selected: null,
   debugMap: false,
   tool: null,
+  focus: null,
 }));

@@ -20,6 +20,10 @@ const GHOST_RING_OUTER_M = 11;
 const GHOST_RING_PULSE = 0.12;
 const GHOST_RING_HZ = 1.5;
 const ROUTE_COLOR = '#f28c28';
+/** The focused route (D049): brighter and thicker. */
+const FOCUS_COLOR = '#ffc36b';
+const ROUTE_WIDTH = 3;
+const FOCUS_WIDTH = 6;
 const GHOST_COLOR = '#35c4e8';
 const INVALID_COLOR = '#e5484d';
 const RANGE_Y = 0.6;
@@ -38,6 +42,7 @@ export function PlanOverlay({ frame, heights }: { frame: TileFrame; heights: Flo
   const routes = usePlan((s) => s.routes);
   const ghost = usePlan((s) => s.ghost);
   const selected = usePlan((s) => s.selected);
+  const focusStation = usePlan((s) => s.focus?.station);
   const width = game.world.map?.width ?? 1;
   const [lx, lz] = ghost ? tileToWorld(frame, ghost.tx, ghost.ty) : [0, 0];
   const labelY = LABEL_Y + (ghost ? (heights[ghost.ty * width + ghost.tx] ?? 0) : 0);
@@ -46,7 +51,14 @@ export function PlanOverlay({ frame, heights }: { frame: TileFrame; heights: Flo
   return (
     <group>
       {routes.map((r) => (
-        <RouteLine key={r.station} route={r} frame={frame} width={width} color={ROUTE_COLOR} />
+        <RouteLine
+          key={r.station}
+          route={r}
+          frame={frame}
+          width={width}
+          color={r.station === focusStation ? FOCUS_COLOR : ROUTE_COLOR}
+          lineWidth={r.station === focusStation ? FOCUS_WIDTH : ROUTE_WIDTH}
+        />
       ))}
       {ghost?.kind === 'barricade' &&
         ghost.routes.map((r) => (
@@ -235,12 +247,14 @@ function RouteLine({
   width,
   color,
   dashed = false,
+  lineWidth = ROUTE_WIDTH,
 }: {
   route: Route;
   frame: TileFrame;
   width: number;
   color: string;
   dashed?: boolean;
+  lineWidth?: number;
 }) {
   const points = useMemo(
     () =>
@@ -254,7 +268,7 @@ function RouteLine({
     <Line
       points={points}
       color={color}
-      lineWidth={3}
+      lineWidth={lineWidth}
       dashed={dashed}
       dashSize={6}
       gapSize={4}

@@ -104,3 +104,13 @@
 - 🗺️ **Skybridges and canopies**: parts over streets (`min_height` above the street) are dropped today.
 - 🗺️ **Straight-skeleton roofs** for pitched roofs over courtyards (drawn flat now).
 
+## Reacting fast without fighting the camera (Stefan, 2026-09-30, after route focus D049)
+- 🎮 **Route hotkeys**: 1–9 focus the nth station in the wave intel; Tab cycles through this wave's routes.
+- 🎮 **Tactical view** (a key or a button by the minimap): near top-down, buildings squashed to low blocks or all dithered, so the whole board reads at once; roof pads stay where they are and stay clickable. Toggle back to the city view.
+- 🎮 **Route-aware placement**: with a tower tool picked and a route focused, highlight the spots whose range covers the route (brighter the more route metres they cover) and dim the rest; the snap prefers them.
+- 🎮 **Tactical pause**: Space pauses and resumes; optionally the game slows to 0.25× while a build tool is picked during an assault.
+- 🎮 **Build-bar hotkeys** (number row or Z/X/C…, not WASD/QE) to pick a tower or wall without moving the mouse to the bar.
+- 🎮 **Alerts you can click**: "Jersey Barrier on Broad under attack", "leak at City Hall": clicking flies the camera there (reuses the D049 flight).
+- 🎮 **Follow a bug**: click a bug (or the wave's lead bug) and the camera follows it along its route.
+- 🎮 **Camera bookmarks**: Shift+F1–F4 store a view, F1–F4 recall it.
+

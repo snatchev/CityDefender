@@ -19,6 +19,7 @@ import { KeyboardCamera } from './KeyboardCamera';
 import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
+import { RouteFocus } from './RouteFocus';
 import { groundHandlers } from './pointer';
 import { SeeThroughDriver } from './SeeThroughDriver';
 import { Shots } from './Shots';
@@ -116,6 +117,7 @@ export function Scene() {
           <HpBars frame={frame} />
           <Effects frame={frame} />
           <PlanOverlay frame={frame} heights={heights} />
+          <RouteFocus frame={frame} width={map.width} />
           <SeeThroughDriver />
           <CameraBridge frame={frame} heights={heights} width={map.width} />
         </>

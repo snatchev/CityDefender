@@ -1,12 +1,12 @@
 import { cameraBridge, type CameraView } from '../cameraBridge';
 import { callWave, game, publish, setTimeScale } from '../game';
-import { buildAt, restartRun, sellAt } from '../planning';
+import { buildAt, focusRouteAt, restartRun, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
 import type { BarricadeType } from '../sim/barricades';
 import { queueWave, type MobType } from '../sim/mobs';
 import { TOWERS, upgradeTower, type TowerType } from '../sim/towers';
 import type { Scene, WebGLRenderer } from 'three';
-import { usePlan, type Ghost } from '../ui/planStore';
+import { usePlan, type Ghost, type Route } from '../ui/planStore';
 import { tickWorld, type World } from '../sim/world';
 
 /**
@@ -39,6 +39,10 @@ export interface DevHook {
   focusTile(tx: number, ty: number, view?: CameraView): void;
   /** The hover preview (hovered tile, ghost kind, error), as the planning UI sees it. */
   readonly ghost: Ghost | null;
+  /** This wave's routes and the focused one (station index), as the planning UI sees them. */
+  readonly plan: { routes: Route[]; focus: number | null };
+  /** Focus a station's route by name or index, as a click on it would (null clears). */
+  focusRoute(station: string | number | null): number | null;
   /** Last frame's renderer counters (draw calls, triangles) and GPU resources. */
   renderInfo(): { calls: number; triangles: number; geometries: number; textures: number } | null;
   /** Advance exactly `n` ticks synchronously (works while paused). */
@@ -90,6 +94,21 @@ export function installDevHook(): void {
     },
     get ghost() {
       return usePlan.getState().ghost;
+    },
+    get plan() {
+      const p = usePlan.getState();
+      return { routes: p.routes, focus: p.focus?.station ?? null };
+    },
+    focusRoute(station) {
+      const w = game.world;
+      const index =
+        typeof station === 'string'
+          ? (game.city?.spawns.findIndex((s) => s.name === station) ?? -1)
+          : station;
+      const route = usePlan.getState().routes.find((r) => r.station === index);
+      if (!w.map || !route) return focusRouteAt(-99, -99); // clears
+      const mid = route.tiles[Math.floor(route.tiles.length / 2)]!;
+      return focusRouteAt(mid % w.map.width, Math.floor(mid / w.map.width));
     },
     restart: restartRun,
     setSeed: restartRun,

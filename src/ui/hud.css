@@ -162,10 +162,19 @@
 
 .station-chip {
   padding: 0 6px;
+  border: 0;
   border-radius: 4px;
   background: var(--hud-orange);
   color: #1f1206;
+  font: inherit;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.station-chip:hover,
+.station-chip.focused {
+  background: #ffc36b;
+  box-shadow: 0 0 0 2px #ffc36b66;
 }
 
 .status-metrics {
