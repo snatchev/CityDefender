@@ -8,8 +8,8 @@ import { nearestStreet, T_GOAL, type Grid } from './raster';
 const STATION_MERGE_M = 60;
 
 /**
- * Stations → spawns: drop ones outside the level or under the landmark, merge duplicates, and snap
- * each to the nearest street tile. Ordered outermost (farthest from the goal) first.
+ * Stations → spawns: drop ones outside the level, under the landmark or excluded by the city config,
+ * merge duplicates, and snap each to the nearest street tile. Ordered outermost (farthest from the goal) first.
  */
 export function stationSpawns(
   osm: OverpassResponse,
@@ -22,6 +22,7 @@ export function stationSpawns(
     const t = e.tags ?? {};
     const ll = e.center ?? (e.lat !== undefined ? { lat: e.lat, lon: e.lon! } : null);
     if (!ll || !t.name || !/^(station|halt)$/.test(t.railway ?? '')) continue;
+    if (cfg.excludeStations.includes(t.name)) continue;
     const p = level.toGrid(ll);
     const { u, v } = level.toUV(p);
     const tx = Math.floor(u);

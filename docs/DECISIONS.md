@@ -213,3 +213,7 @@ Consequences:
 - Flat roofs above 6 m get parapets (1.6 m on towers ≥ 60 m); roofs over 150 m² get 1–4 seeded rooftop boxes, kept 7 m clear of roof pads.
 - Cost: one mesh, ~263k vertices, built in ~60 ms at load; 560k triangles and 20–24 draw calls in the scene; 60 fps at dpr 2 with 286 bugs at 3×.
 - Open question for Stefan: 118 of 838 roof pads are drawn ≥ 3 m away from their sim height (69 by ≥ 10 m), mostly towers on podiums (the sim keeps the tower's height for range). Switching the sim to `roofRows` would make range match the picture but move pads and change balance.
+
+**D047 · 2026-09-30 · No 15th Street spawn; the camera stays over the map (Stefan).**
+Why: Stefan: 15th Street station is too close to the goal (132 m from City Hall), and the camera could pan off the map.
+Consequences: `excludeStations` in the city config drops stations by OSM name in map:build (Philadelphia: `15th Street`); 11 spawns remain. Its wave groups (the wave 11–20 grub breach, DESIGN §9) move to **Suburban Station** (16th & JFK, 370 m), the nearest unused station on the same side, with the same counts; the telegraph reads "Tremors under Suburban Station". `CameraBounds.tsx` clamps the orbit target to the level rectangle every frame after the controls move, shifting the camera with it, so mouse, keyboard and minimap panning all stop at the edge with the view angle and distance unchanged. The backdrop past the edge is still visible, since only the point being looked at is clamped.

@@ -61,6 +61,8 @@ export interface CityConfig {
   };
   /** Max search distance when snapping a station to the nearest street tile. */
   stationSnapMaxTiles: number;
+  /** Stations (OSM names) that don't become spawns, e.g. too close to the goal to be fair (D047). */
+  excludeStations: string[];
   /** OSM `building:part`s: real 3D shapes (setbacks, roofs) drawn instead of plain footprints (D046). */
   parts: {
     /** A footprint at least this share covered by parts is drawn as its parts instead. */

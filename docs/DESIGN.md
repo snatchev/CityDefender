@@ -46,7 +46,7 @@ Use these to settle design arguments. If a feature doesn't serve one of them, it
 **1. Intel (start of prep, automatic)**
 - "SEPTA dispatch" banner: which **stations are active** this wave, plus mob icons with counts (e.g. `Race–Vine: 20× Skitterling, 2× Beetle`).
 - **Ghost paths** are drawn from every active spawn to City Hall and update live while the player edits barricades. This is the most important UI in the game.
-- Telegraph for next wave: "Tremors under 15th St" means that station opens next wave.
+- Telegraph for next wave: "Tremors under Suburban Station" means that station opens next wave.
 
 **2. Prep (30 s timer to start with; tune in playtests, see D016)**
 - Place, upgrade and sell towers. Place, upgrade and repair barricades.
@@ -94,7 +94,7 @@ Full rationale is in [research/map-sources.md](research/map-sources.md). Summary
 | **Barricade slot** | One per street segment (block face), spanning the full street width. | Barricades. MVP: click any street tile and the barricade fills across the street. |
 
 ### 4.2 Spawns
-- **Stations** (subway/trolley entrances inside the bounds) are spawn points. Outer stations open first. Inner ones (15th St, 13th St) "breach" in later waves with one wave of warning.
+- **Stations** (subway/trolley entrances inside the bounds) are spawn points. Outer stations open first. Inner ones (Suburban Station, 13th St) "breach" in later waves with one wave of warning. 15th St is not a spawn: at 132 m it is too close to City Hall (D047).
 - **Manholes** (generated along streets) are where diggers surface. Later: sewer‑burst events spawn a few mobs mid‑map.
 
 ## 5. Movement & pathfinding rules
@@ -180,7 +180,7 @@ Damage types: `kinetic` (reduced by armor), `pierce` (ignores armor), `explosive
 | 6–8 | +1 (Walnut–Locust) | Spitters | Barricades get punished. Teach roof outranging. |
 | 9 | | Wasps | Barricades don't matter for fliers. Teach AA. |
 | **10** | all outer | **Mini‑boss: Beetle Matriarch** | Checkpoint spike. Grant #2. |
-| 11–14 | 15th St breaches | Grubs | Inner spawn plus diggers. Teach seismic and corners. |
+| 11–14 | Suburban Station breaches | Grubs | Inner spawn plus diggers. Teach seismic and corners. |
 | **15** | | | Grant #3. Elite affixes begin. |
 | 16–19 | 13th St breaches | Mixed + elites | Pressure from inside and out. |
 | **20** | all | **Brood Mother** | Finale. |
@@ -195,7 +195,7 @@ The full list is in [IDEAS.md](IDEAS.md). These are the ones that are part of th
 2. **Free undo during prep.** Experimentation should cost nothing.
 3. **Height = range** with a visible range disc projected on the street. Clicking a skyscraper and seeing a huge ring feels good.
 4. **Siege drama.** Barricades crack, spark and shake, with a siren when one breaks and a wave‑wide reroute you can see.
-5. **Telegraphed breaches.** "Tremors under 15th St" gives one wave to prepare, so the map changes during a run.
+5. **Telegraphed breaches.** "Tremors under Suburban Station" gives one wave to prepare, so the map changes during a run.
 6. **Council Grants** (pick 1 of 3 every 5 waves). Examples: "Bus Depot Contract: Bus Walls −30%", "Rooftop Access Permits: +1 pad on every tower building", "Water Dept: Cryo applies Wet for 2× longer". Different grants → different runs.
 7. **Local flavor.** Radio chatter with real place names ("They're coming up Chestnut past the Wawa!"), and optional side objectives like "Keep LOVE Park clear this wave" for bonus cash.
 8. **Golden bug.** A rare fast bug that runs *between* stations. Kill it for a big bounty.

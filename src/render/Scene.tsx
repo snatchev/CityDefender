@@ -10,6 +10,7 @@ import { Barricades } from './Barricades';
 import { CityHall } from './CityHall';
 import { CityMap } from './CityMap';
 import { tileFrame } from './coords';
+import { CameraBounds } from './CameraBounds';
 import { CameraBridge } from './CameraBridge';
 import { Effects } from './Effects';
 import { displayHeights } from './heights';
@@ -90,6 +91,8 @@ export function Scene() {
 
       {city && buildingsFile && map && frame && heights && ground && (
         <>
+          {/* First in the frame after the controls, so everything below sees the clamped view. */}
+          <CameraBounds frame={frame} width={map.width} height={map.height} />
           <CityMap
             city={city}
             buildingsFile={buildingsFile}

@@ -32,6 +32,7 @@
   },
   "streetBlockedCoverage": 0.5,
   "stationSnapMaxTiles": 12,
+  "excludeStations": ["15th Street"],
   "buildings": {
     "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/LI_BUILDING_FOOTPRINTS/FeatureServer/0/query",
     "heightField": "approx_hgt",

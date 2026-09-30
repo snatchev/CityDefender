@@ -316,14 +316,14 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 2,
           "hpMul": 1.0,
           "intervalS": 2.5
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "skitterling",
           "count": 4,
           "hpMul": 4.41,
@@ -369,14 +369,14 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 2,
           "hpMul": 0.97,
           "intervalS": 2.5
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "skitterling",
           "count": 5,
           "hpMul": 4.5,
@@ -422,14 +422,14 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 3,
           "hpMul": 1.21,
           "intervalS": 2.5
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "skitterling",
           "count": 6,
           "hpMul": 5.94,
@@ -482,14 +482,14 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 4,
           "hpMul": 1.33,
           "intervalS": 2.5
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "skitterling",
           "count": 7,
           "hpMul": 6.89,
@@ -542,7 +542,7 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 2,
           "hpMul": 1.46,
@@ -596,7 +596,7 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 3,
           "hpMul": 1.61,
@@ -665,7 +665,7 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 4,
           "hpMul": 1.56,
@@ -734,7 +734,7 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 5,
           "hpMul": 1.95,
@@ -803,7 +803,7 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 6,
           "hpMul": 2.14,
@@ -902,7 +902,7 @@
           "intervalS": 0.45
         },
         {
-          "station": "15th Street",
+          "station": "Suburban Station",
           "type": "grub",
           "count": 4,
           "hpMul": 2.36,
