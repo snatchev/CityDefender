@@ -23,6 +23,27 @@
         "damage": 6,
         "shotsPerS": 4.5
       }
+    ],
+    "branches": [
+      {
+        "id": "twinGuns",
+        "name": "Twin Guns",
+        "blurb": "twice the fire rate",
+        "cost": 180,
+        "rangeM": 72,
+        "damage": 6,
+        "shotsPerS": 9
+      },
+      {
+        "id": "apRounds",
+        "name": "AP Rounds",
+        "blurb": "bullets pierce armor",
+        "cost": 200,
+        "rangeM": 76,
+        "damage": 9,
+        "shotsPerS": 4.5,
+        "damageType": "pierce"
+      }
     ]
   },
   "mortar": {
@@ -54,6 +75,35 @@
         "shotsPerS": 0.6,
         "splashM": 20,
         "shellS": 1.2
+      }
+    ],
+    "branches": [
+      {
+        "id": "cluster",
+        "name": "Cluster Shells",
+        "blurb": "much bigger splash",
+        "cost": 250,
+        "rangeM": 135,
+        "minRangeM": 40,
+        "damage": 26,
+        "shotsPerS": 0.6,
+        "splashM": 28,
+        "shellS": 1.2
+      },
+      {
+        "id": "incendiary",
+        "name": "Incendiary",
+        "blurb": "shells leave the street burning",
+        "cost": 260,
+        "rangeM": 135,
+        "minRangeM": 40,
+        "damage": 22,
+        "shotsPerS": 0.6,
+        "splashM": 20,
+        "shellS": 1.2,
+        "special": "burn",
+        "burnDps": 12,
+        "burnS": 4
       }
     ]
   },
@@ -114,6 +164,30 @@
         "rangeM": 125,
         "damage": 95,
         "shotsPerS": 0.45
+      }
+    ],
+    "branches": [
+      {
+        "id": "penetrator",
+        "name": "Penetrator",
+        "blurb": "shots pierce every bug along the line",
+        "cost": 300,
+        "rangeM": 125,
+        "damage": 110,
+        "shotsPerS": 0.45,
+        "special": "pierceLine"
+      },
+      {
+        "id": "spotter",
+        "name": "Spotter",
+        "blurb": "marked bugs take +30% damage from everything",
+        "cost": 250,
+        "rangeM": 140,
+        "damage": 95,
+        "shotsPerS": 0.5,
+        "special": "mark",
+        "markS": 4,
+        "markBonus": 0.3
       }
     ]
   },

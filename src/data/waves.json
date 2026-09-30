@@ -5,9 +5,9 @@
         {
           "station": "Race-Vine",
           "type": "skitterling",
-          "count": 14,
+          "count": 15,
           "hpMul": 1.0,
-          "intervalS": 0.6
+          "intervalS": 0.5499999999999999
         }
       ]
     },
@@ -17,15 +17,8 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 20,
-          "hpMul": 1.7,
+          "hpMul": 1.16,
           "intervalS": 0.5
-        },
-        {
-          "station": "Race-Vine",
-          "type": "wasp",
-          "count": 6,
-          "hpMul": 1.0,
-          "intervalS": 0.8
         }
       ]
     },
@@ -34,41 +27,9 @@
         {
           "station": "Race-Vine",
           "type": "skitterling",
-          "count": 28,
-          "hpMul": 4.59,
-          "intervalS": 0.4
-        },
-        {
-          "station": "Race-Vine",
-          "type": "beetle",
-          "count": 2,
-          "hpMul": 1.0,
-          "intervalS": 3
-        }
-      ]
-    },
-    {
-      "groups": [
-        {
-          "station": "Race-Vine",
-          "type": "skitterling",
-          "count": 18,
-          "hpMul": 4.93,
-          "intervalS": 0.5
-        },
-        {
-          "station": "11th Street",
-          "type": "skitterling",
-          "count": 14,
-          "hpMul": 4.93,
-          "intervalS": 0.6
-        },
-        {
-          "station": "11th Street",
-          "type": "grub",
-          "count": 4,
-          "hpMul": 1.0,
-          "intervalS": 3
+          "count": 25,
+          "hpMul": 1.35,
+          "intervalS": 0.44999999999999996
         }
       ]
     },
@@ -78,28 +39,21 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 26,
-          "hpMul": 7.14,
-          "intervalS": 0.4
+          "hpMul": 1.95,
+          "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 22,
-          "hpMul": 7.14,
-          "intervalS": 0.45
+          "hpMul": 1.95,
+          "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "beetle",
-          "count": 4,
-          "hpMul": 1.3,
-          "intervalS": 2.5
-        },
-        {
-          "station": "Race-Vine",
-          "type": "spitter",
-          "count": 3,
-          "hpMul": 1.0,
+          "count": 2,
+          "hpMul": 1.25,
           "intervalS": 3
         }
       ]
@@ -109,37 +63,23 @@
         {
           "station": "Race-Vine",
           "type": "skitterling",
-          "count": 14,
-          "hpMul": 6.8,
-          "intervalS": 0.6
+          "count": 29,
+          "hpMul": 2.26,
+          "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "skitterling",
-          "count": 12,
-          "hpMul": 6.8,
-          "intervalS": 0.6
+          "count": 25,
+          "hpMul": 2.26,
+          "intervalS": 0.5
         },
         {
-          "station": "Walnut-Locust",
-          "type": "skitterling",
-          "count": 12,
-          "hpMul": 6.8,
-          "intervalS": 0.6
-        },
-        {
-          "station": "Walnut-Locust",
+          "station": "11th Street",
           "type": "beetle",
           "count": 3,
-          "hpMul": 1.5,
-          "intervalS": 2.5
-        },
-        {
-          "station": "Walnut-Locust",
-          "type": "wasp",
-          "count": 12,
-          "hpMul": 1.5,
-          "intervalS": 0.6
+          "hpMul": 1.38,
+          "intervalS": 3
         }
       ]
     },
@@ -148,43 +88,114 @@
         {
           "station": "Race-Vine",
           "type": "skitterling",
-          "count": 20,
-          "hpMul": 8.3,
+          "count": 12,
+          "hpMul": 2.63,
+          "intervalS": 0.5
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 12,
+          "hpMul": 2.63,
+          "intervalS": 0.5
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 10,
+          "hpMul": 2.63,
+          "intervalS": 0.5
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 3,
+          "hpMul": 1.25,
+          "intervalS": 3
+        },
+        {
+          "station": "Race-Vine",
+          "type": "beetle",
+          "count": 2,
+          "hpMul": 1.51,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 12,
+          "hpMul": 2.68,
+          "intervalS": 0.5
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 12,
+          "hpMul": 2.68,
+          "intervalS": 0.5
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 10,
+          "hpMul": 2.68,
+          "intervalS": 0.5
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 4,
+          "hpMul": 1.21,
+          "intervalS": 3
+        },
+        {
+          "station": "Race-Vine",
+          "type": "beetle",
+          "count": 3,
+          "hpMul": 1.46,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 18,
+          "hpMul": 3.53,
           "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "skitterling",
           "count": 18,
-          "hpMul": 8.3,
+          "hpMul": 3.53,
           "intervalS": 0.5
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
           "count": 16,
-          "hpMul": 8.3,
-          "intervalS": 0.55
+          "hpMul": 3.53,
+          "intervalS": 0.5
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 5,
+          "hpMul": 1.51,
+          "intervalS": 3
         },
         {
           "station": "Race-Vine",
           "type": "beetle",
-          "count": 5,
-          "hpMul": 2.0,
-          "intervalS": 2.5
-        },
-        {
-          "station": "11th Street",
-          "type": "grub",
-          "count": 6,
-          "hpMul": 1.5,
-          "intervalS": 2.5
-        },
-        {
-          "station": "Race-Vine",
-          "type": "spitter",
           "count": 4,
-          "hpMul": 1.5,
+          "hpMul": 1.83,
           "intervalS": 3
         }
       ]
@@ -194,50 +205,255 @@
         {
           "station": "Race-Vine",
           "type": "skitterling",
-          "count": 28,
-          "hpMul": 11.3,
-          "intervalS": 0.4
+          "count": 16,
+          "hpMul": 4.1,
+          "intervalS": 0.5
         },
         {
           "station": "11th Street",
           "type": "skitterling",
-          "count": 26,
-          "hpMul": 11.3,
-          "intervalS": 0.4
+          "count": 16,
+          "hpMul": 4.1,
+          "intervalS": 0.5
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
-          "count": 24,
-          "hpMul": 11.3,
-          "intervalS": 0.45
-        },
-        {
-          "station": "11th Street",
-          "type": "beetle",
-          "count": 5,
-          "hpMul": 2.8,
-          "intervalS": 2.5
+          "count": 14,
+          "hpMul": 4.1,
+          "intervalS": 0.5
         },
         {
           "station": "Walnut-Locust",
-          "type": "beetle",
-          "count": 5,
-          "hpMul": 2.8,
-          "intervalS": 2.5
+          "type": "spitter",
+          "count": 6,
+          "hpMul": 1.66,
+          "intervalS": 3
         },
         {
           "station": "Race-Vine",
+          "type": "beetle",
+          "count": 5,
+          "hpMul": 2.01,
+          "intervalS": 3
+        },
+        {
+          "station": "11th Street",
           "type": "wasp",
           "count": 12,
-          "hpMul": 1.6,
+          "hpMul": 1.25,
           "intervalS": 0.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "matriarch",
+          "count": 1,
+          "hpMul": 1.0,
+          "intervalS": 1
+        },
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 20,
+          "hpMul": 4.75,
+          "intervalS": 0.4
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 18,
+          "hpMul": 4.75,
+          "intervalS": 0.4
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 18,
+          "hpMul": 4.75,
+          "intervalS": 0.4
+        },
+        {
+          "station": "11th Street",
+          "type": "beetle",
+          "count": 5,
+          "hpMul": 2.21,
+          "intervalS": 2.5
         },
         {
           "station": "Walnut-Locust",
           "type": "wasp",
           "count": 10,
-          "hpMul": 1.6,
+          "hpMul": 1.38,
+          "intervalS": 0.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 4.41,
+          "intervalS": 0.45
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 4.41,
+          "intervalS": 0.45
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 4.41,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 2,
+          "hpMul": 1.0,
+          "intervalS": 2.5
+        },
+        {
+          "station": "15th Street",
+          "type": "skitterling",
+          "count": 4,
+          "hpMul": 4.41,
+          "intervalS": 0.6
+        },
+        {
+          "station": "Race-Vine",
+          "type": "beetle",
+          "count": 3,
+          "hpMul": 1.95,
+          "intervalS": 3
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 2,
+          "hpMul": 1.61,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 4.5,
+          "intervalS": 0.45
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 4.5,
+          "intervalS": 0.45
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 4.5,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 2,
+          "hpMul": 0.97,
+          "intervalS": 2.5
+        },
+        {
+          "station": "15th Street",
+          "type": "skitterling",
+          "count": 5,
+          "hpMul": 4.5,
+          "intervalS": 0.6
+        },
+        {
+          "station": "Race-Vine",
+          "type": "beetle",
+          "count": 4,
+          "hpMul": 1.89,
+          "intervalS": 3
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 3,
+          "hpMul": 1.56,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 18,
+          "hpMul": 5.94,
+          "intervalS": 0.45
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 18,
+          "hpMul": 5.94,
+          "intervalS": 0.45
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 18,
+          "hpMul": 5.94,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 3,
+          "hpMul": 1.21,
+          "intervalS": 2.5
+        },
+        {
+          "station": "15th Street",
+          "type": "skitterling",
+          "count": 6,
+          "hpMul": 5.94,
+          "intervalS": 0.6
+        },
+        {
+          "station": "Race-Vine",
+          "type": "beetle",
+          "count": 5,
+          "hpMul": 2.36,
+          "intervalS": 3
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 4,
+          "hpMul": 1.95,
+          "intervalS": 3
+        },
+        {
+          "station": "11th Street",
+          "type": "wasp",
+          "count": 8,
+          "hpMul": 1.46,
           "intervalS": 0.5
         }
       ]
@@ -248,57 +464,57 @@
           "station": "Race-Vine",
           "type": "skitterling",
           "count": 20,
-          "hpMul": 10.17,
-          "intervalS": 0.5
+          "hpMul": 6.89,
+          "intervalS": 0.45
         },
         {
           "station": "11th Street",
           "type": "skitterling",
-          "count": 18,
-          "hpMul": 10.17,
-          "intervalS": 0.5
+          "count": 20,
+          "hpMul": 6.89,
+          "intervalS": 0.45
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
-          "count": 18,
-          "hpMul": 10.17,
-          "intervalS": 0.5
+          "count": 20,
+          "hpMul": 6.89,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 4,
+          "hpMul": 1.33,
+          "intervalS": 2.5
+        },
+        {
+          "station": "15th Street",
+          "type": "skitterling",
+          "count": 7,
+          "hpMul": 6.89,
+          "intervalS": 0.6
         },
         {
           "station": "Race-Vine",
           "type": "beetle",
           "count": 6,
-          "hpMul": 3.4,
-          "intervalS": 2.5
-        },
-        {
-          "station": "11th Street",
-          "type": "beetle",
-          "count": 6,
-          "hpMul": 3.4,
-          "intervalS": 2.5
+          "hpMul": 2.59,
+          "intervalS": 3
         },
         {
           "station": "Walnut-Locust",
-          "type": "beetle",
-          "count": 6,
-          "hpMul": 3.4,
-          "intervalS": 2.5
-        },
-        {
-          "station": "Walnut-Locust",
-          "type": "grub",
-          "count": 8,
-          "hpMul": 2.0,
-          "intervalS": 2
-        },
-        {
-          "station": "11th Street",
           "type": "spitter",
-          "count": 6,
-          "hpMul": 2.0,
-          "intervalS": 2.5
+          "count": 5,
+          "hpMul": 2.14,
+          "intervalS": 3
+        },
+        {
+          "station": "11th Street",
+          "type": "wasp",
+          "count": 10,
+          "hpMul": 1.61,
+          "intervalS": 0.5
         }
       ]
     },
@@ -307,65 +523,397 @@
         {
           "station": "Race-Vine",
           "type": "skitterling",
-          "count": 32,
-          "hpMul": 12.56,
-          "intervalS": 0.38
+          "count": 22,
+          "hpMul": 7.99,
+          "intervalS": 0.4
         },
         {
           "station": "11th Street",
           "type": "skitterling",
-          "count": 30,
-          "hpMul": 12.56,
-          "intervalS": 0.38
+          "count": 22,
+          "hpMul": 7.99,
+          "intervalS": 0.4
         },
         {
           "station": "Walnut-Locust",
           "type": "skitterling",
-          "count": 28,
-          "hpMul": 12.56,
-          "intervalS": 0.42
+          "count": 18,
+          "hpMul": 7.99,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 2,
+          "hpMul": 1.46,
+          "intervalS": 2.5
+        },
+        {
+          "station": "11th Street",
+          "type": "beetle",
+          "count": 4,
+          "hpMul": 2.85,
+          "intervalS": 2.5,
+          "elite": "armored"
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 4,
+          "hpMul": 2.36,
+          "intervalS": 3
         },
         {
           "station": "Race-Vine",
+          "type": "wasp",
+          "count": 10,
+          "hpMul": 1.77,
+          "intervalS": 0.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 20,
+          "hpMul": 9.27,
+          "intervalS": 0.4
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 20,
+          "hpMul": 9.27,
+          "intervalS": 0.4
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 16,
+          "hpMul": 9.27,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 3,
+          "hpMul": 1.61,
+          "intervalS": 2.5
+        },
+        {
+          "station": "11th Street",
           "type": "beetle",
-          "count": 6,
-          "hpMul": 4.2,
+          "count": 5,
+          "hpMul": 3.14,
+          "intervalS": 2.5,
+          "elite": "hasted"
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 4,
+          "hpMul": 2.59,
+          "intervalS": 3
+        },
+        {
+          "station": "Race-Vine",
+          "type": "wasp",
+          "count": 11,
+          "hpMul": 1.95,
+          "intervalS": 0.5
+        },
+        {
+          "station": "13th Street",
+          "type": "skitterling",
+          "count": 10,
+          "hpMul": 9.27,
+          "intervalS": 0.5,
+          "elite": "hasted"
+        },
+        {
+          "station": "13th Street",
+          "type": "grub",
+          "count": 2,
+          "hpMul": 1.61,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 20,
+          "hpMul": 9.46,
+          "intervalS": 0.4
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 20,
+          "hpMul": 9.46,
+          "intervalS": 0.4
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 16,
+          "hpMul": 9.46,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 4,
+          "hpMul": 1.56,
           "intervalS": 2.5
         },
         {
           "station": "11th Street",
           "type": "beetle",
           "count": 6,
-          "hpMul": 4.2,
-          "intervalS": 2.5
+          "hpMul": 3.04,
+          "intervalS": 2.5,
+          "elite": "regenerating"
         },
         {
           "station": "Walnut-Locust",
-          "type": "beetle",
-          "count": 6,
-          "hpMul": 4.2,
+          "type": "spitter",
+          "count": 4,
+          "hpMul": 2.51,
+          "intervalS": 3
+        },
+        {
+          "station": "Race-Vine",
+          "type": "wasp",
+          "count": 12,
+          "hpMul": 1.89,
+          "intervalS": 0.5
+        },
+        {
+          "station": "13th Street",
+          "type": "skitterling",
+          "count": 12,
+          "hpMul": 9.46,
+          "intervalS": 0.5,
+          "elite": "regenerating"
+        },
+        {
+          "station": "13th Street",
+          "type": "grub",
+          "count": 2,
+          "hpMul": 1.56,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 24,
+          "hpMul": 12.47,
+          "intervalS": 0.4
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 24,
+          "hpMul": 12.47,
+          "intervalS": 0.4
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 20,
+          "hpMul": 12.47,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 5,
+          "hpMul": 1.95,
           "intervalS": 2.5
+        },
+        {
+          "station": "11th Street",
+          "type": "beetle",
+          "count": 7,
+          "hpMul": 3.8,
+          "intervalS": 2.5,
+          "elite": "armored"
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 4,
+          "hpMul": 3.14,
+          "intervalS": 3
+        },
+        {
+          "station": "Race-Vine",
+          "type": "wasp",
+          "count": 13,
+          "hpMul": 2.36,
+          "intervalS": 0.5
+        },
+        {
+          "station": "13th Street",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 12.47,
+          "intervalS": 0.5,
+          "elite": "armored"
+        },
+        {
+          "station": "13th Street",
+          "type": "grub",
+          "count": 2,
+          "hpMul": 1.95,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 26,
+          "hpMul": 14.46,
+          "intervalS": 0.4
+        },
+        {
+          "station": "11th Street",
+          "type": "skitterling",
+          "count": 26,
+          "hpMul": 14.46,
+          "intervalS": 0.4
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 22,
+          "hpMul": 14.46,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
+          "type": "grub",
+          "count": 6,
+          "hpMul": 2.14,
+          "intervalS": 2.5
+        },
+        {
+          "station": "11th Street",
+          "type": "beetle",
+          "count": 8,
+          "hpMul": 4.18,
+          "intervalS": 2.5,
+          "elite": "hasted"
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "spitter",
+          "count": 4,
+          "hpMul": 3.45,
+          "intervalS": 3
         },
         {
           "station": "Race-Vine",
           "type": "wasp",
           "count": 14,
-          "hpMul": 2.0,
+          "hpMul": 2.59,
+          "intervalS": 0.5
+        },
+        {
+          "station": "13th Street",
+          "type": "skitterling",
+          "count": 16,
+          "hpMul": 14.46,
+          "intervalS": 0.5,
+          "elite": "hasted"
+        },
+        {
+          "station": "13th Street",
+          "type": "grub",
+          "count": 2,
+          "hpMul": 2.14,
+          "intervalS": 3
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "station": "Race-Vine",
+          "type": "broodMother",
+          "count": 1,
+          "hpMul": 1.0,
+          "intervalS": 1
+        },
+        {
+          "station": "Race-Vine",
+          "type": "skitterling",
+          "count": 26,
+          "hpMul": 16.78,
           "intervalS": 0.4
         },
         {
           "station": "11th Street",
+          "type": "skitterling",
+          "count": 26,
+          "hpMul": 16.78,
+          "intervalS": 0.4
+        },
+        {
+          "station": "Walnut-Locust",
+          "type": "skitterling",
+          "count": 22,
+          "hpMul": 16.78,
+          "intervalS": 0.4
+        },
+        {
+          "station": "13th Street",
+          "type": "skitterling",
+          "count": 14,
+          "hpMul": 16.78,
+          "intervalS": 0.5,
+          "elite": "hasted"
+        },
+        {
+          "station": "Race-Vine",
+          "type": "beetle",
+          "count": 6,
+          "hpMul": 4.59,
+          "intervalS": 2.5,
+          "elite": "armored"
+        },
+        {
+          "station": "11th Street",
+          "type": "wasp",
+          "count": 14,
+          "hpMul": 2.85,
+          "intervalS": 0.45
+        },
+        {
+          "station": "15th Street",
           "type": "grub",
-          "count": 8,
-          "hpMul": 2.5,
-          "intervalS": 2
+          "count": 4,
+          "hpMul": 2.36,
+          "intervalS": 2.5
         },
         {
           "station": "Walnut-Locust",
           "type": "spitter",
-          "count": 6,
-          "hpMul": 2.5,
-          "intervalS": 2.5
+          "count": 5,
+          "hpMul": 3.8,
+          "intervalS": 3
         }
       ]
     }

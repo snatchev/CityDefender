@@ -140,7 +140,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 - Cryo "Wet" + Tesla synergy.
 **Accept:** each new mob beats a defense that was fine before and loses to its listed counter (scripted sim tests per matchup).
 
-### Pass 9: Full run structure · timebox 2–3 days
+### Pass 9: Full run structure · timebox 2–3 days · ✅ done 2026-09-29 (see D042–D045; acceptance playtest pending)
 - 20‑wave Philadelphia script (DESIGN §9), including the wave‑10 mini‑boss and the **Brood Mother** at wave 20.
 - Station breach telegraphs, interest, barricade damage persisting between waves + repair, call‑early bonus.
 - **Council Grants** (pick 1 of 3 every 5 waves; start with ~9 grants).

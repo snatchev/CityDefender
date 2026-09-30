@@ -13,5 +13,12 @@
   "maxBarricadeSpanTiles": 6,
   "sellRefund": 0.7,
   "armorMinDamageFraction": 0.25,
-  "wetExtraChains": 1
+  "wetExtraChains": 1,
+  "interestRate": 0.05,
+  "interestCap": 50,
+  "repairCostFraction": 0.6,
+  "grantEveryWaves": 5,
+  "grantChoices": 3,
+  "scoreIntegrityMul": 20,
+  "saveVersion": 1
 }

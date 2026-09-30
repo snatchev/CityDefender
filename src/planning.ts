@@ -10,6 +10,8 @@ import {
   dismantleBarricade,
   placeBarricade,
   previewField,
+  repairBarricade,
+  repairCost,
   upgradeBarricade,
 } from './sim/barricades';
 import { TILE_M } from './sim/constants';
@@ -23,7 +25,10 @@ import {
   TOWERS,
   towerRange,
   towerSellValue,
-  upgradeCost,
+  upgradeOptions,
+  towerRangeOf,
+  towerPrice,
+  siteRangeMul,
   upgradeTower,
   type TowerType,
 } from './sim/towers';
@@ -84,8 +89,9 @@ function refreshGhost(): void {
   const spot = tool?.kind === 'tower' ? snapTowerSpot(tx, ty, tool.type) : null;
   if (spot && tool?.kind === 'tower') {
     const [sx, sy] = spot;
-    const range = towerRange(tool.type, siteHeight(w, sy * w.map.width + sx));
-    const cost = TOWERS[tool.type].tiers[0]!.cost;
+    const i2 = sy * w.map.width + sx;
+    const range = towerRange(tool.type, siteHeight(w, i2), undefined, siteRangeMul(w, i2));
+    const cost = towerPrice(w, tool.type);
     usePlan.setState({
       ghost: {
         kind: 'tower',
@@ -103,7 +109,7 @@ function refreshGhost(): void {
   }
 
   if (tower) {
-    const range = towerRange(tower.type, tower.heightM, tower.tier);
+    const range = towerRangeOf(w, tower);
     usePlan.setState({
       ghost: {
         kind: 'tower',
@@ -212,15 +218,21 @@ export function refreshPlanning(force = false): void {
 export function restartRun(seed?: number): void {
   restart(seed);
   hovered = null;
-  usePlan.setState({ ghost: null, selected: null });
+  usePlan.setState({ ghost: null, selected: null, selectedWall: null });
   useHud.getState().setNotice(null);
   refreshPlanning(true);
 }
 
 /** Refresh the selected tower's stats (kills, sell value); call at event rate. */
 export function refreshSelection(): void {
-  const sel = usePlan.getState().selected;
-  if (sel) selectTower(game.world.towers.some((t) => t.id === sel.id) ? sel.id : null);
+  const { selected, selectedWall } = usePlan.getState();
+  if (selected)
+    selectTower(game.world.towers.some((t) => t.id === selected.id) ? selected.id : null);
+  if (selectedWall) {
+    selectWall(
+      game.world.barricades.some((b) => b.id === selectedWall.id) ? selectedWall.id : null,
+    );
+  }
 }
 
 export function hoverTile(tile: [number, number] | null): void {
@@ -250,7 +262,9 @@ export function buildAt(
   if (!w.map) return 'no map';
   const i = ty * w.map.width + tx;
   if (!tool) {
+    // No tool: a click selects the tower (or failing that the wall) on this tile.
     selectTower(w.towerAt[i] ? w.towerAt[i]! : null);
+    selectWall(!w.towerAt[i] && w.barricadeAt[i] ? w.barricadeAt[i]! : null);
     return null;
   }
   const existing = w.barricades.find((b) => b.id === w.barricadeAt[i]);
@@ -318,11 +332,11 @@ export function sellTowerById(id = usePlan.getState().selected?.id): string | nu
   return afterEdit(err ? `Can't sell: ${err}` : null);
 }
 
-/** Upgrade the selected tower one tier. */
-export function upgradeSelected(): string | null {
+/** Upgrade the selected tower one tier (at the last tier, to the chosen tier-3 branch). */
+export function upgradeSelected(branch: string | null = null): string | null {
   const id = usePlan.getState().selected?.id;
   if (id === undefined) return null;
-  const err = upgradeTower(game.world, id);
+  const err = upgradeTower(game.world, id, branch);
   if (!err) selectTower(id);
   return afterEdit(err ? `Can't upgrade: ${err}` : null);
 }
@@ -339,7 +353,8 @@ export function setSelectedTargeting(mode: TargetingMode): void {
 export function selectTower(id: number | null): void {
   const w = game.world;
   const t = id === null ? undefined : w.towers.find((x) => x.id === id);
-  const range = t ? towerRange(t.type, t.heightM, t.tier) : null;
+  const range = t ? towerRangeOf(w, t) : null;
+  const def = t ? TOWERS[t.type] : null;
   usePlan.setState({
     selected: t
       ? {
@@ -349,8 +364,9 @@ export function selectTower(id: number | null): void {
           type: t.type,
           name: TOWERS[t.type].name,
           tier: t.tier + 1,
-          tiers: TOWERS[t.type].tiers.length,
-          upgradeCost: upgradeCost(t),
+          tiers: def!.tiers.length + (def!.branches ? 1 : 0),
+          branchName: t.branch ? def!.branches!.find((b) => b.id === t.branch)!.name : null,
+          upgrades: upgradeOptions(w, t),
           targeting: t.targeting,
           rangeM: range!.maxM,
           minRangeM: range!.minM,
@@ -360,6 +376,53 @@ export function selectTower(id: number | null): void {
         }
       : null,
   });
+}
+
+/** Select a wall (null clears): the HUD shows its HP, repair, upgrade and sell. */
+export function selectWall(id: number | null): void {
+  const w = game.world;
+  const b = id === null ? undefined : w.barricades.find((x) => x.id === id);
+  const up = b ? barricadeUpgrade(b, w.mods) : null;
+  usePlan.setState({
+    selectedWall: b
+      ? {
+          id: b.id,
+          type: b.type,
+          name: BARRICADES[b.type].name,
+          hp: Math.ceil(b.hp),
+          maxHp: b.maxHp,
+          repairCost: repairCost(w, b),
+          upgrade: up ? { name: BARRICADES[up.type].name, cost: up.cost } : null,
+          sellValue: barricadeSellValue(w, b),
+          canEdit: canEditBarricades(w),
+        }
+      : null,
+  });
+}
+
+/** Repair, upgrade or sell the selected wall. */
+export function repairSelectedWall(): string | null {
+  const id = usePlan.getState().selectedWall?.id;
+  if (id === undefined) return null;
+  const err = repairBarricade(game.world, id);
+  selectWall(id);
+  return afterEdit(err ? `Can't repair: ${err}` : null);
+}
+
+export function upgradeSelectedWall(): string | null {
+  const id = usePlan.getState().selectedWall?.id;
+  if (id === undefined) return null;
+  const err = upgradeBarricade(game.world, id);
+  selectWall(id);
+  return afterEdit(err ? `Can't upgrade: ${err}` : null);
+}
+
+export function sellSelectedWall(): string | null {
+  const id = usePlan.getState().selectedWall?.id;
+  if (id === undefined) return null;
+  const err = dismantleBarricade(game.world, id);
+  if (!err) selectWall(null);
+  return afterEdit(err ? `Can't sell: ${err}` : null);
 }
 
 function afterEdit(error: string | null): string | null {

@@ -70,9 +70,38 @@ export const towerTierSchema = z
     /** pulse: how long a buried digger is forced up, and how long pulsed mobs are stunned. */
     revealS: positive.optional(),
     stunS: nonNegative.optional(),
+    /** Overrides the tower's damage type for this tier (AP Rounds pierce). */
+    damageType: z.enum(DAMAGE_TYPES).optional(),
+    /** Tier-3 special ability (see SPECIAL_NEEDS). */
+    special: z.enum(['pierceLine', 'mark', 'burn']).optional(),
+    /** mark: marked mobs take `markBonus` more damage from everything for `markS`. */
+    markS: positive.optional(),
+    markBonus: positive.optional(),
+    /** burn: a shell leaves its splash area burning for `burnS` at `burnDps` (ground only). */
+    burnDps: positive.optional(),
+    burnS: positive.optional(),
   })
   .strict();
 export type TowerTier = z.infer<typeof towerTierSchema>;
+
+/**
+ * Tier-3 specials (DESIGN §7 "tier 3 branches"): `pierceLine` hits every bug along the line from the
+ * tower through its target; `mark` makes the target take extra damage for a while; `burn` leaves
+ * burning ground where a shell lands.
+ */
+export const SPECIAL_NEEDS: Record<NonNullable<TowerTier['special']>, (keyof TowerTier)[]> = {
+  pierceLine: [],
+  mark: ['markS', 'markBonus'],
+  burn: ['burnDps', 'burnS'],
+};
+
+/** A tier-3 branch: a named specialisation you pick instead of a single tier 3 (DESIGN §7). */
+export const towerBranchSchema = towerTierSchema.extend({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  blurb: z.string().min(1),
+});
+export type TowerBranch = z.infer<typeof towerBranchSchema>;
 
 /** Tier fields each attack needs. */
 const ATTACK_NEEDS: Record<Attack, (keyof TowerTier)[]> = {
@@ -100,20 +129,28 @@ export const towerSchema = z
     rangeMaxMul: z.number().min(1),
     minRangePerHeight: nonNegative,
     tiers: z.array(towerTierSchema).min(1),
+    /** Tier-3 specialisations, chosen when upgrading past the last tier. */
+    branches: z.array(towerBranchSchema).optional(),
   })
   .strict()
   .superRefine((t, ctx) => {
-    t.tiers.forEach((tier, i) => {
-      for (const k of ATTACK_NEEDS[t.attack]) {
+    const check = (tier: TowerTier, path: (string | number)[]) => {
+      const needs = [
+        ...ATTACK_NEEDS[t.attack],
+        ...(tier.special ? SPECIAL_NEEDS[tier.special] : []),
+      ];
+      for (const k of needs) {
         if (tier[k] === undefined) {
           ctx.addIssue({
             code: 'custom',
-            path: ['tiers', i, k],
-            message: `${t.attack} needs ${k}`,
+            path: [...path, k],
+            message: `${t.attack}/${tier.special ?? '-'} needs ${k}`,
           });
         }
       }
-    });
+    };
+    t.tiers.forEach((tier, i) => check(tier, ['tiers', i]));
+    t.branches?.forEach((b, i) => check(b, ['branches', i]));
   });
 export type TowerDef = z.infer<typeof towerSchema>;
 
@@ -135,6 +172,16 @@ export const mobSchema = z
     /** Digger: how long it stays up after crossing a manhole, and within how many tiles of the goal it surfaces for good. */
     surfaceS: positive.optional(),
     surfaceNearGoalTiles: nonNegative.optional(),
+    /** Boss: announced, drawn big (DESIGN §9 mini-boss and finale). */
+    boss: z.boolean().optional(),
+    /** Brood Mother: births `broodCount` × `broodType` every `broodEvery` of its HP lost (DESIGN §6). */
+    broodEvery: positive.max(1).optional(),
+    broodCount: z.number().int().positive().optional(),
+    broodType: z.string().optional(),
+    /** HP multiplier for the brood it births (they'd be trivial at base HP in the finale). */
+    broodHpMul: positive.optional(),
+    /** Crushes walls of this tier or lower on contact instead of besieging them. */
+    crushTier: z.number().int().positive().optional(),
   })
   .strict()
   .superRefine((m, ctx) => {
@@ -205,8 +252,51 @@ export const barricadesSchema = z.record(z.string(), barricadeSchema).superRefin
   }
 });
 
+/** Elite affixes (DESIGN §6): a spawn group can carry one; it changes each of its mobs. */
+export const eliteSchema = z
+  .object({
+    name: z.string().min(1),
+    hpMul: positive,
+    armorAdd: nonNegative.optional(),
+    speedMul: positive.optional(),
+    /** Heals this fraction of max HP per second. */
+    regenPerS: positive.optional(),
+  })
+  .strict();
+export type EliteDef = z.infer<typeof eliteSchema>;
+
+/**
+ * Council Grant effects (DESIGN §10.6). The effect types are generic sim mechanics; which grants a
+ * city offers, and what they're called, is that city's content in grants.json.
+ */
+export const grantEffectSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('barricadeCostMul'), barricade: z.string(), mul: positive }).strict(),
+  z.object({ type: z.literal('towerCostMul'), tower: z.string(), mul: positive }).strict(),
+  z.object({ type: z.literal('fireRateMul'), tower: z.string(), mul: positive }).strict(),
+  z.object({ type: z.literal('rangeMul'), slot: z.enum(TOWER_SLOTS), mul: positive }).strict(),
+  z.object({ type: z.literal('wetDurationMul'), mul: positive }).strict(),
+  z.object({ type: z.literal('bountyMul'), mul: positive }).strict(),
+  z.object({ type: z.literal('interestCapAdd'), add: z.number() }).strict(),
+  z.object({ type: z.literal('cash'), add: z.number() }).strict(),
+  z.object({ type: z.literal('integrity'), add: z.number() }).strict(),
+  z.object({ type: z.literal('prepSecondsAdd'), add: z.number() }).strict(),
+  z.object({ type: z.literal('trapDamageMul'), mul: positive }).strict(),
+]);
+export type GrantEffect = z.infer<typeof grantEffectSchema>;
+
+export const grantSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    /** One line shown on the grant card. */
+    text: z.string().min(1),
+    effects: z.array(grantEffectSchema).min(1),
+  })
+  .strict();
+export type GrantDef = z.infer<typeof grantSchema>;
+
 /** waves.json: per city, a list of waves, each a list of spawn groups by station name. */
-export function wavesSchema(mobTypes: string[]) {
+export function wavesSchema(mobTypes: string[], eliteTypes: string[] = []) {
   const group = z
     .object({
       station: z.string().min(1),
@@ -214,6 +304,10 @@ export function wavesSchema(mobTypes: string[]) {
       count: z.number().int().positive(),
       hpMul: positive,
       intervalS: positive,
+      elite: z
+        .string()
+        .refine((e) => eliteTypes.includes(e), 'unknown elite affix')
+        .optional(),
     })
     .strict();
   return z.record(z.string(), z.array(z.object({ groups: z.array(group).min(1) }).strict()).min(1));

@@ -35,7 +35,7 @@
     "hp": 60,
     "speedMps": 6,
     "armor": 2,
-    "goalDamage": 3,
+    "goalDamage": 2,
     "barricadeDps": 0,
     "bounty": 10,
     "surfaceS": 3,
@@ -52,5 +52,32 @@
     "bounty": 8,
     "spitRangeM": 48,
     "spitDps": 10
+  },
+  "matriarch": {
+    "name": "Beetle Matriarch",
+    "layer": "ground",
+    "hp": 1200,
+    "speedMps": 4,
+    "armor": 8,
+    "goalDamage": 25,
+    "barricadeDps": 25,
+    "bounty": 150,
+    "boss": true
+  },
+  "broodMother": {
+    "name": "Brood Mother",
+    "layer": "ground",
+    "hp": 4000,
+    "speedMps": 3,
+    "armor": 5,
+    "goalDamage": 50,
+    "barricadeDps": 40,
+    "bounty": 500,
+    "boss": true,
+    "broodEvery": 0.25,
+    "broodCount": 6,
+    "broodType": "skitterling",
+    "crushTier": 1,
+    "broodHpMul": 8
   }
 }

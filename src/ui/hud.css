@@ -384,7 +384,8 @@
 
 /* ---- Selected tower (bottom left, above the gear) ---- */
 .tower-card {
-  bottom: 70px;
+  /* Above the build bar (it spans most of the bottom edge) and the gear. */
+  bottom: 124px;
   left: var(--hud-gap);
   width: 220px;
 }
@@ -565,4 +566,103 @@
     width: 160px !important;
     height: auto !important;
   }
+}
+
+/* ---- Pass 9: breaches, bosses, tier-3 branches, grants, resume, stars ---- */
+.wave-intel .breach {
+  color: #ff8a5c;
+  font-weight: 700;
+}
+
+.intel-mob.boss {
+  color: #ff5fa2;
+  font-weight: 800;
+}
+
+.branch-choices {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.branch-choices .branch,
+.grant-choices .grant {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--hud-edge);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.05);
+  color: var(--hud-text);
+  text-align: left;
+  font: inherit;
+}
+
+.branch-choices .branch:hover:not(:disabled),
+.grant-choices .grant:hover {
+  border-color: var(--hud-accent);
+  background: rgb(95 208 255 / 0.12);
+}
+
+.branch-choices .branch:disabled {
+  opacity: 0.45;
+}
+
+.branch-choices .branch span,
+.grant-choices .grant span {
+  color: var(--hud-muted, #aab4c3);
+  font-size: 12px;
+}
+
+.branch-choices .branch em {
+  color: var(--hud-cash);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.grant-card {
+  width: min(720px, calc(100vw - 32px));
+  text-align: center;
+}
+
+.grant-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.grant-choices .grant {
+  min-height: 96px;
+  align-content: start;
+}
+
+.grant-choices .grant strong {
+  color: var(--hud-accent);
+}
+
+.resume-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.resume-actions .secondary {
+  padding: 8px 16px;
+  border: 1px solid var(--hud-edge);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--hud-text);
+  font: inherit;
+}
+
+.stars {
+  font-size: 34px;
+  letter-spacing: 6px;
+  color: rgb(255 255 255 / 0.18);
+}
+
+.stars .on {
+  color: #ffd23f;
+  text-shadow: 0 0 12px rgb(255 210 63 / 0.6);
 }

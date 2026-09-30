@@ -1,11 +1,19 @@
 import rulesData from '../data/rules.json';
-import type { DamageType, TargetLayer, TargetingMode, TowerDef, TowerTier } from '../data/schema';
+import type {
+  DamageType,
+  TargetLayer,
+  TargetingMode,
+  TowerBranch,
+  TowerDef,
+  TowerTier,
+} from '../data/schema';
 import towersData from '../data/towers.json';
 import { TICK_DT, TICK_HZ, TILE_M } from './constants';
 import { hitDamage } from './damage';
 import { builtNow, sellValue, type BuiltAt } from './economy';
 import { gameHeight } from './height';
-import { isWet, MOBS, mobPos, slowMob, targetLayer, type Mob } from './mobs';
+import { modPrice } from './grants';
+import { isWet, mobArmor, MOBS, mobPos, slowMob, targetLayer, type Mob } from './mobs';
 import { isOver } from './phase';
 import { Slot } from './slots';
 import type { World } from './world';
@@ -20,8 +28,13 @@ export interface Tower {
   type: TowerType;
   tx: number;
   ty: number;
-  /** Upgrade tier, 0-based index into the type's `tiers` (shown to the player as tier 1, 2…). */
+  /**
+   * Upgrade tier, 0-based index into the type's `tiers` (shown to the player as tier 1, 2…); one past
+   * the last tier means tier 3, the chosen `branch`.
+   */
   tier: number;
+  /** Tier-3 specialisation (DESIGN §7), once chosen. */
+  branch: string | null;
   targeting: TargetingMode;
   /** Seconds until the next shot is ready (≤ 0 = ready). */
   cooldown: number;
@@ -55,10 +68,25 @@ export interface Shell {
   damage: number;
   damageType: DamageType;
   splashTiles: number;
+  /** Incendiary: the splash area burns afterwards. */
+  burn: { dps: number; s: number } | null;
 }
 
-export function towerTier(t: Pick<Tower, 'type' | 'tier'>): TowerTier {
-  return TOWERS[t.type].tiers[t.tier]!;
+/** Burning ground left by an Incendiary shell: hurts ground mobs inside it (ignores armor). */
+export interface Fire {
+  towerId: number;
+  x: number;
+  y: number;
+  radiusTiles: number;
+  dps: number;
+  untilTick: number;
+}
+
+/** A tower's current stats: its tier, or its tier-3 branch. */
+export function towerTier(t: { type: TowerType; tier: number; branch?: string | null }): TowerTier {
+  const def = TOWERS[t.type];
+  if (t.tier < def.tiers.length) return def.tiers[t.tier]!;
+  return def.branches!.find((b) => b.id === t.branch)!;
 }
 
 /** Why a tower can't go on (tx, ty), or null if it can. Each type has its own slots (DESIGN §4.1, §7). */
@@ -131,15 +159,35 @@ export function siteHeight(world: World, i: number): number {
 export function towerRange(
   type: TowerType,
   heightM: number,
-  tier = 0,
+  stats: TowerTier = TOWERS[type].tiers[0]!,
+  rangeMul = 1,
 ): { minM: number; maxM: number } {
   const def = TOWERS[type];
-  const stats = def.tiers[tier]!;
   const mul = Math.min(def.rangeMaxMul, 1 + def.rangeHeightFactor * heightM);
   return {
     minM: Math.max(stats.minRangeM ?? 0, def.minRangePerHeight * heightM),
-    maxM: stats.rangeM * mul,
+    maxM: stats.rangeM * mul * rangeMul,
   };
+}
+
+/** Range multiplier from grants for a tower spot (roof pad or street corner). */
+export function siteRangeMul(world: World, i: number): number {
+  return world.mods.rangeMul[world.slots?.towerSlot[i] === Slot.Pad ? 'pad' : 'corner'];
+}
+
+/** A placed tower's range, with its tier or branch and any grant. */
+export function towerRangeOf(world: World, t: Tower): { minM: number; maxM: number } {
+  return towerRange(
+    t.type,
+    t.heightM,
+    towerTier(t),
+    siteRangeMul(world, t.ty * world.map!.width + t.tx),
+  );
+}
+
+/** Build price of a tower type after grants. */
+export function towerPrice(world: World, type: TowerType): number {
+  return modPrice(TOWERS[type].tiers[0]!.cost, world.mods.towerCostMul[type]);
 }
 
 export function placeTower(
@@ -151,7 +199,7 @@ export function placeTower(
   const err = towerSiteError(world, tx, ty, type);
   if (err) return err;
   const def = TOWERS[type];
-  const cost = def.tiers[0]!.cost;
+  const cost = towerPrice(world, type);
   if (world.cash < cost) return `needs $${cost}`;
   world.cash -= cost;
   const t: Tower = {
@@ -160,6 +208,7 @@ export function placeTower(
     tx,
     ty,
     tier: 0,
+    branch: null,
     targeting: def.targeting,
     heightM: siteHeight(world, ty * world.map!.width + tx),
     cooldown: 0,
@@ -174,22 +223,51 @@ export function placeTower(
   return t;
 }
 
-/** Cost of the next upgrade tier, or null at the top tier. */
-export function upgradeCost(t: Tower): number | null {
-  return TOWERS[t.type].tiers[t.tier + 1]?.cost ?? null;
+export interface UpgradeOption {
+  /** Null for a plain next tier; the branch id for a tier-3 specialisation. */
+  branch: string | null;
+  name: string;
+  blurb: string | null;
+  cost: number;
 }
 
-/** Upgrade a tower one tier (any phase while the run is on). */
-export function upgradeTower(world: World, id: number): string | null {
+/**
+ * What this tower can upgrade to next (after grants): the next tier, or at the last tier each of
+ * its tier-3 branches (DESIGN §7), or nothing once it has one.
+ */
+export function upgradeOptions(world: World, t: Tower): UpgradeOption[] {
+  const def = TOWERS[t.type];
+  const price = (cost: number) => modPrice(cost, world.mods.towerCostMul[t.type]);
+  const next = def.tiers[t.tier + 1];
+  if (next)
+    return [{ branch: null, name: `Tier ${t.tier + 2}`, blurb: null, cost: price(next.cost) }];
+  if (t.tier === def.tiers.length - 1 && def.branches) {
+    return def.branches.map((b: TowerBranch) => ({
+      branch: b.id,
+      name: b.name,
+      blurb: b.blurb,
+      cost: price(b.cost),
+    }));
+  }
+  return [];
+}
+
+/** Upgrade a tower (any phase while the run is on); at the last tier, `branch` picks tier 3. */
+export function upgradeTower(
+  world: World,
+  id: number,
+  branch: string | null = null,
+): string | null {
   if (isOver(world.phase)) return 'the run is over';
   const t = world.towers.find((x) => x.id === id);
   if (!t) return 'no tower here';
-  const cost = upgradeCost(t);
-  if (cost === null) return 'already at the top tier';
-  if (world.cash < cost) return `needs $${cost}`;
-  world.cash -= cost;
-  t.spent += cost;
+  const option = upgradeOptions(world, t).find((o) => o.branch === branch);
+  if (!option) return branch ? 'no such branch' : 'already at the top tier';
+  if (world.cash < option.cost) return `needs $${option.cost}`;
+  world.cash -= option.cost;
+  t.spent += option.cost;
   t.tier++;
+  t.branch = branch;
   return null;
 }
 
@@ -227,7 +305,7 @@ function canTarget(world: World, def: TowerDef, m: Mob): boolean {
  */
 function inRange(world: World, t: Tower): Mob[] {
   const def = TOWERS[t.type];
-  const r = towerRange(t.type, t.heightM, t.tier);
+  const r = towerRangeOf(world, t);
   const maxTiles = r.maxM / TILE_M;
   const minTiles = r.minM / TILE_M;
   return world.mobs.filter((m) => {
@@ -275,10 +353,14 @@ export function acquireTarget(world: World, t: Tower, candidates: Mob[]): Mob | 
   return best;
 }
 
-/** Apply one hit to a mob, after armor. Credits the kill to `tower` if this hit killed it. */
+/**
+ * Apply one hit to a mob: a mark (Railgun Spotter) adds its bonus, then armor. Credits the kill to
+ * `tower` if this hit killed it.
+ */
 function hit(world: World, m: Mob, raw: number, type: DamageType, tower: Tower | undefined) {
   if (m.hp <= 0) return;
-  m.hp -= hitDamage(raw, type, MOBS[m.type].armor);
+  const marked = world.tick < m.markUntilTick ? m.markBonus : 0;
+  m.hp -= hitDamage(raw * (1 + marked), type, mobArmor(m));
   m.lastHitTick = world.tick;
   if (m.hp <= 0 && tower) tower.kills++;
 }
@@ -288,10 +370,16 @@ function fire(world: World, t: Tower, target: Mob, candidates: Mob[]): void {
   const def = TOWERS[t.type];
   const stats = towerTier(t);
   const [x, y] = mobPos(target);
+  const damageType = stats.damageType ?? def.damageType;
   t.lastShot = { tick: world.tick, x, y, air: MOBS[target.type].layer === 'air' };
   switch (def.attack) {
     case 'hit':
-      hit(world, target, stats.damage, def.damageType, t);
+      hit(world, target, stats.damage, damageType, t);
+      if (stats.special === 'mark') {
+        target.markUntilTick = world.tick + Math.round(stats.markS! * TICK_HZ);
+        target.markBonus = stats.markBonus!;
+      }
+      if (stats.special === 'pierceLine') pierceLine(world, t, target, candidates, stats.damage);
       return;
     case 'shell':
       world.shells.push({
@@ -305,8 +393,9 @@ function fire(world: World, t: Tower, target: Mob, candidates: Mob[]): void {
         firedTick: world.tick,
         landTick: world.tick + Math.max(1, Math.round(stats.shellS! * TICK_HZ)),
         damage: stats.damage,
-        damageType: def.damageType,
+        damageType,
         splashTiles: stats.splashM! / TILE_M,
+        burn: stats.special === 'burn' ? { dps: stats.burnDps!, s: stats.burnS! } : null,
       });
       return;
     case 'cone': {
@@ -314,14 +403,14 @@ function fire(world: World, t: Tower, target: Mob, candidates: Mob[]): void {
       const aim = Math.atan2(y - t.ty, x - t.tx);
       const half = ((stats.coneDeg! / 2) * Math.PI) / 180;
       const slowTicks = Math.round(stats.slowS! * TICK_HZ);
-      const wetTicks = Math.round((stats.wetS ?? 0) * TICK_HZ);
+      const wetTicks = Math.round((stats.wetS ?? 0) * world.mods.wetDurationMul * TICK_HZ);
       for (const m of candidates) {
         const [mx, my] = mobPos(m);
         const off = Math.abs(angleDiff(Math.atan2(my - t.ty, mx - t.tx), aim));
         if (m !== target && off > half) continue;
         slowMob(world, m, stats.slowMul!, slowTicks);
         m.wetUntilTick = Math.max(m.wetUntilTick, world.tick + wetTicks);
-        hit(world, m, stats.damage, def.damageType, t);
+        hit(world, m, stats.damage, damageType, t);
       }
       return;
     }
@@ -391,8 +480,30 @@ function pulse(world: World, t: Tower, candidates: Mob[]): void {
     }
     hit(world, m, stats.damage, def.damageType, t);
   }
-  const r = towerRange(t.type, t.heightM, t.tier);
+  const r = towerRangeOf(world, t);
   world.fx.pulses.push({ tick: world.tick, x: t.tx, y: t.ty, radiusM: r.maxM, source: t.type });
+}
+
+/**
+ * Railgun Penetrator: the shot carries on through its target, hitting every mob it can target within
+ * half a tile of the line from the tower through the target, out to its range.
+ */
+function pierceLine(world: World, t: Tower, target: Mob, candidates: Mob[], damage: number): void {
+  const [tx, ty] = mobPos(target);
+  const dx = tx - t.tx;
+  const dy = ty - t.ty;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return;
+  const reach = towerRangeOf(world, t).maxM / TILE_M;
+  const damageType = towerTier(t).damageType ?? TOWERS[t.type].damageType;
+  for (const m of candidates) {
+    if (m === target) continue;
+    const [mx, my] = mobPos(m);
+    const along = ((mx - t.tx) * dx + (my - t.ty) * dy) / len;
+    if (along <= 0 || along > reach) continue;
+    const off = Math.abs((mx - t.tx) * dy - (my - t.ty) * dx) / len;
+    if (off <= 0.5) hit(world, m, damage, damageType, t);
+  }
 }
 
 function angleDiff(a: number, b: number): number {
@@ -413,8 +524,19 @@ function landShells(world: World): void {
       const layer = targetLayer(world, m);
       if (layer === null || !s.targets.includes(layer)) continue;
       const [x, y] = mobPos(m);
-      if (Math.hypot(x - s.x, y - s.y) <= s.splashTiles)
+      if (Math.hypot(x - s.x, y - s.y) <= s.splashTiles) {
         hit(world, m, s.damage, s.damageType, tower);
+      }
+    }
+    if (s.burn) {
+      world.fires.push({
+        towerId: s.towerId,
+        x: s.x,
+        y: s.y,
+        radiusTiles: s.splashTiles,
+        dps: s.burn.dps,
+        untilTick: world.tick + Math.round(s.burn.s * TICK_HZ),
+      });
     }
     world.fx.splashes.push({
       tick: world.tick,
@@ -427,12 +549,13 @@ function landShells(world: World): void {
   world.shells = flying;
 }
 
-/** Land shells, let every tower fire, then remove the dead and pay bounties. */
+/** Land shells, then let every tower fire (clearing the dead is `sweepDead`, after other damage). */
 export function fireTowers(world: World): void {
   if (!world.map || !world.field) return;
   landShells(world);
   for (const t of world.towers) {
     const stats = towerTier(t);
+    const rate = stats.shotsPerS * (world.mods.fireRateMul[t.type] ?? 1);
     t.cooldown -= TICK_DT;
     while (t.cooldown <= 0) {
       const candidates = inRange(world, t);
@@ -442,15 +565,37 @@ export function fireTowers(world: World): void {
         break;
       }
       fire(world, t, target, candidates);
-      t.cooldown += 1 / stats.shotsPerS;
+      t.cooldown += 1 / rate;
     }
   }
+}
+
+/** Burning ground (Incendiary) hurts every ground mob inside it, ignoring armor, until it burns out. */
+export function tickFires(world: World): void {
+  if (world.fires.length === 0) return;
+  world.fires = world.fires.filter((f) => f.untilTick > world.tick);
+  for (const f of world.fires) {
+    const tower = world.towers.find((t) => t.id === f.towerId);
+    for (const m of world.mobs) {
+      if (m.hp <= 0 || targetLayer(world, m) !== 'ground') continue;
+      const [x, y] = mobPos(m);
+      if (Math.hypot(x - f.x, y - f.y) > f.radiusTiles) continue;
+      m.hp -= f.dps * TICK_DT;
+      if (m.hp <= 0 && tower) tower.kills++;
+    }
+  }
+}
+
+/** Remove the dead and pay their bounties (after grants), recording kills for effects and score. */
+export function sweepDead(world: World): void {
   const alive: Mob[] = [];
   for (const m of world.mobs) {
     if (m.hp > 0) {
       alive.push(m);
     } else {
-      world.cash += MOBS[m.type].bounty;
+      const bounty = Math.round(MOBS[m.type].bounty * world.mods.bountyMul);
+      world.cash += bounty;
+      world.stats.bounty += bounty;
       world.stats.kills++;
       const [x, y] = mobPos(m);
       world.fx.kills.push({ tick: world.tick, x, y });

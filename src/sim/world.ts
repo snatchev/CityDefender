@@ -1,12 +1,14 @@
 import rulesData from '../data/rules.json';
-import { recomputeField, repairBarricades, type Barricade } from './barricades';
+import { recomputeField, type Barricade } from './barricades';
 import { flowField } from './flow';
 import { TICK_DT, TICK_HZ } from './constants';
 import type { TileMap } from './map';
 import { deriveSlots, type MapSlots } from './slots';
-import { stepMobs, tickSpawners, type Mob, type Spawner } from './mobs';
+import { stepMobs, tickBroodAndRegen, tickSpawners, type Mob, type Spawner } from './mobs';
 import { tickPhase, type Phase, type WaveDef } from './phase';
-import { fireTowers, type Shell, type Tower } from './towers';
+import { fireTowers, sweepDead, tickFires, type Fire, type Shell, type Tower } from './towers';
+import { freshMods, type Mods } from './grants';
+import type { GrantDef } from '../data/schema';
 import { createRng, type Rng } from './rng';
 
 /**
@@ -57,8 +59,16 @@ export interface World {
   /** City Hall Integrity, the "lives" value (DESIGN §3.2). */
   integrity: number;
   mobs: Mob[];
-  /** Mortar shells in flight. */
+  /** Shells in flight (Mortar, Flak). */
   shells: Shell[];
+  /** Burning ground (Incendiary mortar). */
+  fires: Fire[];
+  /** Standing modifiers from Council Grants. */
+  mods: Mods;
+  /** This city's Council Grants (set by `startRun`), the ones taken, and the current offer. */
+  grantPool: GrantDef[];
+  grantsTaken: string[];
+  grantOffer: string[] | null;
   spawners: Spawner[];
   nextMobId: number;
   stats: WorldStats;
@@ -106,6 +116,11 @@ export interface WorldStats {
   kills: number;
   barricadesDestroyed: number;
   earlyBonus: number;
+  /** Bounty paid for kills (a score component, DESIGN §3.2). */
+  bounty: number;
+  interest: number;
+  /** Interest paid at the last debrief (for the HUD). */
+  lastInterest: number;
 }
 
 const freshStats = (): WorldStats => ({
@@ -114,6 +129,9 @@ const freshStats = (): WorldStats => ({
   kills: 0,
   barricadesDestroyed: 0,
   earlyBonus: 0,
+  bounty: 0,
+  interest: 0,
+  lastInterest: 0,
 });
 
 /** Everything that starts fresh with each run (the map and its derived arrays are set separately). */
@@ -130,6 +148,11 @@ function freshRun(seed: number) {
     integrity: rulesData.startIntegrity,
     mobs: [] as Mob[],
     shells: [] as Shell[],
+    fires: [] as Fire[],
+    mods: freshMods(),
+    grantPool: [] as GrantDef[],
+    grantsTaken: [] as string[],
+    grantOffer: null as string[] | null,
     spawners: [] as Spawner[],
     nextMobId: 1,
     nextTowerId: 1,
@@ -190,9 +213,10 @@ export function tickWorld(world: World): void {
   tickSpawners(world);
   stepMobs(world);
   fireTowers(world);
-  const phaseBefore = world.phase;
+  tickFires(world);
+  tickBroodAndRegen(world);
+  sweepDead(world);
   tickPhase(world);
-  if (phaseBefore === 'debrief' && world.phase === 'prep') repairBarricades(world);
   world.tick += 1;
   const oldest = world.tick - FX_KEEP_TICKS;
   const fx = world.fx;

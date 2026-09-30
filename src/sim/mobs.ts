@@ -1,8 +1,9 @@
 import { TICK_DT, TICK_HZ, TILE_M } from './constants';
 import mobsData from '../data/mobs.json';
 import rulesData from '../data/rules.json';
-import type { MobDef, TargetLayer } from '../data/schema';
-import { crossTrap, damageBarricade } from './barricades';
+import elitesData from '../data/elites.json';
+import type { EliteDef, MobDef, TargetLayer } from '../data/schema';
+import { BARRICADES, crossTrap, damageBarricade } from './barricades';
 import { cheapestNeighbours } from './flow';
 import type { World } from './world';
 
@@ -10,6 +11,10 @@ export type MobType = keyof typeof mobsData;
 
 /** The mob table, typed by its schema (src/data/schema.ts). */
 export const MOBS = mobsData as Record<MobType, MobDef>;
+
+export type EliteType = keyof typeof elitesData;
+/** Elite affixes (DESIGN §6), typed by their schema. */
+export const ELITES = elitesData as Record<EliteType, EliteDef>;
 
 /**
  * A crawler walking tile centre to tile centre. Positions are tile coordinates; (tx, ty) is the
@@ -33,6 +38,13 @@ export interface Mob {
   surfacedUntilTick: number;
   /** Spitters: last spit, for effects (target position in tile coordinates). */
   lastSpit: { tick: number; x: number; y: number } | null;
+  /** Elite affix (DESIGN §6), if any. */
+  elite: EliteType | null;
+  /** Marked (Railgun Spotter) until this tick: takes `markBonus` more damage from towers. */
+  markUntilTick: number;
+  markBonus: number;
+  /** Brood Mother: births its brood when HP falls to this fraction of max (then steps down). */
+  broodAt: number;
   fromX: number;
   fromY: number;
   toX: number;
@@ -65,9 +77,14 @@ export function isWet(world: World, m: Mob): boolean {
   return world.tick < m.wetUntilTick;
 }
 
-/** Speed this tick in metres per second, after any slow. */
+/** Flat armor per hit, including an elite affix. */
+export function mobArmor(m: Mob): number {
+  return MOBS[m.type].armor + (m.elite ? (ELITES[m.elite].armorAdd ?? 0) : 0);
+}
+
+/** Speed this tick in metres per second, after any elite affix and slow. */
 export function mobSpeedMps(world: World, m: Mob): number {
-  const base = MOBS[m.type].speedMps;
+  const base = MOBS[m.type].speedMps * (m.elite ? (ELITES[m.elite].speedMul ?? 1) : 1);
   return world.tick < m.slowUntilTick ? base * m.slowMul : base;
 }
 
@@ -84,6 +101,7 @@ export interface Spawner {
   type: MobType;
   remaining: number;
   hpMul: number;
+  elite: EliteType | null;
   intervalTicks: number;
   nextTick: number;
 }
@@ -97,6 +115,8 @@ export interface SpawnGroup {
   /** HP multiplier for this wave (HP grows faster than income; DESIGN §3.3). */
   hpMul: number;
   intervalS: number;
+  /** Elite affix for every mob in the group (DESIGN §6), if any. */
+  elite?: EliteType | null;
 }
 
 /** Queue a spawn group. Only `count` is required; the rest default to one plain group at spawn 0. */
@@ -108,6 +128,7 @@ export function queueWave(
     type = 'skitterling',
     hpMul = 1,
     intervalS = rulesData.spawnIntervalS,
+    elite = null,
   }: Partial<SpawnGroup> & { count: number },
 ): void {
   if (!world.map) throw new Error('queueWave: no map loaded');
@@ -117,14 +138,34 @@ export function queueWave(
     type,
     remaining: count,
     hpMul,
+    elite,
     intervalTicks: Math.max(1, Math.round(intervalS * TICK_HZ)),
     nextTick: world.tick,
   });
 }
 
-export function spawnMob(world: World, spawnIndex: number, type: MobType, hpMul = 1): Mob {
+export function spawnMob(
+  world: World,
+  spawnIndex: number,
+  type: MobType,
+  hpMul = 1,
+  elite: EliteType | null = null,
+): Mob {
   const [tx, ty] = world.map!.spawns[spawnIndex]!;
-  const hp = MOBS[type].hp * hpMul;
+  return spawnMobAt(world, tx, ty, type, hpMul, elite);
+}
+
+/** A new mob standing on tile (tx, ty) (a station, or where a Brood Mother births). */
+export function spawnMobAt(
+  world: World,
+  tx: number,
+  ty: number,
+  type: MobType,
+  hpMul = 1,
+  elite: EliteType | null = null,
+): Mob {
+  const def = MOBS[type];
+  const hp = def.hp * hpMul * (elite ? ELITES[elite].hpMul : 1);
   const mob: Mob = {
     id: world.nextMobId++,
     type,
@@ -137,6 +178,10 @@ export function spawnMob(world: World, spawnIndex: number, type: MobType, hpMul 
     stunUntilTick: 0,
     surfacedUntilTick: 0,
     lastSpit: null,
+    elite,
+    markUntilTick: 0,
+    markBonus: 0,
+    broodAt: def.broodEvery ? 1 - def.broodEvery : 0,
     fromX: tx,
     fromY: ty,
     toX: tx,
@@ -148,10 +193,38 @@ export function spawnMob(world: World, spawnIndex: number, type: MobType, hpMul 
   return mob;
 }
 
+/**
+ * Brood Mothers (DESIGN §6) birth `broodCount` × `broodType` on their tile each time their HP falls
+ * past another `broodEvery` of max, including the last share when they die. Regenerating elites
+ * heal a share of max HP per second. Call after towers have fired, before the dead are cleared.
+ */
+export function tickBroodAndRegen(world: World): void {
+  const born: [Mob, number][] = [];
+  for (const m of world.mobs) {
+    const def = MOBS[m.type];
+    if (def.broodEvery) {
+      let batches = 0;
+      while (m.broodAt >= 0 && m.hp <= m.maxHp * m.broodAt + 1e-9) {
+        batches++;
+        m.broodAt -= def.broodEvery;
+      }
+      if (batches > 0) born.push([m, batches]);
+    }
+    const regen = m.elite ? ELITES[m.elite].regenPerS : undefined;
+    if (regen && m.hp > 0) m.hp = Math.min(m.maxHp, m.hp + m.maxHp * regen * TICK_DT);
+  }
+  for (const [mother, batches] of born) {
+    const def = MOBS[mother.type];
+    for (let k = 0; k < batches * def.broodCount!; k++) {
+      spawnMobAt(world, mother.toX, mother.toY, def.broodType as MobType, def.broodHpMul ?? 1);
+    }
+  }
+}
+
 export function tickSpawners(world: World): void {
   for (const s of world.spawners) {
     while (s.remaining > 0 && world.tick >= s.nextTick) {
-      spawnMob(world, s.spawnIndex, s.type, s.hpMul);
+      spawnMob(world, s.spawnIndex, s.type, s.hpMul, s.elite);
       s.remaining--;
       s.nextTick += s.intervalTicks;
     }
@@ -194,8 +267,13 @@ export function stepMobs(world: World): void {
         if (next === null) break; // stranded (unreachable): wait in place
         const bId = crawler ? world.barricadeAt[next]! : 0;
         if (bId !== 0) {
-          // Siege: spend the rest of this tick hitting the barricade instead of moving.
           const b = world.barricades.find((x) => x.id === bId)!;
+          if (stats.crushTier && BARRICADES[b.type].tier <= stats.crushTier) {
+            // Bosses flatten weak walls on contact (DESIGN §6 "crushes T1 barricades").
+            damageBarricade(world, b, b.hp + 1);
+            break;
+          }
+          // Siege: spend the rest of this tick hitting the barricade instead of moving.
           // Damage scales with the part of the tick left after walking up to the barricade.
           damageBarricade(world, b, stats.barricadeDps * TICK_DT * (budget / fullBudget));
           break;

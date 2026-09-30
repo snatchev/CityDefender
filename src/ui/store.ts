@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { TICK_HZ } from '../sim/constants';
-import type { MobType } from '../sim/mobs';
-import type { Phase } from '../sim/phase';
+import type { EliteType, MobType } from '../sim/mobs';
+import { stationsOpeningNextWave, type Phase } from '../sim/phase';
+import { runScore } from '../sim/economy';
 import { simTimeSeconds, type World } from '../sim/world';
 
 export interface CityInfo {
@@ -28,8 +29,25 @@ interface HudState {
   waveCount: number;
   /** Seconds left in the prep/debrief countdown. */
   phaseSeconds: number;
+  /** Stations opening next wave for the first time (breach telegraph, DESIGN §3.1). */
+  breaches: number[];
+  /** Council Grants on offer (grant phase), or null. */
+  grantOffer: { id: string; name: string; text: string }[] | null;
+  /** Interest paid at the last debrief. */
+  lastInterest: number;
+  /** End-of-run numbers (DESIGN §3.2). */
+  score: number;
+  stars: number;
+  barricadesLost: number;
+  interestTotal: number;
   /** The current wave's composition (wave intel, DESIGN §3.1). */
-  waveIntel: { spawnIndex: number; type: MobType; count: number; hpMul: number }[];
+  waveIntel: {
+    spawnIndex: number;
+    type: MobType;
+    count: number;
+    hpMul: number;
+    elite: EliteType | null;
+  }[];
   /** Set once the WebGL renderer is up (Canvas onCreated). */
   renderer: string | null;
   /** Set once the city file has loaded; the scene renders the map from `game.city` after that. */
@@ -63,6 +81,13 @@ export const useHud = create<HudState>()((set, get) => ({
   waveCount: 0,
   phaseSeconds: 0,
   waveIntel: [],
+  breaches: [],
+  grantOffer: null,
+  lastInterest: 0,
+  score: 0,
+  stars: 0,
+  barricadesLost: 0,
+  interestTotal: 0,
   renderer: null,
   city: null,
   notice: null,
@@ -89,8 +114,25 @@ export const useHud = create<HudState>()((set, get) => ({
       waveCount: world.waves.length,
       phaseSeconds: Math.ceil(world.phaseTicks / TICK_HZ),
       waveIntel: sameIntel(get().waveIntel, world),
+      breaches: same(get().breaches, stationsOpeningNextWave(world)),
+      grantOffer: same(
+        get().grantOffer,
+        world.grantOffer?.map((id) => {
+          const g = world.grantPool.find((x) => x.id === id)!;
+          return { id, name: g.name, text: g.text };
+        }) ?? null,
+      ),
+      lastInterest: world.stats.lastInterest,
+      ...runScore(world),
+      barricadesLost: world.stats.barricadesDestroyed,
+      interestTotal: world.stats.interest,
     }),
 }));
+
+/** Keep the previous value when it hasn't changed, so subscribers don't re-render at 4 Hz. */
+function same<T>(prev: T, next: T): T {
+  return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+}
 
 /** Keep the previous array when the wave hasn't changed, so the intel panel doesn't re-render at 4 Hz. */
 function sameIntel(prev: HudState['waveIntel'], world: World): HudState['waveIntel'] {
@@ -100,6 +142,7 @@ function sameIntel(prev: HudState['waveIntel'], world: World): HudState['waveInt
     type: g.type,
     count: g.count,
     hpMul: g.hpMul,
+    elite: g.elite ?? null,
   }));
   return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
 }

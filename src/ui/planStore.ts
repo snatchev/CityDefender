@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { TargetingMode } from '../data/schema';
 import type { BarricadeType } from '../sim/barricades';
-import type { TowerType } from '../sim/towers';
+import type { TowerType, UpgradeOption } from '../sim/towers';
 
 /** What a left click on the map builds (chosen in the build bar), or null to select towers. */
 export type BuildTool =
@@ -66,6 +66,8 @@ interface PlanState {
   ghost: Ghost | null;
   /** Selected tower (click an existing tower), shown with its range and a sell button. */
   selected: SelectedTower | null;
+  /** Selected wall (click a barricade with no tool): HP, repair, upgrade, sell. */
+  selectedWall: SelectedWall | null;
   /** Map debug overlay (street graph, slots), toggled in the debug menu or with M. */
   debugMap: boolean;
   tool: BuildTool | null;
@@ -77,11 +79,13 @@ export interface SelectedTower {
   ty: number;
   type: TowerType;
   name: string;
-  /** 1-based tier and how many there are. */
+  /** 1-based tier and how many there are (tier 3 is a chosen branch). */
   tier: number;
   tiers: number;
-  /** Cost of the next tier, or null at the top. */
-  upgradeCost: number | null;
+  /** Name of the tier-3 branch, once chosen. */
+  branchName: string | null;
+  /** What it can upgrade to next: one tier, or a choice of tier-3 branches, or nothing. */
+  upgrades: UpgradeOption[];
   targeting: TargetingMode;
   rangeM: number;
   minRangeM: number;
@@ -91,9 +95,24 @@ export interface SelectedTower {
   sellValue: number;
 }
 
+export interface SelectedWall {
+  id: number;
+  type: BarricadeType;
+  name: string;
+  hp: number;
+  maxHp: number;
+  /** Cost to repair to full (0 when undamaged). */
+  repairCost: number;
+  upgrade: { name: string; cost: number } | null;
+  sellValue: number;
+  /** Upgrading and selling only happen during prep (repairs during waves too). */
+  canEdit: boolean;
+}
+
 export const usePlan = create<PlanState>()(() => ({
   routes: [],
   ghost: null,
+  selectedWall: null,
   selected: null,
   debugMap: false,
   tool: null,

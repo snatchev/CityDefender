@@ -20,3 +20,22 @@ export function sellValue(world: World, cost: number, built: BuiltAt): number {
   const freeUndo = isPlanning(world.phase) && built.planning && built.wave === world.wave;
   return freeUndo ? cost : Math.floor(cost * rulesData.sellRefund);
 }
+
+/**
+ * End-of-run score and stars (DESIGN §3.2): score = bounty earned + Integrity × `scoreIntegrityMul`
+ * + unspent cash (mutator multipliers come in Pass 11). Stars: ★ won, ★★ won with Integrity ≥ 50,
+ * ★★★ won with Integrity untouched.
+ */
+export function runScore(world: World): { score: number; stars: number } {
+  const score =
+    world.stats.bounty + world.integrity * rulesData.scoreIntegrityMul + Math.max(0, world.cash);
+  const won = world.phase === 'won';
+  const stars = !won
+    ? 0
+    : world.integrity >= rulesData.startIntegrity
+      ? 3
+      : world.integrity >= 50
+        ? 2
+        : 1;
+  return { score, stars };
+}

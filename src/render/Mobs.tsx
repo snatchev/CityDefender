@@ -70,7 +70,29 @@ const LOOKS: Record<MobType, MobLook> = {
   },
   grub: { radiusM: 4.5, color: '#ff8c69', xray: '#ffb49c', geometry: () => grubGeometry() },
   spitter: { radiusM: 4, color: '#2ef2c9', xray: '#8cffe6', geometry: () => spitterGeometry() },
+  // Bosses (DESIGN §9): the same families, much bigger.
+  matriarch: {
+    radiusM: 12,
+    color: '#ffb12e',
+    xray: '#ffd27a',
+    geometry: () => scaled(beetleGeometry(), 2.2),
+  },
+  broodMother: {
+    radiusM: 16,
+    color: '#ff5fa2',
+    xray: '#ff9cc6',
+    geometry: () => scaled(beetleGeometry(), 3),
+  },
 };
+
+/** Halo colours that mark something special about a mob: an elite affix, or a Spotter's mark. */
+const ELITE_HALO = new Color('#ff3355');
+const MARK_HALO = new Color('#b18cff');
+
+function scaled(g: BufferGeometry, k: number): BufferGeometry {
+  g.scale(k, k, k);
+  return g;
+}
 
 export function mobRadiusM(type: MobType): number {
   return LOOKS[type].radiusM;
@@ -165,9 +187,11 @@ function MobLayer({ type, frame }: { type: MobType; frame: TileFrame }) {
       const slowed = world.tick < m.slowUntilTick;
       const c = world.tick - m.lastHitTick <= 1 ? HIT_COLOR : slowed ? SLOW_COLOR : baseColor;
       b.setColorAt(n, tint.current.copy(c));
-      o.scale.setScalar(HALO_SCALE * zoom);
+      o.scale.setScalar(HALO_SCALE * zoom * (m.elite ? 1.3 : 1));
       o.updateMatrix();
       h.setMatrixAt(n, o.matrix);
+      const marked = world.tick < m.markUntilTick;
+      h.setColorAt(n, marked ? MARK_HALO : m.elite ? ELITE_HALO : baseColor);
       n++;
     }
     for (const mesh of [b, h, x]) {
@@ -175,6 +199,7 @@ function MobLayer({ type, frame }: { type: MobType; frame: TileFrame }) {
       mesh.instanceMatrix.needsUpdate = true;
     }
     if (b.instanceColor) b.instanceColor.needsUpdate = true;
+    if (h.instanceColor) h.instanceColor.needsUpdate = true;
   });
 
   return (
@@ -194,7 +219,6 @@ function MobLayer({ type, frame }: { type: MobType; frame: TileFrame }) {
         frustumCulled={false}
       >
         <meshBasicMaterial
-          color={look.color}
           transparent
           opacity={HALO_OPACITY}
           blending={AdditiveBlending}

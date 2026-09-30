@@ -1,3 +1,5 @@
+import grantsData from './data/grants.json';
+import type { GrantDef } from './data/schema';
 import wavesData from './data/waves.json';
 import { loadBackdropFile, loadBuildingsFile, loadCityFile } from './loadCity';
 import {
@@ -6,7 +8,9 @@ import {
   type BuildingsFileV0,
   type CityFileV0,
 } from './sim/cityFile';
-import { startRun, startWave, type WaveDef } from './sim/phase';
+import type { EliteType, MobType } from './sim/mobs';
+import { isOver, pickGrant, startRun, startWave, type WaveDef } from './sim/phase';
+import { restoreRun, saveRun, type SaveV1 } from './sim/save';
 import { FixedStepper } from './sim/stepper';
 import { createWorld, resetWorld, setMap, type World } from './sim/world';
 import { useHud } from './ui/store';
@@ -36,14 +40,84 @@ export const game: Game = {
 
 /** Push a low-frequency snapshot of sim state to the UI store (never call per frame). */
 export function publish(): void {
+  autosave();
   useHud.getState().publishSim(game.world, game.stepper.timeScale);
+}
+
+// ---- Save / resume (browser storage; a run is saved at the start of every prep) ----
+
+const saveKey = (city: string) => `cityDefender.run.${city}`;
+let savedWave = -1;
+
+/** Save at the start of each new prep; forget the save once the run is over. */
+function autosave(): void {
+  const city = game.city?.meta.city;
+  const w = game.world;
+  if (!city) return;
+  try {
+    if (isOver(w.phase)) {
+      localStorage.removeItem(saveKey(city));
+      savedWave = -1;
+      return;
+    }
+    if (w.phase !== 'prep' || w.wave === savedWave || w.wave === 0) return;
+    const save = saveRun(w, city);
+    if (!save) return;
+    localStorage.setItem(saveKey(city), JSON.stringify(save));
+    savedWave = w.wave;
+  } catch {
+    // Storage can be unavailable (private window, blocked); the game just doesn't save.
+  }
+}
+
+/** The saved run for the loaded city, if there is one this build can restore. */
+export function savedRun(): SaveV1 | null {
+  const city = game.city?.meta.city;
+  if (!city) return null;
+  try {
+    const raw = localStorage.getItem(saveKey(city));
+    const save = raw ? (JSON.parse(raw) as SaveV1) : null;
+    return save && save.version === 1 && save.city === city ? save : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Forget the saved run (the player chose a new run instead). */
+export function discardSave(): void {
+  const city = game.city?.meta.city;
+  if (!city) return;
+  try {
+    localStorage.removeItem(saveKey(city));
+  } catch {
+    // nothing saved, nothing to forget
+  }
+}
+
+/** Continue the saved run. Returns an error if it can't be restored. */
+export function resumeRun(): string | null {
+  const save = savedRun();
+  if (!save || !game.city) return 'no saved run';
+  restart(save.seed);
+  const err = restoreRun(game.world, save, game.city.meta.city);
+  savedWave = game.world.wave;
+  publish();
+  return err;
+}
+
+/** Take a Council Grant from the current offer. */
+export function chooseGrant(id: string): string | null {
+  const err = pickGrant(game.world, id);
+  publish();
+  return err;
 }
 
 /** Start a fresh run on the loaded city (also used by Restart / Play again). */
 export function restart(seed: number = game.world.seed): void {
   resetWorld(game.world, seed);
   game.stepper.reset();
-  if (game.city) startRun(game.world, cityWaves(game.city));
+  savedWave = -1;
+  if (game.city) startRun(game.world, cityWaves(game.city), cityGrants(game.city));
   publish();
 }
 
@@ -75,12 +149,18 @@ function cityWaves(city: CityFileV0): WaveDef[] {
   return script.map((wave) => ({
     groups: wave.groups.map((g) => ({
       spawnIndex: index(g.station),
-      type: g.type as WaveDef['groups'][number]['type'],
+      type: g.type as MobType,
       count: g.count,
       hpMul: g.hpMul,
       intervalS: g.intervalS,
+      elite: ((g as { elite?: string }).elite ?? null) as EliteType | null,
     })),
   }));
+}
+
+/** The city's Council Grants from src/data/grants.json (a city without any has no grant phases). */
+function cityGrants(city: CityFileV0): GrantDef[] {
+  return (grantsData as Record<string, GrantDef[]>)[city.meta.city] ?? [];
 }
 
 /** Load a city and install its map. Start a run afterwards (planning.ts `restartRun`). */

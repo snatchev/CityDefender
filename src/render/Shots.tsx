@@ -12,7 +12,7 @@ import {
   type LineSegments,
 } from 'three';
 import { game, renderAlpha } from '../game';
-import { TICK_DT } from '../sim/constants';
+import { TICK_DT, TILE_M } from '../sim/constants';
 import { TOWERS, towerTier, type TowerType } from '../sim/towers';
 import type { SplashFx } from '../sim/world';
 import { BARRICADE_HEIGHT_M } from './Barricades';
@@ -44,6 +44,9 @@ const SHELL_ARC = 0.35;
 const BOLT_KINKS = 4;
 const BOLT_JITTER_M = 3;
 const BLACK = new Color('#000000');
+const BURN_COLOR = new Color('#ff5a1f');
+/** Burning ground flickers this fast (Hz) around its base brightness. */
+const BURN_FLICKER_HZ = 7;
 
 /**
  * Tower shots, drawn from the sim every frame (never React state):
@@ -62,6 +65,7 @@ export function Shots({ frame, heights }: { frame: TileFrame; heights: Float32Ar
   const sprays = useRef<InstancedMesh>(null);
   const shells = useRef<InstancedMesh>(null);
   const rings = useRef<InstancedMesh>(null);
+  const burns = useRef<InstancedMesh>(null);
   const tmp = useRef({
     o: new Object3D(),
     a: new Vector3(),
@@ -98,9 +102,10 @@ export function Shots({ frame, heights }: { frame: TileFrame; heights: Float32Ar
     const spray = sprays.current;
     const shell = shells.current;
     const ring = rings.current;
+    const burn = burns.current;
     const world = game.world;
     const map = world.map;
-    if (!seg || !beam || !spray || !shell || !ring || !map) return;
+    if (!seg || !beam || !spray || !shell || !ring || !burn || !map) return;
     const { o, a, b, p, c } = tmp.current;
     const dist = viewDistance(camera, controls);
     const towerZoom = zoomScale(dist, TOWER_ZOOM_SHARE);
@@ -243,6 +248,21 @@ export function Shots({ frame, heights }: { frame: TileFrame; heights: Float32Ar
     }
     for (const e of world.fx.pulses) addRing(e, PULSE_S, 0.6);
 
+    // Burning ground (Incendiary mortar): a flickering disc over the splash area.
+    let nBurns = 0;
+    for (const f of world.fires) {
+      if (nBurns >= MAX_SHOTS) break;
+      const [x, z] = tileToWorld(frame, f.x, f.y);
+      o.position.set(x, 0.5, z);
+      o.rotation.set(-Math.PI / 2, 0, 0);
+      o.scale.setScalar(f.radiusTiles * TILE_M);
+      o.updateMatrix();
+      burn.setMatrixAt(nBurns, o.matrix);
+      const flicker = 0.35 + 0.15 * Math.sin(now * BURN_FLICKER_HZ * 2 * Math.PI + f.x * 3.1);
+      burn.setColorAt(nBurns, c.copy(BURN_COLOR).multiplyScalar(flicker));
+      nBurns++;
+    }
+
     pos.needsUpdate = true;
     col.needsUpdate = true;
     seg.geometry.setDrawRange(0, nSeg * 2);
@@ -251,6 +271,7 @@ export function Shots({ frame, heights }: { frame: TileFrame; heights: Float32Ar
       [spray, nSprays],
       [shell, nShells],
       [ring, nRings],
+      [burn, nBurns],
     ] as const) {
       mesh.count = n;
       mesh.instanceMatrix.needsUpdate = true;
@@ -275,6 +296,10 @@ export function Shots({ frame, heights }: { frame: TileFrame; heights: Float32Ar
       <instancedMesh ref={shells} args={[undefined, undefined, MAX_SHOTS]} frustumCulled={false}>
         <sphereGeometry args={[1, 10, 8]} />
         <meshBasicMaterial />
+      </instancedMesh>
+      <instancedMesh ref={burns} args={[undefined, undefined, MAX_SHOTS]} frustumCulled={false}>
+        <circleGeometry args={[1, 32]} />
+        <meshBasicMaterial {...additive} side={DoubleSide} />
       </instancedMesh>
       <instancedMesh ref={rings} args={[undefined, undefined, MAX_SHOTS]} frustumCulled={false}>
         <ringGeometry args={[0.85, 1, 48]} />

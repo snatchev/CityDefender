@@ -1,0 +1,17 @@
+{
+  "armored": {
+    "name": "Armored",
+    "armorAdd": 4,
+    "hpMul": 1.2
+  },
+  "hasted": {
+    "name": "Hasted",
+    "speedMul": 1.4,
+    "hpMul": 1.0
+  },
+  "regenerating": {
+    "name": "Regenerating",
+    "regenPerS": 0.04,
+    "hpMul": 1.0
+  }
+}

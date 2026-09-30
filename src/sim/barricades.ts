@@ -5,7 +5,8 @@ import { hitDamage } from './damage';
 import { builtNow, sellValue, type BuiltAt } from './economy';
 import { flowField } from './flow';
 import { Tile, tileAt, tileXY, type TileMap } from './map';
-import { MOBS, type Mob } from './mobs';
+import { modPrice, type Mods } from './grants';
+import { mobArmor, type Mob } from './mobs';
 import { isPlanning } from './phase';
 import type { World } from './world';
 
@@ -42,9 +43,12 @@ export function hpBand(hp: number, maxHp: number): number {
   return Math.max(0, Math.ceil((hp / maxHp) * rulesData.barricadeHpBands - 1e-9));
 }
 
-/** Price of a barricade of `type` over `widthTiles` street tiles (cost scales with width, DESIGN §8). */
-export function barricadeCost(type: BarricadeType, widthTiles: number): number {
-  return BARRICADES[type].costPerTile * widthTiles;
+/**
+ * Price of a barricade of `type` over `widthTiles` street tiles (cost scales with width, DESIGN §8),
+ * after any grant discount.
+ */
+export function barricadeCost(type: BarricadeType, widthTiles: number, mods?: Mods): number {
+  return modPrice(BARRICADES[type].costPerTile * widthTiles, mods?.barricadeCostMul[type]);
 }
 
 /**
@@ -122,7 +126,7 @@ export function placeBarricade(
   const def = BARRICADES[type];
   const span = barricadeSpan(world, tx, ty, def.kind);
   if (typeof span === 'string') return span;
-  const cost = barricadeCost(type, span.tiles.length);
+  const cost = barricadeCost(type, span.tiles.length, world.mods);
   if (world.cash < cost) return `needs $${cost}`;
   world.cash -= cost;
   const b: Barricade = {
@@ -152,11 +156,47 @@ export function barricadeSellValue(world: World, b: Barricade): number {
 }
 
 /** What upgrading this barricade in place leads to and costs (the price difference), or null. */
-export function barricadeUpgrade(b: Barricade): { type: BarricadeType; cost: number } | null {
+export function barricadeUpgrade(
+  b: Barricade,
+  mods?: Mods,
+): { type: BarricadeType; cost: number } | null {
   const next = BARRICADES[b.type].upgradeTo as BarricadeType | undefined;
   if (!next) return null;
   const width = b.tiles.length;
-  return { type: next, cost: barricadeCost(next, width) - barricadeCost(b.type, width) };
+  const diff = barricadeCost(next, width, mods) - barricadeCost(b.type, width, mods);
+  return { type: next, cost: Math.max(0, diff) };
+}
+
+/**
+ * Cost to repair a wall to full (DESIGN §3.1 "damage persists"): the missing share of its price,
+ * times `repairCostFraction`. Zero if undamaged.
+ */
+export function repairCost(world: World, b: Barricade): number {
+  const missing = 1 - b.hp / b.maxHp;
+  if (missing <= 0) return 0;
+  const price = barricadeCost(b.type, b.tiles.length, world.mods);
+  return Math.max(1, Math.ceil(missing * price * rulesData.repairCostFraction));
+}
+
+/** Repair a wall to full HP for cash (during prep or an assault, DESIGN §3.1). */
+export function repairBarricade(world: World, id: number): string | null {
+  if (world.phase !== 'prep' && world.phase !== 'assault' && world.phase !== 'idle') {
+    return 'repairs happen during prep or a wave';
+  }
+  const b = world.barricades.find((x) => x.id === id);
+  if (!b) return 'no barricade here';
+  const cost = repairCost(world, b);
+  if (cost === 0) return 'not damaged';
+  if (world.cash < cost) return `needs $${cost}`;
+  world.cash -= cost;
+  b.spent += cost;
+  b.hp = b.maxHp;
+  const band = hpBand(b.hp, b.maxHp);
+  if (band !== b.band) {
+    b.band = band;
+    recomputeField(world);
+  }
+  return null;
 }
 
 /**
@@ -167,7 +207,7 @@ export function upgradeBarricade(world: World, id: number): string | null {
   if (!canEditBarricades(world)) return 'barricades change during prep only';
   const b = world.barricades.find((x) => x.id === id);
   if (!b) return 'no barricade here';
-  const up = barricadeUpgrade(b);
+  const up = barricadeUpgrade(b, world.mods);
   if (!up) return 'already the strongest barricade';
   if (world.cash < up.cost) return `needs $${up.cost}`;
   world.cash -= up.cost;
@@ -216,7 +256,8 @@ function removeTrap(world: World, id: number): void {
 export function crossTrap(world: World, m: Mob, i: number): void {
   const t = world.traps.find((x) => x.id === world.trapAt[i]);
   if (!t) return;
-  m.hp -= hitDamage(BARRICADES[t.type].trapDamage!, 'kinetic', MOBS[m.type].armor);
+  const damage = BARRICADES[t.type].trapDamage! * world.mods.trapDamageMul;
+  m.hp -= hitDamage(damage, 'kinetic', mobArmor(m));
   m.lastHitTick = world.tick;
   if (--t.hp <= 0) removeTrap(world, t.id);
 }

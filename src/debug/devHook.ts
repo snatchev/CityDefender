@@ -27,8 +27,10 @@ export interface DevHook {
    * sawhorse on any other street). A barricade type on a barricade upgrades it. Error or null.
    */
   build(tx: number, ty: number, type?: TowerType | BarricadeType): string | null;
-  /** Upgrade the tower at (tx, ty) one tier. Error or null. */
-  upgrade(tx: number, ty: number): string | null;
+  /** Upgrade the tower at (tx, ty) one tier (at the last tier, to tier-3 `branch`). Error or null. */
+  upgrade(tx: number, ty: number, branch?: string): string | null;
+  /** Skip to the prep of wave `n` (1-based), keeping everything built. For testing late waves. */
+  jumpToWave(n: number): void;
   /** Sell the tower or barricade at (tx, ty) as a right-click would. Error or null. */
   sell(tx: number, ty: number): string | null;
   /** "Start wave" (ends prep early). */
@@ -104,11 +106,24 @@ export function installDevHook(): void {
           : { kind: 'barricade', type: t as BarricadeType },
       );
     },
-    upgrade(tx, ty) {
+    upgrade(tx, ty, branch) {
       const w = game.world;
       const id = w.towerAt[ty * (w.map?.width ?? 0) + tx];
       if (!id) return 'no tower here';
-      return upgradeTower(w, id);
+      const err = upgradeTower(w, id, branch ?? null);
+      publish();
+      return err;
+    },
+    jumpToWave(n) {
+      const w = game.world;
+      w.mobs = [];
+      w.spawners = [];
+      w.shells = [];
+      w.grantOffer = null;
+      w.wave = Math.max(0, Math.min(w.waves.length - 1, n - 1));
+      w.phase = 'prep';
+      w.phaseTicks = 30 * 20;
+      publish();
     },
     sell: sellAt,
     callWave,

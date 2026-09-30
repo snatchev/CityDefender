@@ -1,0 +1,139 @@
+{
+  "philly": [
+    {
+      "id": "busDepot",
+      "name": "Bus Depot Contract",
+      "text": "Bus Walls cost 30% less",
+      "effects": [
+        {
+          "type": "barricadeCostMul",
+          "barricade": "busWall",
+          "mul": 0.7
+        }
+      ]
+    },
+    {
+      "id": "rooftopPermits",
+      "name": "Rooftop Access Permits",
+      "text": "Roof towers reach 10% farther",
+      "effects": [
+        {
+          "type": "rangeMul",
+          "slot": "pad",
+          "mul": 1.1
+        }
+      ]
+    },
+    {
+      "id": "waterDept",
+      "name": "Water Department",
+      "text": "Cryo keeps bugs Wet twice as long",
+      "effects": [
+        {
+          "type": "wetDurationMul",
+          "mul": 2
+        }
+      ]
+    },
+    {
+      "id": "streetsSurplus",
+      "name": "Streets Department Surplus",
+      "text": "Sawhorses and Jersey Barriers cost 25% less",
+      "effects": [
+        {
+          "type": "barricadeCostMul",
+          "barricade": "sawhorse",
+          "mul": 0.75
+        },
+        {
+          "type": "barricadeCostMul",
+          "barricade": "jersey",
+          "mul": 0.75
+        }
+      ]
+    },
+    {
+      "id": "federalGrant",
+      "name": "Federal Infrastructure Grant",
+      "text": "$400 now",
+      "effects": [
+        {
+          "type": "cash",
+          "add": 400
+        }
+      ]
+    },
+    {
+      "id": "restorationFund",
+      "name": "City Hall Restoration Fund",
+      "text": "+25 Integrity (up to 100)",
+      "effects": [
+        {
+          "type": "integrity",
+          "add": 25
+        }
+      ]
+    },
+    {
+      "id": "bountyOrdinance",
+      "name": "Bounty Ordinance",
+      "text": "Kills pay 20% more",
+      "effects": [
+        {
+          "type": "bountyMul",
+          "mul": 1.2
+        }
+      ]
+    },
+    {
+      "id": "rainyDayFund",
+      "name": "Rainy Day Fund",
+      "text": "Interest cap +$50",
+      "effects": [
+        {
+          "type": "interestCapAdd",
+          "add": 50
+        }
+      ]
+    },
+    {
+      "id": "extendedSession",
+      "name": "Extended Council Session",
+      "text": "+10 s to every prep",
+      "effects": [
+        {
+          "type": "prepSecondsAdd",
+          "add": 10
+        }
+      ]
+    },
+    {
+      "id": "armoryContract",
+      "name": "Armory Contract",
+      "text": "MG Nests cost 20% less and fire 15% faster",
+      "effects": [
+        {
+          "type": "towerCostMul",
+          "tower": "mgNest",
+          "mul": 0.8
+        },
+        {
+          "type": "fireRateMul",
+          "tower": "mgNest",
+          "mul": 1.15
+        }
+      ]
+    },
+    {
+      "id": "spikeProcurement",
+      "name": "Spike Strip Procurement",
+      "text": "Spike strips hit 50% harder",
+      "effects": [
+        {
+          "type": "trapDamageMul",
+          "mul": 1.5
+        }
+      ]
+    }
+  ]
+}

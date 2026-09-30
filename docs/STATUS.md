@@ -3,8 +3,8 @@
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
 **Last updated:** 2026-09-27
-**Current pass:** Pass 8 (Fliers, diggers, sappers): **done**, tagged `pass-08`
-**Next up:** Pass 9 (full run structure: 20-wave script with mini-boss and Brood Mother, breach telegraphs, interest, Council Grants, tier-3 upgrades, stars, save/resume)
+**Current pass:** Pass 9 (Full run structure): **done**, tagged `pass-09`. Acceptance still needs Stefan's playtest (finish one run, lose one).
+**Next up:** Pass 10 (presentation: models, VFX, audio, postprocessing, building shapes and windows)
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
@@ -22,6 +22,12 @@
   - A decorative backdrop city out to the rivers (70k footprints baked to 16 m / 32 m height grids, LOD by distance), a gradient sky and horizon haze (D027, Stefan's request).
   - City Hall hit feedback (flash, Integrity-scaled shake, HUD pulse), from playtest 2.
   - Balance re-tuned for the new tower spots: bug HP ×1.7 from wave 3; gentler height bonus (see Known issues).
+- Pass 9: full run structure (tag `pass-09`, D042–D045).
+  - **20-wave Philadelphia script** after DESIGN §9: Race-Vine alone, then 11th Street (beetles), Walnut-Locust (spitters), wasps at 9, the **Beetle Matriarch** at 10, **15th Street breaches** at 11 (grubs), elite affixes from 15 (Armored, Hasted, Regenerating), **13th Street** at 16, and the **Brood Mother** at 20 (births 6 skitterlings per quarter of HP lost, crushes Sawhorses on contact). Breaching stations are telegraphed a wave ahead ("Tremors under 15th Street").
+  - **Council Grants** every 5 waves: pick 1 of 3 (11 Philadelphia grants in `grants.json`; the effects are generic sim mechanics).
+  - **Interest** at each debrief (5% of banked cash, capped at $50), shown on the phase chip. **Barricade repair** for cash during prep or a wave (click a wall with no tool: HP, Repair, Upgrade, Sell).
+  - **Tier-3 branches**: Railgun (Penetrator: pierces a line; Spotter: marked bugs take +30%), Mortar (Cluster Shells; Incendiary: burning ground), MG Nest (Twin Guns; AP Rounds pierce armor).
+  - **Stars, score and end-of-run stats**; the run **autosaves at every prep** and offers to continue on load (versioned; the game waits while you choose).
 - Pass 8: fliers, diggers, sappers (tag `pass-08`, D036–D038).
   - Bugs have a layer. **Wasp Drones** fly at roof height on a barricade-free route field (walls and ground-only towers don't stop them). **Tunneler Grubs** travel under the streets on the same field, buried and untargetable except for 3 s after crossing a manhole and for good within 10 tiles of City Hall; they show as a moving mound of earth. **Acid Spitters** stop once a wall on their route is within 48 m and melt it from there.
   - Towers attack by type (`attack` in the table): **Flak Battery** (air-only splash shells), **Tesla Coil** (chain lightning to 3 more bugs, hits air, +1 jump off a Wet bug), **Seismic Pulse** (hits everything around it, forces buried grubs up for 3 s and stuns them). Cryo now also makes bugs Wet. Each tower lists what it can hit (ground, air).
@@ -67,6 +73,12 @@
 - Camera isn't clamped to the level bounds (camera work is Pass 4–5).
 - Street labels are dense when zoomed out; no label culling or level-of-detail yet.
 
+## Deferred from Pass 9
+- Splitting and Shielded elites (DESIGN §6); only Armored, Hasted and Regenerating so far.
+- "Rooftop Access Permits: +1 pad on every tower building" (DESIGN §10.6) became +10% roof range: adding pads at runtime changes the slot layout.
+- A debrief summary panel (kills, leaks, damage taken); the phase chip shows interest only.
+- Barricade skins per city (SEPTA bus) and grant names per city are data-ready; only Philadelphia content exists.
+
 ## Deferred from Pass 8
 - Acid Spitters damaging corner towers (DESIGN §6 "beats corner towers"): towers have no HP yet.
 - Diggers surfacing through the underground concourse network, sewer-burst events (IDEAS).
@@ -100,6 +112,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Balance after Pass 9 (throwaway headless bot on the real map, no barricades, grants by preference, tier-3 upgrades): waiting out every prep → **won with 30 Integrity in 26 minutes** of game time; calling every wave early → won with 8 in 15 minutes. The curve is gentle to wave 11 and bites from 12 (the inner stations breach next to City Hall). The Brood Mother comes from Race-Vine: from 15th Street she reached City Hall almost untouched. Needs Stefan's playtest (acceptance: finish one run, lose one).
 - Fixed 2026-09-29: a sharp edge along the bottom of the camera cutaway, worst at shallow angles (Stefan). The cutaway now eases out below the sight line and near the target (D041).
 - Fixed 2026-09-29: moving the mouse dithered buildings under the pointer (Stefan). The cutaway now follows the camera only, never the mouse (D040); the centre-of-screen cutaway (D030) is unchanged.
 - Balance after Pass 8 (throwaway headless bot on the real map, no barricades, calls every wave early): MG Nests only → lost in wave 8; the Pass 7 mix (MG, Mortar, Cryo, Railgun) → won with 14 Integrity but let every wasp through; a Pass 8 mix (adds Flak and Seismic on the wasp and grub routes) → stopped every wasp and all but 2 grubs, then lost in wave 10 with $734 unspent (the bot stops buying when a Flak or Seismic spot isn't useful). The bot is sensitive to small strategy changes, so treat these as direction, not precision. Needs a playtest.
@@ -138,3 +151,4 @@
 | 6b | 2026-09-27 | ✅ typecheck, lint, 33/33 tests. UI checked with real hover/clicks. Perf at 1440×900 (dpr 2): dev build idle 60 fps, 26 draw calls, 507k tris, 65 MB heap; 400 bugs + 10 towers at 3× 60 fps, 929k tris, 72 MB. Production build: idle 60 fps / 23 calls / 42 MB heap; heavy 60 fps apart from one stall that coincided with macOS CPU throttling. Main-thread JS per frame ~1.3 ms (dev) | [ui-pass.png](screenshots/ui-pass.png) | Minimap: static layer cached, overlay at 20 Hz. Dev hook: `renderInfo()`, `setVisible(name, on)`, `build` picks a tool |
 | 7 | 2026-09-27 | ✅ typecheck, lint, 50/50 tests (+ damage formula, table schemas, matchups: Mortar vs swarm, Railgun vs beetles). Real clicks: select a Railgun, Upgrade $200 → tier 2 (172 m), targeting dropdown, Cryo refused on a roof pad. Sawhorse → Jersey upgrade keeps damage (60/100 → 360/400). Wave 3 with beetles played in Chrome. 400 bugs (80 beetles) + 12 mixed towers at 3×: 60 fps, p95 17.6 ms, 37 draw calls | [pass-07.png](screenshots/pass-07.png) | Headless re-balance with beetles |
 | 8 | 2026-09-27 | ✅ typecheck, lint, 62/62 tests (+ per-bug matchups, width cost, spike wear, Blast Wall repair). Chrome: all seven towers placed, a mixed wave of wasps, grubs and spitters played; Jersey Barrier on Broad rerouted the route via 15th, spike strip beside it. 420 bugs of five types + 14 towers of seven types at 3×: 60 fps, p95 17.4 ms, 52 draw calls | [pass-08.png](screenshots/pass-08.png) | Headless re-balance with the new bugs |
+| 9 | 2026-09-29 | ✅ typecheck, lint, 74/74 tests (+ grant phase, interest cap, save/resume replays exactly, Brood Mother thresholds, tier-3 branch + Penetrator line). Chrome: resume prompt (paused) → Continue restored wave 10; breach telegraph and Matriarch in intel; Penetrator chosen by real click; Incendiary fire under the Matriarch; wall Repair $53; Federal Grant picked by real click; end screen ★★ with score. Wave 20 finale at 3×: 60 fps, p95 17.9 ms | [pass-09.png](screenshots/pass-09.png) | Headless re-balance of the 20-wave script |

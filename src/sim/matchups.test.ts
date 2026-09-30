@@ -32,6 +32,7 @@ function play(setup: Setup, wave: Omit<SpawnGroup, 'spawnIndex'>) {
       tx: x,
       ty: 0,
       tier: 0,
+      branch: null,
       targeting: def.targeting,
       cooldown: 0,
       heightM: 0,

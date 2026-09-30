@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
 import rulesData from '../data/rules.json';
 import { callWave, game } from '../game';
-import { MOBS } from '../sim/mobs';
+import { ELITES, MOBS } from '../sim/mobs';
 import { TOWERS } from '../sim/towers';
 import { TARGETING_MODES, type TargetingMode } from '../data/schema';
 import {
+  repairSelectedWall,
   restartRun,
   selectTool,
   selectTower,
+  selectWall,
+  sellSelectedWall,
   sellTowerById,
   setSelectedTargeting,
   upgradeSelected,
+  upgradeSelectedWall,
 } from '../planning';
+import { GrantPicker, ResumePrompt } from './RunDialogs';
 import { towerColor } from '../render/Towers';
 import { BuildBar } from './BuildBar';
 import { GearIcon } from './icons';
@@ -41,7 +46,10 @@ export function Hud() {
         <SpeedButton />
       </div>
       <SelectedTowerCard />
+      <SelectedWallCard />
       <BuildBar />
+      <GrantPicker />
+      <ResumePrompt />
       <Toasts />
       <DebugMenu />
     </>
@@ -55,7 +63,10 @@ function useHotkeys() {
       if (e.target instanceof HTMLInputElement) return;
       if (e.code === 'Escape') {
         if (usePlan.getState().tool) selectTool(null);
-        else selectTower(null);
+        else {
+          selectTower(null);
+          selectWall(null);
+        }
       }
       if (e.code === 'KeyM') usePlan.setState((p) => ({ debugMap: !p.debugMap }));
     };
@@ -123,33 +134,43 @@ function Metric({ label, value, warn = false }: { label: string; value: number; 
 }
 
 function PhaseChip({ phase, secs }: { phase: string; secs: number }) {
+  const interest = useHud((s) => s.lastInterest);
   const text =
     phase === 'prep'
       ? `Prep ${secs}s`
       : phase === 'assault'
         ? 'Assault'
         : phase === 'debrief'
-          ? `Cleared · ${secs}s`
-          : phase === 'won'
-            ? 'Held'
-            : phase === 'lost'
-              ? 'Fallen'
-              : '…';
+          ? `Cleared${interest > 0 ? ` · +$${interest} interest` : ''}`
+          : phase === 'grant'
+            ? 'Council Grant'
+            : phase === 'won'
+              ? 'Held'
+              : phase === 'lost'
+                ? 'Fallen'
+                : '…';
   return <span className={`phase-chip ${phase}`}>{text}</span>;
 }
 
-/** Where this wave's bugs come from and how many. */
+/** Where this wave's bugs come from and how many, and which station breaches next wave. */
 function WaveIntel() {
   const intel = useHud((s) => s.waveIntel);
   const phase = useHud((s) => s.phase);
+  const breaches = useHud((s) => s.breaches);
   const stations = useHud((s) => s.city?.stations);
   if ((phase !== 'prep' && phase !== 'assault') || intel.length === 0 || !stations) return null;
   return (
     <ul className="wave-intel" aria-label="Wave intel">
+      {breaches.map((b) => (
+        <li key={`breach-${b}`} className="breach">
+          Tremors under {stations[b]}
+        </li>
+      ))}
       {intel.map((g, i) => (
         <li key={i}>
           <span className="station-chip">{stations[g.spawnIndex]}</span>
-          <span className={`intel-mob ${g.type}`}>
+          <span className={`intel-mob ${g.type}${MOBS[g.type].boss ? ' boss' : ''}`}>
+            {g.elite ? `${ELITES[g.elite].name} ` : ''}
             {g.count}× {MOBS[g.type].name}
             {g.hpMul !== 1 ? ` · HP ×${g.hpMul}` : ''}
           </span>
@@ -173,6 +194,7 @@ function SelectedTowerCard() {
           <dt>Tier</dt>
           <dd>
             {sel.tier} of {sel.tiers}
+            {sel.branchName ? ` · ${sel.branchName}` : ''}
           </dd>
         </div>
         <div>
@@ -213,21 +235,90 @@ function SelectedTowerCard() {
           <dd>{sel.heightM > 0 ? `roof, ${Math.round(sel.heightM)} m` : 'street level'}</dd>
         </div>
       </dl>
+      {sel.upgrades.length > 1 && (
+        <div className="branch-choices" role="group" aria-label="Tier 3">
+          {sel.upgrades.map((u) => (
+            <button
+              key={u.branch}
+              type="button"
+              className="branch"
+              disabled={cash < u.cost}
+              onClick={() => upgradeSelected(u.branch)}
+            >
+              <strong>{u.name}</strong>
+              <span>{u.blurb}</span>
+              <em>${u.cost}</em>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="tower-card-actions">
-        {sel.upgradeCost !== null && (
+        {sel.upgrades.length === 1 && (
           <button
             type="button"
             className="upgrade"
-            disabled={cash < sel.upgradeCost}
+            disabled={cash < sel.upgrades[0]!.cost}
             onClick={() => upgradeSelected()}
           >
-            Upgrade ${sel.upgradeCost}
+            Upgrade ${sel.upgrades[0]!.cost}
           </button>
         )}
         <button type="button" className="sell" onClick={() => sellTowerById(sel.id)}>
           Sell ${sel.sellValue}
         </button>
         <button type="button" aria-label="Close" onClick={() => selectTower(null)}>
+          ✕
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Selected wall (click a barricade with no tool): HP, repair (prep or wave), upgrade and sell (prep). */
+function SelectedWallCard() {
+  const wall = usePlan((p) => p.selectedWall);
+  const cash = useHud((s) => s.cash);
+  if (!wall) return null;
+  return (
+    <section className="hud-panel tower-card" aria-label="Selected barricade">
+      <div className="tower-card-title" style={{ color: '#f2c14e' }}>
+        {wall.name}
+      </div>
+      <dl>
+        <div>
+          <dt>HP</dt>
+          <dd>
+            {wall.hp} / {wall.maxHp}
+          </dd>
+        </div>
+      </dl>
+      <div className="tower-card-actions">
+        {wall.repairCost > 0 && (
+          <button
+            type="button"
+            className="upgrade"
+            disabled={cash < wall.repairCost}
+            onClick={() => repairSelectedWall()}
+          >
+            Repair ${wall.repairCost}
+          </button>
+        )}
+        {wall.upgrade && wall.canEdit && (
+          <button
+            type="button"
+            className="upgrade"
+            disabled={cash < wall.upgrade.cost}
+            onClick={() => upgradeSelectedWall()}
+          >
+            {wall.upgrade.name} ${wall.upgrade.cost}
+          </button>
+        )}
+        {wall.canEdit && (
+          <button type="button" className="sell" onClick={() => sellSelectedWall()}>
+            Sell ${wall.sellValue}
+          </button>
+        )}
+        <button type="button" aria-label="Close" onClick={() => selectWall(null)}>
           ✕
         </button>
       </div>

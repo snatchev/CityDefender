@@ -185,3 +185,19 @@ Consequences: `seeThrough.ts` has one sight line, camera → orbit target (scree
 Why: two hard thresholds drew edges across buildings: surfaces more than 0.15 × the cone radius below the sight line were never faded (at shallow angles that line runs through building faces), and the cutaway stopped dead at 97% of the way to the target.
 Consequences: the fade is now radial × below × nearEnd, each a smoothstep: below the sight line it eases out over 0–0.5 × the local cone radius; toward the target it eases out between 80% and 97% of the way. The CPU mirror used by picking matches the shader.
 
+**D042 · 2026-09-29 · Council Grants: generic effects in the sim, city content in `grants.json`.**
+Why: DESIGN §10.6, and the multi-city rule (Philadelphia first, other cities later): mechanics stay generic, names and choices are per city.
+Consequences: `grants.json` is keyed by city like `waves.json`. Effect types (cost, fire rate and range multipliers, Wet duration, bounty, interest cap, prep time, trap damage, cash, Integrity) accumulate in `world.mods`, which the sim reads where each number is used. After every `grantEveryWaves`-th wave (not the last) the phase machine enters `grant` and waits; three grants the player doesn't have are drawn with the seeded RNG. A city without grants has no grant phases.
+
+**D043 · 2026-09-29 · Tier 3 is a choice of branches with data-defined specials.**
+Why: DESIGN §7. Branches are full stat blocks like tiers, plus an optional `special`: `pierceLine` (hits every targetable bug within half a tile of the line through the target), `mark` (target takes +`markBonus` from all tower hits for `markS`), `burn` (the shell's splash area burns at `burnDps` for `burnS`, ignoring armor, ground only). A branch can override the damage type (AP Rounds pierce).
+Consequences: a tower's `tier` one past the last tier means its `branch`; `towerTier()` returns the right stats; `upgradeOptions()` lists the next tier or the branches.
+
+**D044 · 2026-09-29 · Save at the start of each prep only; restore replays exactly.**
+Why: at that moment there are no mobs, spawners or shells, so a save is small, and restoring the RNG state makes the rest of the run identical (tested). Mid-wave saves would need every transient mob field and aren't worth it.
+Consequences: `sim/save.ts` (versioned `SaveV1`); the game layer autosaves to localStorage at each new prep (not wave 1), deletes the save when the run ends or the player picks "New run", and offers to continue on load while the game waits.
+
+**D045 · 2026-09-29 · Run structure numbers: interest 5% capped at $50; repair costs 60% of the missing share of the wall's price; breaches are derived, not scripted.**
+Why: DESIGN §3.1/§3.3. A station's first wave is known from the script, so the telegraph ("Tremors under …") needs no extra data. Bosses: the Brood Mother's brood gets `broodHpMul` so it matters in the finale; she spawns at Race-Vine (from 15th Street she reached City Hall almost untouched).
+Consequences: rules.json `interestRate`, `interestCap`, `repairCostFraction`, `grantEveryWaves`, `grantChoices`, `scoreIntegrityMul`, `saveVersion`; `stationsOpeningNextWave()` in phase.ts; score = bounty + Integrity × 20 + cash; stars per DESIGN §3.2.
+
