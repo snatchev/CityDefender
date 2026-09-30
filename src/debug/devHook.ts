@@ -5,7 +5,7 @@ import type { CityFileV0 } from '../sim/cityFile';
 import type { BarricadeType } from '../sim/barricades';
 import { queueWave, type MobType } from '../sim/mobs';
 import { TOWERS, upgradeTower, type TowerType } from '../sim/towers';
-import type { Scene, WebGLRenderer } from 'three';
+import type { Camera, Scene, WebGLRenderer } from 'three';
 import { usePlan, type Ghost, type Route } from '../ui/planStore';
 import { tickWorld, type World } from '../sim/world';
 
@@ -44,6 +44,7 @@ export interface DevHook {
   /** The three.js renderer and scene (profiling in the browser). */
   readonly renderer: WebGLRenderer | null;
   readonly scene: Scene | null;
+  readonly camera: Camera | null;
   /** Render at this pixel ratio (to tell fill-rate cost from everything else); returns the old one. */
   setPixelRatio(ratio: number): number;
   /** This wave's routes and the focused one (station index), as the planning UI sees them. */
@@ -66,10 +67,12 @@ declare global {
 
 let renderer: WebGLRenderer | null = null;
 let scene: Scene | null = null;
+let camera: Camera | null = null;
 /** Called from the Canvas once the renderer exists (dev builds). */
-export function registerRenderer(gl: WebGLRenderer, root: Scene): void {
+export function registerRenderer(gl: WebGLRenderer, root: Scene, cam: Camera): void {
   renderer = gl;
   scene = root;
+  camera = cam;
 }
 
 let streetLife: unknown = null;
@@ -116,6 +119,9 @@ export function installDevHook(): void {
     },
     get scene() {
       return scene;
+    },
+    get camera() {
+      return camera;
     },
     setPixelRatio(ratio) {
       const old = renderer?.getPixelRatio() ?? 1;

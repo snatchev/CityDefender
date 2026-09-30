@@ -129,6 +129,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Fixed 2026-09-30: panning felt like half speed on the trackpad (Stefan). The stock MapControls pan moves a fixed distance per pixel at the orbit target, so on a tilted view the ground slid slower than the pointer (by the sine of the pitch). Left-drag is now grab panning (`GrabPan.tsx`): the street point under the pointer stays under it at any tilt and zoom (checked in Chrome: 0 m error at 35°, 40° and 60°, also with 20 moves per frame). MapControls keeps zoom and rotate: right drag, or left drag with Ctrl, Cmd or Shift (Ctrl-click is how a Mac trackpad rotates; checked in Chrome).
 - Perf measuring caveat (2026-09-30, D053): on battery, Chrome's Energy Saver caps every page at 30 fps (a blank page too), and Apple GPUs then clock down to fill the frame, so frame and GPU times stop meaning anything. Check `pmset -g batt` first; to compare GPU cost, render each frame several times inside one timer query (see D053). The dev machine is now an M4 MacBook (Chrome, ANGLE Metal).
 - Fixed 2026-09-30: flickering windows and rooftops (Stefan). Overlapping shapes drew two roofs and two facades in the same plane (z-fighting), and parapets shared a plane with neighbours' walls. map:build now cuts covered areas out of lower shapes and parapets have thickness (D048).
 - Pass 10a: the sim/drawn height mismatch on setback pads; a tower's range uses the sim height. Parked for final polish (IMPLEMENTATION_PLAN, "Final polish & playtest").

@@ -1,5 +1,6 @@
 import { MapControls, Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
+import { MOUSE } from 'three';
 import { useMemo } from 'react';
 import { registerRenderer } from '../debug/devHook';
 import { game } from '../game';
@@ -21,6 +22,7 @@ import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { RouteFocus } from './RouteFocus';
+import { GrabPan } from './GrabPan';
 import { groundHandlers } from './pointer';
 import { SeeThroughDriver } from './SeeThroughDriver';
 import { Shots } from './Shots';
@@ -45,6 +47,8 @@ const SKY_ZENITH = '#5b8fcc';
 const CAMERA_NEAR_M = 4;
 const CAMERA_FAR_M = 16000;
 const MAX_ZOOM_OUT_M = 3000;
+/** OrbitControls ignores a mouse button mapped to -1 (three has no named constant for it). */
+const NO_BUTTON = -1 as MOUSE;
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
@@ -76,14 +80,14 @@ export function Scene() {
       tabIndex={0}
       dpr={[1, 2]}
       camera={{ position: [120, 720, 820], fov: 45, near: CAMERA_NEAR_M, far: CAMERA_FAR_M }}
-      onCreated={({ gl, scene }) => {
+      onCreated={({ gl, scene, camera }) => {
         const ctx = gl.getContext();
         const kind =
           typeof WebGL2RenderingContext !== 'undefined' && ctx instanceof WebGL2RenderingContext
             ? 'WebGL2'
             : 'WebGL';
         useHud.getState().setRenderer(kind);
-        if (import.meta.env.DEV) registerRenderer(gl, scene);
+        if (import.meta.env.DEV) registerRenderer(gl, scene, camera);
       }}
     >
       <color attach="background" args={[HAZE]} />
@@ -137,7 +141,11 @@ export function Scene() {
         minDistance={80}
         maxDistance={MAX_ZOOM_OUT_M}
         maxPolarAngle={Math.PI * 0.42}
+        // Left drag is grab panning (GrabPan; with Ctrl/Cmd/Shift it's MapControls' rotate); the
+        // wheel zooms, right drag rotates.
+        mouseButtons={{ LEFT: NO_BUTTON, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
       />
+      <GrabPan />
       <KeyboardCamera />
       <SimDriver />
       {showFps && <Stats className="fps-meter" />}
