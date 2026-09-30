@@ -1,4 +1,6 @@
 import {
+  LessEqualDepth,
+  MeshBasicMaterial,
   Vector3,
   Vector4,
   type Material,
@@ -145,6 +147,27 @@ export function updateSeeThrough(
   uniforms.uRouteCount.value = route.count;
 }
 
+/**
+ * Could anything inside this sphere be cut away this frame? Conservative (a cheap bound, true when
+ * unsure). Buildings outside every cutaway get a material without `discard`, which keeps the GPU's
+ * hidden-surface removal working for them (D053).
+ */
+export function cutawayMayTouch(centre: Vector3, radius: number): boolean {
+  if (route.count > 1) return true;
+  const ab = tmpB.copy(state.target).sub(state.cam);
+  const len = ab.length();
+  if (len === 0) return false;
+  const t = tmpC.copy(centre).sub(state.cam).dot(ab) / (len * len);
+  if (t * len < -radius || t > T_END + radius / len) return false;
+  const tc = Math.min(Math.max(t, 0), 1);
+  const r = state.camRadius + (state.radius - state.camRadius) * tc;
+  const onLine = tmpC.copy(state.cam).addScaledVector(ab, tc);
+  return onLine.distanceTo(centre) < r + radius;
+}
+
+const tmpB = new Vector3();
+const tmpC = new Vector3();
+
 /** Route cutaway strength (0..1) for a surface at screen (x, y) px and view depth, as in the shader. */
 function routeFade(x: number, y: number, depth: number): number {
   let fade = 0;
@@ -248,7 +271,7 @@ export function withSeeThrough<M extends Material>(material: M): M {
         float routeCut() {
           float fade = 0.0;
           vec2 f = gl_FragCoord.xy;
-          float depth = vViewPosition.z;
+          float depth = -(viewMatrix * vec4(vSeeWorld, 1.0)).z;
           for (int k = 0; k < ${MAX_ROUTE_POINTS - 1}; k++) {
             if (k + 1 >= uRouteCount) break;
             vec4 a = uRoute[k];
@@ -281,6 +304,32 @@ export function withSeeThrough<M extends Material>(material: M): M {
         }`,
       );
   };
-  material.customProgramCacheKey = () => `${prevKey()}|see-through-v6`;
+  material.customProgramCacheKey = () => `${prevKey()}|see-through-v7`;
+  return material;
+}
+
+/**
+ * Depth pre-pass for surfaces the cutaway can reach (D053). A shader that may `discard` stops the
+ * GPU from skipping hidden surfaces, so an expensive material with the cutaway would shade every
+ * wall behind every other one. Instead: draw the geometry first with this depth-only material (it
+ * does the dithered discard, and costs next to nothing), then with the full material prepared by
+ * `afterDepthPass` (no discard; it only draws where its depth matches the pre-pass).
+ */
+export function seeThroughDepthMaterial(): MeshBasicMaterial {
+  return withSeeThrough(
+    new MeshBasicMaterial({
+      colorWrite: false,
+      // Pushed back a hair so the second pass (the same surfaces) always passes its depth test.
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    }),
+  );
+}
+
+/** The full-material pass after `seeThroughDepthMaterial`: tests against its depth, writes none. */
+export function afterDepthPass<M extends Material>(material: M): M {
+  material.depthFunc = LessEqualDepth;
+  material.depthWrite = false;
   return material;
 }

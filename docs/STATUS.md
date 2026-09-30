@@ -8,6 +8,7 @@
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
+- Livelier city (Stefan, 2026-09-30): varied facades from 37 style presets (D051); cars, pedestrians and street trees that flee from bugs (D052); rendering budget work after Stefan saw 30 fps (D053: that was Chrome's Energy Saver on a 14% battery; the game itself now costs 3.3–4.7 ms GPU per frame at full clock, down from 4.3–5.1 before these changes). Checked in Chrome via DevTools MCP.
 - Tactical view (Stefan, 2026-09-30, D050): T or the grid button next to the speed button squashes all buildings to 12% height and glides the camera to near top-down; towers and markers stay on the squashed roofs. T again goes back. Checked in Chrome via DevTools MCP: whole-level board view, a tower on a 118 m roof follows the squash both ways.
 - Route focus (Stefan, 2026-09-30, D049): click a route line (it works even when buildings hide it) or a station name in the wave intel; the camera glides to frame the whole route and buildings in front of it fade almost completely. Esc lets go. Checked in Chrome via DevTools MCP with real clicks: the hidden Suburban Station route along JFK, the Race-Vine route; 60 fps at dpr 2.
 - After 10a (Stefan, 2026-09-30, D047): **15th Street station removed** (too close to City Hall); its wave 11–20 grub breach now comes from **Suburban Station**. **Camera can't pan past the map edges** (the point in the middle of the view stays inside the level). Checked in Chrome via DevTools MCP: 11 spawns, "Tremors under Suburban Station" in wave 10, wave 11 grubs leave Suburban Station; focusing 2 km west and holding W both stop at the edge.
@@ -128,6 +129,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Perf measuring caveat (2026-09-30, D053): on battery, Chrome's Energy Saver caps every page at 30 fps (a blank page too), and Apple GPUs then clock down to fill the frame, so frame and GPU times stop meaning anything. Check `pmset -g batt` first; to compare GPU cost, render each frame several times inside one timer query (see D053). The dev machine is now an M4 MacBook (Chrome, ANGLE Metal).
 - Fixed 2026-09-30: flickering windows and rooftops (Stefan). Overlapping shapes drew two roofs and two facades in the same plane (z-fighting), and parapets shared a plane with neighbours' walls. map:build now cuts covered areas out of lower shapes and parapets have thickness (D048).
 - Pass 10a: the sim/drawn height mismatch on setback pads; a tower's range uses the sim height. Parked for final polish (IMPLEMENTATION_PLAN, "Final polish & playtest").
 - Balance after Pass 9 (throwaway headless bot on the real map, no barricades, grants by preference, tier-3 upgrades): waiting out every prep → **won with 30 Integrity in 26 minutes** of game time; calling every wave early → won with 8 in 15 minutes. The curve is gentle to wave 11 and bites from 12 (the inner stations breach next to City Hall). The Brood Mother comes from Race-Vine: from 15th Street she reached City Hall almost untouched. Needs Stefan's playtest (acceptance: finish one run, lose one).

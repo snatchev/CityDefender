@@ -114,3 +114,11 @@
 - 🎮 **Follow a bug**: click a bug (or the wave's lead bug) and the camera follows it along its route.
 - 🎮 **Camera bookmarks**: Shift+F1–F4 store a view, F1–F4 recall it.
 
+## More life in the city (after D052, 2026-09-30)
+- 🗺️ **SEPTA buses** on the major streets (a longer box, stops at corners), **yellow cabs** honking, **police cars** with flashing lights parked at walls.
+- 🗺️ **Pigeon flocks** that burst up from plazas (Dilworth Park, LOVE Park) when bugs come near.
+- ✨ **Panic cues**: people run with arms up (bob faster), cars' hazard lights blink, a siren sound when a station breaches (Pass 10c audio).
+- ✨ **Night**: lit windows (the facade shader knows every window), street lamps, car headlights (Pass 10b day/night).
+- 🗺️ **Steam from manholes** where grubs will surface (doubles as a hint).
+- 🗺️ **Crowds at stations** that flee first when a breach is telegraphed.
+

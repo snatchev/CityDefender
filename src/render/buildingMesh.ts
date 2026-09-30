@@ -2,7 +2,13 @@ import { BufferAttribute, BufferGeometry, Color, ShapeUtils, Vector2 } from 'thr
 import type { BuildingsFileV1, SolidRecord } from '../sim/cityFile';
 import { createRng, type Rng } from '../sim/rng';
 import { uvToWorld, type TileFrame } from './coords';
-import { lookOf, Style, WINDOWS_BELOW_EAVES_M, WINDOWS_FROM_M, type StyleId } from './facades';
+import {
+  facadeAverage,
+  lookOf,
+  NO_WINDOWS,
+  WINDOWS_BELOW_EAVES_M,
+  WINDOWS_FROM_M,
+} from './facades';
 import {
   edgeBreaks,
   insideRings,
@@ -22,6 +28,8 @@ const TOWER_PARAPET_M = 1.6;
 const TOWER_M = 60;
 /** No parapet on sheds and one-storey buildings. */
 const PARAPET_FROM_M = 6;
+/** Each building's window grid starts somewhere in this range along its walls (m). */
+const WINDOW_GRID_SHIFT_M = 40;
 /** Parapet inner faces are a little darker than the facade. */
 const PARAPET_INNER_SHADE = 0.8;
 /**
@@ -54,6 +62,11 @@ export interface SolidsOptions {
   keepClear?: readonly (readonly [number, number])[];
   /** Draw every solid in the landmark style. */
   landmark?: boolean;
+  /**
+   * 'low' (for far away, D053): no parapets or rooftop boxes, and no window pattern: the walls take
+   * the colour the windows average to. Same shapes, colours and heights as 'high'.
+   */
+  detail?: 'high' | 'low';
 }
 
 /**
@@ -81,16 +94,24 @@ export function solidsGeometry(
     const eave = s.h;
     const box = roofBox(outer);
     const planes = s.roof ? roofPlanes(s.roof, box, s.rise ?? 0, s.across === 1) : [];
+    const low = opts.detail === 'low';
     const parapet =
-      planes.length === 0 && eave >= PARAPET_FROM_M
+      planes.length === 0 && eave >= PARAPET_FROM_M && !low
         ? eave >= TOWER_M
           ? TOWER_PARAPET_M
           : PARAPET_M
         : 0;
 
-    walls(out, rings, base, eave, planes, parapet, look.wall, look.style);
+    const alongFrom = rng.next() * WINDOW_GRID_SHIFT_M;
+    if (low) {
+      const avg = facadeAverage(look.style);
+      const wall = look.wall.clone().lerp(avg.glass, avg.coverage);
+      walls(out, rings, base, eave, planes, 0, wall, NO_WINDOWS, 0);
+    } else {
+      walls(out, rings, base, eave, planes, parapet, look.wall, look.style, alongFrom);
+    }
     roof(out, rings, eave, planes, look.roof);
-    if (planes.length === 0 && !opts.landmark)
+    if (planes.length === 0 && !opts.landmark && !low)
       roofBoxes(out, rings, box, eave, rng, clear, look.wall);
   }
   return out.build();
@@ -115,7 +136,9 @@ function walls(
   planes: readonly Plane[],
   parapet: number,
   color: Color,
-  style: StyleId,
+  style: number,
+  /** Where this building's window grid starts along its walls (m), so neighbours don't line up. */
+  alongFrom: number,
 ): void {
   const inner = color.clone().multiplyScalar(PARAPET_INNER_SHADE);
   const winFrom = base + (base > 0 ? 0 : WINDOWS_FROM_M);
@@ -125,7 +148,7 @@ function walls(
     const ccw = polygonArea(ring) > 0;
     const outward = k === 0 ? ccw : !ccw;
     const inset = parapet > 0 ? insetRing(ring, outward, PARAPET_THICKNESS_M) : null;
-    let along = 0;
+    let along = alongFrom;
     for (let i = 0; i < ring.length; i++) {
       const p = ring[i]!;
       const q = ring[(i + 1) % ring.length]!;
@@ -296,7 +319,7 @@ function normalize([x, y, z]: Vec3): Vec3 {
   return [x / l, y / l, z / l];
 }
 
-const NO_FACADE: Vec4 = [0, 0, 0, Style.None];
+const NO_FACADE: Vec4 = [0, 0, 0, NO_WINDOWS];
 
 /** Accumulates triangles (non-indexed) with flat normals, colours and facade data. */
 class GeometryBuilder {

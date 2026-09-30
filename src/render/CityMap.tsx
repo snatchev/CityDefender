@@ -1,22 +1,22 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import {
-  Color,
+  DataTexture,
+  LinearMipmapLinearFilter,
   LineDashedMaterial,
   LineSegments,
-  MeshStandardMaterial,
-  Object3D,
-  type InstancedMesh,
+  NearestFilter,
+  RGBAFormat,
+  SRGBColorSpace,
 } from 'three';
 import type { BuildingsFileV1, CityFileV0 } from '../sim/cityFile';
-import { laneLineGeometry, solidsGeometry } from './buildingMesh';
+import { laneLineGeometry } from './buildingMesh';
 import { TILE_M } from '../sim/constants';
 import { Tile, type TileMap } from '../sim/map';
 import { indexToWorld, tileToWorld, type TileFrame } from './coords';
-import { withWindows } from './facades';
-import { LOT_M } from './heights';
+import { Buildings } from './Buildings';
+import { preLit } from './lighting';
 import { LabelLayer, type MapLabel } from './LabelLayer';
 import type { GroundHandlers } from './pointer';
-import { withSeeThrough } from './seeThrough';
 
 const COLORS = {
   asphalt: '#3b3e44',
@@ -27,9 +27,6 @@ const COLORS = {
   station: '#f28c28',
   lane: '#e8e2cf',
 } as const;
-const GOAL_PLINTH_M = 1.5;
-/** Facades and roofs are matte; windows get their own, lower roughness (facades.ts). */
-const BUILDING_ROUGHNESS = 0.9;
 const STATION_RADIUS_M = 7;
 const STATION_HEIGHT_M = 1;
 const STATION_LABEL_ABOVE_M = 10;
@@ -38,17 +35,10 @@ const LANE_KINDS = ['trunk', 'primary', 'secondary', 'tertiary'] as const;
 /** Lane markings float a little above the asphalt so they don't z-fight with it at distance. */
 const LANE_Y = 0.25;
 
-interface TileBox {
-  tx: number;
-  ty: number;
-  /** Display height in metres. */
-  h: number;
-}
-
 /**
- * The city: asphalt ground, a thin slab on every block tile, the buildings as one merged mesh of
- * solids with roofs and procedural windows (D046), dashed center lines on major streets, the goal block
- * as a white plinth, stations as orange discs, and HTML labels.
+ * The city: the ground as one tile-coloured plane (streets, block ground, the plaza; D053), the
+ * buildings in chunks with two levels of detail (Buildings.tsx, D046/D053), dashed center lines on
+ * major streets, stations as orange discs, and HTML labels.
  * The ground plane carries the pointer handlers (render/pointer.ts).
  */
 export function CityMap({
@@ -73,14 +63,12 @@ export function CityMap({
   /** Buildings are drawn at this share of their height (tactical view, D050). */
   heightScale: number;
 }) {
-  const { blocks, goal } = useMemo(() => classifyTiles(map), [map]);
+  const groundTexture = useMemo(() => tileTexture(map), [map]);
+  useEffect(() => () => groundTexture.dispose(), [groundTexture]);
   const labels = useMemo(() => mapLabels(city, frame, map, heights), [city, frame, map, heights]);
-  const buildings = useMemo(
-    () =>
-      solidsGeometry(buildingsFile.solids, buildingsFile.coordScale, frame, {
-        keepClear: pads.map((i) => indexToWorld(frame, map.width, i)),
-      }),
-    [buildingsFile, frame, pads, map.width],
+  const keepClear = useMemo(
+    () => pads.map((i) => indexToWorld(frame, map.width, i)),
+    [pads, frame, map.width],
   );
   const lanes = useMemo(() => {
     const g = laneLineGeometry(buildingsFile, frame, LANE_KINDS);
@@ -96,17 +84,6 @@ export function CityMap({
       (lanes.material as LineDashedMaterial).dispose();
     };
   }, [lanes]);
-  useEffect(() => () => buildings.dispose(), [buildings]);
-  const buildingMaterial = useMemo(
-    () =>
-      withSeeThrough(
-        withWindows(
-          new MeshStandardMaterial({ vertexColors: true, roughness: BUILDING_ROUGHNESS }),
-        ),
-      ),
-    [],
-  );
-  useEffect(() => () => buildingMaterial.dispose(), [buildingMaterial]);
 
   // Ground: covers the whole grid, centred on the grid (the world origin is the goal, not the grid centre).
   const [gx, gz] = tileToWorld(frame, (map.width - 1) / 2, (map.height - 1) / 2);
@@ -115,13 +92,17 @@ export function CityMap({
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[gx, 0, gz]} {...ground}>
         <planeGeometry args={[map.width * TILE_M, map.height * TILE_M]} />
-        <meshStandardMaterial color={COLORS.asphalt} />
+        <meshBasicMaterial map={groundTexture} />
       </mesh>
       <primitive object={lanes} position-y={LANE_Y} />
 
-      <TileBoxes boxes={blocks} frame={frame} colorOf={blockColor} />
-      <TileBoxes boxes={goal} frame={frame} colorOf={goalColor} />
-      <mesh geometry={buildings} material={buildingMaterial} scale-y={heightScale} />
+      <Buildings
+        solids={buildingsFile.solids}
+        coordScale={buildingsFile.coordScale}
+        frame={frame}
+        keepClear={keepClear}
+        heightScale={heightScale}
+      />
 
       {city.spawns.map((s) => {
         const [x, z] = tileToWorld(frame, s.tx, s.ty);
@@ -142,22 +123,38 @@ export function CityMap({
   );
 }
 
-const BLOCK = new Color(COLORS.block);
-const GOAL = new Color(COLORS.goal);
-const blockColor = (_h: number, out: Color) => out.copy(BLOCK);
-const goalColor = (_h: number, out: Color) => out.copy(GOAL);
-
-function classifyTiles(map: TileMap) {
-  const blocks: TileBox[] = [];
-  const goal: TileBox[] = [];
+/**
+ * The ground as a texture with one texel per tile (D053): asphalt streets, the block ground under
+ * buildings, the plaza around the landmark. Pre-lit and unlit: one full-screen pass instead of a lit
+ * plane plus thousands of thin slab boxes. Row 0 of the map (north) is the top of the texture.
+ */
+function tileTexture(map: TileMap): DataTexture {
+  const colors = {
+    street: preLit(COLORS.asphalt),
+    block: preLit(COLORS.block),
+    goal: preLit(COLORS.goal),
+  };
+  const bytes = Object.fromEntries(
+    Object.entries(colors).map(([k, c]) => {
+      const s = c.clone().convertLinearToSRGB();
+      return [k, [s.r * 255, s.g * 255, s.b * 255, 255].map(Math.round)];
+    }),
+  ) as Record<keyof typeof colors, number[]>;
+  const data = new Uint8Array(map.width * map.height * 4);
   for (let ty = 0; ty < map.height; ty++) {
     for (let tx = 0; tx < map.width; tx++) {
       const t = map.tiles[ty * map.width + tx];
-      if (t === Tile.Goal) goal.push({ tx, ty, h: GOAL_PLINTH_M });
-      else if (t === Tile.Building) blocks.push({ tx, ty, h: LOT_M });
+      const rgba = t === Tile.Goal ? bytes.goal : t === Tile.Street ? bytes.street : bytes.block;
+      data.set(rgba, ((map.height - 1 - ty) * map.width + tx) * 4);
     }
   }
-  return { blocks, goal };
+  const tex = new DataTexture(data, map.width, map.height, RGBAFormat);
+  tex.colorSpace = SRGBColorSpace;
+  tex.magFilter = NearestFilter;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 /** Street names at street level; station names float above the tallest nearby roof. */
@@ -194,43 +191,4 @@ function mapLabels(
     };
   });
   return [...streets, ...stations];
-}
-
-/** One InstancedMesh of tile-sized boxes; matrices and colours are written once when the boxes change. */
-function TileBoxes({
-  boxes,
-  frame,
-  colorOf,
-}: {
-  boxes: TileBox[];
-  frame: TileFrame;
-  colorOf: (h: number, out: Color) => Color;
-}) {
-  const ref = useRef<InstancedMesh>(null);
-
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const o = new Object3D();
-    const c = new Color();
-    boxes.forEach(({ tx, ty, h }, i) => {
-      const [x, z] = tileToWorld(frame, tx, ty);
-      o.position.set(x, h / 2, z);
-      o.scale.set(TILE_M, h, TILE_M);
-      o.updateMatrix();
-      mesh.setMatrixAt(i, o.matrix);
-      mesh.setColorAt(i, colorOf(h, c));
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }, [boxes, frame, colorOf]);
-
-  if (boxes.length === 0) return null;
-  return (
-    <instancedMesh ref={ref} args={[undefined, undefined, boxes.length]}>
-      <boxGeometry />
-      <meshStandardMaterial />
-    </instancedMesh>
-  );
 }

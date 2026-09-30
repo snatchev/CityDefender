@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
+  BoxGeometry,
   Color,
   InstancedBufferAttribute,
+  MeshLambertMaterial,
   MeshStandardMaterial,
   Object3D,
   type InstancedMesh,
@@ -9,9 +11,10 @@ import {
 import type { BackdropFileV0, BackdropLayer } from '../sim/cityFile';
 import { TILE_M } from '../sim/constants';
 import { uvToWorld, type TileFrame } from './coords';
-import { backdropLook, withWindows } from './facades';
+import { backdropLook, facadeAverage, withWindows } from './facades';
+import { preLit } from './lighting';
 import { createRng } from '../sim/rng';
-import { withSeeThrough } from './seeThrough';
+import { afterDepthPass, seeThroughDepthMaterial } from './seeThrough';
 
 /** Ground beyond the level (slightly lighter than street asphalt, so the play area stands out). */
 const GROUND = '#5a5e63';
@@ -46,20 +49,27 @@ export function Backdrop({
   const [x0, z0] = uvToWorld(frame, outer.u0, outer.v0);
   const w = outer.width * outer.cellTiles * TILE_M;
   const d = outer.height * outer.cellTiles * TILE_M;
+  const groundColor = useMemo(() => preLit(GROUND), []);
   return (
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[x0 + w / 2, GROUND_Y, z0 + d / 2]}>
         <planeGeometry args={[GROUND_SIZE_M, GROUND_SIZE_M]} />
-        <meshStandardMaterial
-          color={GROUND}
+        <meshBasicMaterial
+          color={groundColor}
           polygonOffset
           polygonOffsetFactor={4}
           polygonOffsetUnits={4}
         />
       </mesh>
-      <group scale-y={heightScale}>
+      <group name="backdrop" scale-y={heightScale}>
         {file.layers.map((l, k) => (
-          <LayerBoxes key={k} layer={l} frame={frame} haze={HAZE_PER_LAYER[k] ?? 0.4} />
+          <LayerBoxes
+            key={k}
+            layer={l}
+            frame={frame}
+            haze={HAZE_PER_LAYER[k] ?? 0.4}
+            detailed={k === 0}
+          />
         ))}
       </group>
     </group>
@@ -70,20 +80,41 @@ function LayerBoxes({
   layer,
   frame,
   haze,
+  detailed,
 }: {
   layer: BackdropLayer;
   frame: TileFrame;
   haze: number;
+  /**
+   * The nearest layer gets windows and the see-through cutaway; farther layers are plain boxes in
+   * their windows' average colour (D053): cheap, and at that distance the same picture.
+   */
+  detailed: boolean;
 }) {
   const ref = useRef<InstancedMesh>(null);
+  const depthRef = useRef<InstancedMesh>(null);
+  const geometry = useMemo(() => new BoxGeometry(), []);
+  // The detailed layer draws behind a depth pre-pass that does the cutaway (seeThrough.ts, D053).
   const material = useMemo(
     () =>
-      withSeeThrough(
-        withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), { instancedBoxes: true }),
-      ),
-    [],
+      detailed
+        ? afterDepthPass(
+            withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), {
+              instancedBoxes: true,
+            }),
+          )
+        : new MeshLambertMaterial(),
+    [detailed],
   );
-  useEffect(() => () => material.dispose(), [material]);
+  const depthMaterial = useMemo(() => (detailed ? seeThroughDepthMaterial() : null), [detailed]);
+  useEffect(
+    () => () => {
+      material.dispose();
+      depthMaterial?.dispose();
+      geometry.dispose();
+    },
+    [material, depthMaterial, geometry],
+  );
   const cells = useMemo(() => {
     const out: { cx: number; cy: number; h: number }[] = [];
     layer.rows.forEach((row, cy) => {
@@ -114,18 +145,34 @@ function LayerBoxes({
       // Same palettes and window styles as the level (facades.ts), washed toward the haze.
       const look = backdropLook(h, createRng(cx * 7919 + cy * 104729 + layer.width));
       styles[i] = look.style;
+      if (!detailed) {
+        const avg = facadeAverage(look.style);
+        look.wall.lerp(avg.glass, avg.coverage);
+      }
       mesh.setColorAt(i, look.wall.lerp(HAZE, haze));
     });
     mesh.geometry.setAttribute('aStyle', new InstancedBufferAttribute(styles, 1));
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
-  }, [cells, layer, frame, haze]);
+    const depth = depthRef.current;
+    if (depth) {
+      depth.instanceMatrix = mesh.instanceMatrix; // same boxes, shared buffer
+      depth.computeBoundingSphere();
+    }
+  }, [cells, layer, frame, haze, detailed]);
 
   if (cells.length === 0) return null;
   return (
-    <instancedMesh ref={ref} args={[undefined, material, cells.length]}>
-      <boxGeometry />
-    </instancedMesh>
+    <>
+      <instancedMesh ref={ref} args={[geometry, material, cells.length]} />
+      {depthMaterial && (
+        <instancedMesh
+          ref={depthRef}
+          args={[geometry, depthMaterial, cells.length]}
+          renderOrder={-1}
+        />
+      )}
+    </>
   );
 }

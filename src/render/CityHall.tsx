@@ -57,5 +57,5 @@ export function CityHall({
     material.emissiveIntensity = Math.max(0, 1 - age / FLASH_S) * FLASH_INTENSITY;
   });
 
-  return <mesh geometry={geometry} material={material} scale-y={heightScale} />;
+  return <mesh name="cityHall" geometry={geometry} material={material} scale-y={heightScale} />;
 }

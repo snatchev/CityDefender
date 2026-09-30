@@ -16,6 +16,7 @@ import { Effects } from './Effects';
 import { displayHeights, TACTICAL_HEIGHT_SCALE } from './heights';
 import { HpBars } from './HpBars';
 import { KeyboardCamera } from './KeyboardCamera';
+import { HEMI_GROUND, HEMI_INTENSITY, HEMI_SKY, SUN_INTENSITY, SUN_POSITION } from './lighting';
 import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
@@ -25,6 +26,7 @@ import { SeeThroughDriver } from './SeeThroughDriver';
 import { Shots } from './Shots';
 import { SimDriver } from './SimDriver';
 import { SkyDome } from './SkyDome';
+import { StreetLifeLayer } from './ambient/StreetLife';
 import { SlotMarkers } from './SlotMarkers';
 import { TacticalView } from './TacticalView';
 import { Towers } from './Towers';
@@ -43,8 +45,6 @@ const SKY_ZENITH = '#5b8fcc';
 const CAMERA_NEAR_M = 4;
 const CAMERA_FAR_M = 16000;
 const MAX_ZOOM_OUT_M = 3000;
-/** Late-morning sun from the south-east (the directional light). */
-const SUN_POSITION: [number, number, number] = [900, 1100, 700];
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
@@ -89,8 +89,8 @@ export function Scene() {
       <color attach="background" args={[HAZE]} />
       <fog attach="fog" args={[HAZE, FOG_NEAR_M, FOG_FAR_M]} />
       <SkyDome zenith={SKY_ZENITH} horizon={HAZE} radius={SKY_RADIUS_M} />
-      <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
-      <directionalLight position={SUN_POSITION} intensity={1.8} />
+      <hemisphereLight args={[HEMI_SKY, HEMI_GROUND, HEMI_INTENSITY]} />
+      <directionalLight position={SUN_POSITION} intensity={SUN_INTENSITY} />
       {backdrop && frame && <Backdrop file={backdrop} frame={frame} heightScale={heightScale} />}
 
       {city && buildingsFile && map && frame && heights && ground && (
@@ -115,6 +115,7 @@ export function Scene() {
           />
           {slots && <SlotMarkers slots={slots} frame={frame} width={map.width} heights={heights} />}
           {slots && debugMap && <MapDebug slots={slots} frame={frame} width={map.width} />}
+          <StreetLifeLayer frame={frame} />
           <Barricades frame={frame} />
           <Towers frame={frame} heights={heights} />
           <Shots frame={frame} heights={heights} />

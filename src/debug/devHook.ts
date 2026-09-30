@@ -39,6 +39,13 @@ export interface DevHook {
   focusTile(tx: number, ty: number, view?: CameraView): void;
   /** The hover preview (hovered tile, ghost kind, error), as the planning UI sees it. */
   readonly ghost: Ghost | null;
+  /** Street life (cars, people, trees; render/ambient/life.ts), for inspection. */
+  readonly streetLife: unknown;
+  /** The three.js renderer and scene (profiling in the browser). */
+  readonly renderer: WebGLRenderer | null;
+  readonly scene: Scene | null;
+  /** Render at this pixel ratio (to tell fill-rate cost from everything else); returns the old one. */
+  setPixelRatio(ratio: number): number;
   /** This wave's routes and the focused one (station index), as the planning UI sees them. */
   readonly plan: { routes: Route[]; focus: number | null };
   /** Focus a station's route by name or index, as a click on it would (null clears). */
@@ -63,6 +70,12 @@ let scene: Scene | null = null;
 export function registerRenderer(gl: WebGLRenderer, root: Scene): void {
   renderer = gl;
   scene = root;
+}
+
+let streetLife: unknown = null;
+/** The street life simulation (render/ambient), for inspection. */
+export function registerStreetLife(life: unknown): void {
+  streetLife = life;
 }
 
 export function installDevHook(): void {
@@ -94,6 +107,20 @@ export function installDevHook(): void {
     },
     get ghost() {
       return usePlan.getState().ghost;
+    },
+    get streetLife() {
+      return streetLife;
+    },
+    get renderer() {
+      return renderer;
+    },
+    get scene() {
+      return scene;
+    },
+    setPixelRatio(ratio) {
+      const old = renderer?.getPixelRatio() ?? 1;
+      renderer?.setPixelRatio(ratio);
+      return old;
     },
     get plan() {
       const p = usePlan.getState();
