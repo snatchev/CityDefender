@@ -354,6 +354,11 @@ export function clearRouteFocus(): void {
   usePlan.setState({ focus: null });
 }
 
+/** Tactical view on/off (D050; render/TacticalView.tsx does the camera, Scene the squash). */
+export function toggleTactical(): void {
+  usePlan.setState((p) => ({ tactical: !p.tactical }));
+}
+
 /**
  * Tower placement snaps to the nearest free spot for the type within this many tiles of the pointer
  * (spots are single tiles and hard to hit exactly, especially on roofs seen at an angle).

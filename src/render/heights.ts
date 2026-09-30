@@ -4,19 +4,22 @@ import { Tile, type TileMap } from '../sim/map';
 /** Open lots (non-street tiles with no building on them) are drawn as low slabs of this height. */
 export const LOT_M = 0.4;
 
+/** Tactical view (D050): buildings are drawn at this share of their height. */
+export const TACTICAL_HEIGHT_SCALE = 0.12;
+
 /**
  * Display height (m) of every tile's top surface: the drawn roof at the tile's centre from
  * buildings.json (D046: setbacks and pitched roofs, so a tower stands on what's drawn; the sim keeps
  * its own per-tile heights for range), `LOT_M` for open lots, 0 for streets and the goal.
- * Used for drawing, picking and putting towers on roofs.
+ * Used for drawing, picking and putting towers on roofs. `scale` squashes buildings (tactical view).
  */
-export function displayHeights(map: TileMap, buildings: BuildingsFileV1): Float32Array {
+export function displayHeights(map: TileMap, buildings: BuildingsFileV1, scale = 1): Float32Array {
   const out = new Float32Array(map.width * map.height);
   const roofs = decodeRows(buildings.roofRows, map.width, map.height);
   for (let i = 0; i < out.length; i++) {
     if (map.tiles[i] !== Tile.Building) continue;
     const h = map.heightsM?.[i] ?? 0;
-    out[i] = h <= 0 ? LOT_M : roofs[i]! > 0 ? roofs[i]! / 10 : h;
+    out[i] = h <= 0 ? LOT_M : (roofs[i]! > 0 ? roofs[i]! / 10 : h) * scale;
   }
   return out;
 }

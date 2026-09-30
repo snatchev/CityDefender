@@ -14,6 +14,7 @@ import {
   selectWall,
   sellSelectedWall,
   sellTowerById,
+  toggleTactical,
   setSelectedTargeting,
   upgradeSelected,
   upgradeSelectedWall,
@@ -24,7 +25,7 @@ import { BuildBar } from './BuildBar';
 import { GearIcon } from './icons';
 import { Minimap } from './Minimap';
 import { usePlan } from './planStore';
-import { SpeedButton } from './SpeedButton';
+import { SpeedButton, TacticalButton } from './SpeedButton';
 import { useHud } from './store';
 
 /** Integrity below this shows in red (DESIGN §3.2 lives). */
@@ -45,7 +46,10 @@ export function Hud() {
       <StatusPanel />
       <div className="hud-top-right">
         {map && <Minimap map={map} />}
-        <SpeedButton />
+        <div className="hud-button-row">
+          <SpeedButton />
+          <TacticalButton />
+        </div>
       </div>
       <SelectedTowerCard />
       <SelectedWallCard />
@@ -60,7 +64,7 @@ export function Hud() {
 
 /**
  * Esc puts the build tool down, then closes the tower card and lets go of a focused route.
- * M toggles the map debug view.
+ * T toggles the tactical view, M the map debug view.
  */
 function useHotkeys() {
   useEffect(() => {
@@ -75,6 +79,7 @@ function useHotkeys() {
         }
       }
       if (e.code === 'KeyM') usePlan.setState((p) => ({ debugMap: !p.debugMap }));
+      if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey) toggleTactical();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

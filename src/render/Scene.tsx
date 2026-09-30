@@ -13,7 +13,7 @@ import { tileFrame } from './coords';
 import { CameraBounds } from './CameraBounds';
 import { CameraBridge } from './CameraBridge';
 import { Effects } from './Effects';
-import { displayHeights } from './heights';
+import { displayHeights, TACTICAL_HEIGHT_SCALE } from './heights';
 import { HpBars } from './HpBars';
 import { KeyboardCamera } from './KeyboardCamera';
 import { MapDebug } from './MapDebug';
@@ -26,6 +26,7 @@ import { Shots } from './Shots';
 import { SimDriver } from './SimDriver';
 import { SkyDome } from './SkyDome';
 import { SlotMarkers } from './SlotMarkers';
+import { TacticalView } from './TacticalView';
 import { Towers } from './Towers';
 
 /** Horizon haze: fog and background share it so the backdrop city fades into the sky. */
@@ -53,12 +54,14 @@ export function Scene() {
   const backdrop = cityName ? game.backdrop : null;
   const slots = cityName ? game.world.slots : null;
   const debugMap = usePlan((p) => p.debugMap);
+  const tactical = usePlan((p) => p.tactical);
+  const heightScale = tactical ? TACTICAL_HEIGHT_SCALE : 1;
   const showFps = useHud((s) => s.showFps);
   const map = game.world.map;
   const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
   const heights = useMemo(
-    () => (city && map && buildingsFile ? displayHeights(map, buildingsFile) : null),
-    [city, map, buildingsFile],
+    () => (city && map && buildingsFile ? displayHeights(map, buildingsFile, heightScale) : null),
+    [city, map, buildingsFile, heightScale],
   );
   const ground = useMemo(
     () => (frame && map && heights ? groundHandlers(frame, map, heights) : null),
@@ -88,7 +91,7 @@ export function Scene() {
       <SkyDome zenith={SKY_ZENITH} horizon={HAZE} radius={SKY_RADIUS_M} />
       <hemisphereLight args={['#f4f1ea', '#5b5347', 1.1]} />
       <directionalLight position={SUN_POSITION} intensity={1.8} />
-      {backdrop && frame && <Backdrop file={backdrop} frame={frame} />}
+      {backdrop && frame && <Backdrop file={backdrop} frame={frame} heightScale={heightScale} />}
 
       {city && buildingsFile && map && frame && heights && ground && (
         <>
@@ -102,11 +105,13 @@ export function Scene() {
             heights={heights}
             ground={ground}
             pads={slots?.pads ?? []}
+            heightScale={heightScale}
           />
           <CityHall
             solids={buildingsFile.landmark}
             coordScale={buildingsFile.coordScale}
             frame={frame}
+            heightScale={heightScale}
           />
           {slots && <SlotMarkers slots={slots} frame={frame} width={map.width} heights={heights} />}
           {slots && debugMap && <MapDebug slots={slots} frame={frame} width={map.width} />}
@@ -118,6 +123,7 @@ export function Scene() {
           <Effects frame={frame} />
           <PlanOverlay frame={frame} heights={heights} />
           <RouteFocus frame={frame} width={map.width} />
+          <TacticalView />
           <SeeThroughDriver />
           <CameraBridge frame={frame} heights={heights} width={map.width} />
         </>

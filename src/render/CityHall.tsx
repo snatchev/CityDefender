@@ -24,10 +24,13 @@ export function CityHall({
   solids,
   coordScale,
   frame,
+  heightScale,
 }: {
   solids: readonly SolidRecord[];
   coordScale: number;
   frame: TileFrame;
+  /** Drawn at this share of its height (tactical view, D050). */
+  heightScale: number;
 }) {
   const geometry = useMemo(
     () => solidsGeometry(solids, coordScale, frame, { landmark: true }),
@@ -54,5 +57,5 @@ export function CityHall({
     material.emissiveIntensity = Math.max(0, 1 - age / FLASH_S) * FLASH_INTENSITY;
   });
 
-  return <mesh geometry={geometry} material={material} />;
+  return <mesh geometry={geometry} material={material} scale-y={heightScale} />;
 }

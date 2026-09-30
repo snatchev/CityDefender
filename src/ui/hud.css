@@ -259,6 +259,42 @@
   background: rgb(20 28 40 / 0.92);
 }
 
+.hud-button-row {
+  display: flex;
+  gap: 8px;
+}
+
+.hud-button-row .speed-button {
+  flex: 1;
+}
+
+.tactical-button {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  min-height: 52px;
+  border: 1px solid var(--hud-edge);
+  border-radius: 10px;
+  background: var(--hud-bg-strong);
+  box-shadow: var(--hud-glow);
+  color: var(--hud-text);
+  cursor: pointer;
+}
+
+.tactical-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+.tactical-button:hover {
+  background: rgb(20 28 40 / 0.92);
+}
+
+.tactical-button.on {
+  color: var(--hud-accent);
+  border-color: var(--hud-accent);
+}
+
 /* ---- Build bar (bottom centre) ---- */
 .build-bar {
   position: absolute;

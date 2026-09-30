@@ -1,5 +1,7 @@
 import { setTimeScale } from '../game';
-import { SpeedIcon } from './icons';
+import { toggleTactical } from '../planning';
+import { SpeedIcon, TacticalIcon } from './icons';
+import { usePlan } from './planStore';
 import { useHud } from './store';
 
 /** Pause → 1× → 2× → 3× → pause. */
@@ -19,6 +21,23 @@ export function SpeedButton() {
     >
       <SpeedIcon scale={scale} />
       <span>{LABEL[scale] ?? `${scale}×`}</span>
+    </button>
+  );
+}
+
+/** Tactical view toggle (D050), beside the speed button; T does the same. */
+export function TacticalButton() {
+  const on = usePlan((p) => p.tactical);
+  return (
+    <button
+      type="button"
+      className={`tactical-button${on ? ' on' : ''}`}
+      aria-pressed={on}
+      aria-label="Tactical view"
+      title="Tactical view (T)"
+      onClick={toggleTactical}
+    >
+      <TacticalIcon />
     </button>
   );
 }

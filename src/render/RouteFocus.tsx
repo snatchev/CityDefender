@@ -5,6 +5,7 @@ import { cameraBridge } from '../cameraBridge';
 import { usePlan } from '../ui/planStore';
 import { indexToWorld, type TileFrame } from './coords';
 import { setRouteCutaway } from './seeThrough';
+import { TACTICAL_PITCH_DEG } from './TacticalView';
 import { frameRoute, orbitControls } from './view';
 
 /** Framing for a focused route: steep enough to look down between buildings, with room around it. */
@@ -27,6 +28,7 @@ export function RouteFocus({ frame, width }: { frame: TileFrame; width: number }
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
   const controls = orbitControls(useThree((s) => s.controls));
   const focus = usePlan((s) => s.focus);
+  const tactical = usePlan((s) => s.tactical);
   const routes = usePlan((s) => s.routes);
   const route = focus ? routes.find((r) => r.station === focus.station) : undefined;
 
@@ -52,6 +54,11 @@ export function RouteFocus({ frame, width }: { frame: TileFrame; width: number }
     latest.current = points;
     setRouteCutaway(points);
   }, [points]);
+  // Read at click time only: toggling tactical view moves the camera itself (TacticalView).
+  const tacticalNow = useRef(tactical);
+  useEffect(() => {
+    tacticalNow.current = tactical;
+  }, [tactical]);
   useEffect(() => () => setRouteCutaway(null), []);
 
   // Fly only when a route is clicked (seq changes), not when walls reroute the focused one.
@@ -66,7 +73,7 @@ export function RouteFocus({ frame, width }: { frame: TileFrame; width: number }
       {
         fovDeg: camera.fov,
         aspect: camera.aspect,
-        pitchDeg: PITCH_DEG,
+        pitchDeg: tacticalNow.current ? TACTICAL_PITCH_DEG : PITCH_DEG,
         margin: MARGIN,
         yawDeg,
         coveredLeft: HUD_LEFT_SHARE,

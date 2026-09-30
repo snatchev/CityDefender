@@ -76,6 +76,8 @@ interface PlanState {
    * goes up on every click so clicking the same route again re-frames the camera.
    */
   focus: { station: number; seq: number } | null;
+  /** Tactical view (D050): buildings squashed, camera near top-down. Toggled with T or the button. */
+  tactical: boolean;
 }
 
 export interface SelectedTower {
@@ -122,4 +124,5 @@ export const usePlan = create<PlanState>()(() => ({
   debugMap: false,
   tool: null,
   focus: null,
+  tactical: false,
 }));

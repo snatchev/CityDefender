@@ -8,6 +8,7 @@
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
+- Tactical view (Stefan, 2026-09-30, D050): T or the grid button next to the speed button squashes all buildings to 12% height and glides the camera to near top-down; towers and markers stay on the squashed roofs. T again goes back. Checked in Chrome via DevTools MCP: whole-level board view, a tower on a 118 m roof follows the squash both ways.
 - Route focus (Stefan, 2026-09-30, D049): click a route line (it works even when buildings hide it) or a station name in the wave intel; the camera glides to frame the whole route and buildings in front of it fade almost completely. Esc lets go. Checked in Chrome via DevTools MCP with real clicks: the hidden Suburban Station route along JFK, the Race-Vine route; 60 fps at dpr 2.
 - After 10a (Stefan, 2026-09-30, D047): **15th Street station removed** (too close to City Hall); its wave 11–20 grub breach now comes from **Suburban Station**. **Camera can't pan past the map edges** (the point in the middle of the view stays inside the level). Checked in Chrome via DevTools MCP: 11 spawns, "Tremors under Suburban Station" in wave 10, wave 11 grubs leave Suburban Station; focusing 2 km west and holding W both stop at the edge.
 - Pass 10a: buildings and City Hall (tag `pass-10a`, D046).

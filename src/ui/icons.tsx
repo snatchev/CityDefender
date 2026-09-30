@@ -191,6 +191,18 @@ export function SpeedIcon({ scale }: { scale: number }) {
   );
 }
 
+/** Tactical view: a street grid seen from above. */
+export function TacticalIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="4" y="4" width="10" height="10" rx="1.5" fill="currentColor" />
+      <rect x="18" y="4" width="10" height="10" rx="1.5" fill="currentColor" />
+      <rect x="4" y="18" width="10" height="10" rx="1.5" fill="currentColor" />
+      <rect x="18" y="18" width="10" height="10" rx="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function GearIcon() {
   return (
     <svg viewBox="0 0 32 32" aria-hidden="true">

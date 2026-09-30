@@ -59,6 +59,7 @@ export function CityMap({
   heights,
   ground,
   pads,
+  heightScale,
 }: {
   city: CityFileV0;
   buildingsFile: BuildingsFileV1;
@@ -69,6 +70,8 @@ export function CityMap({
   ground: GroundHandlers;
   /** Roof pad tiles: rooftop clutter keeps clear of them. */
   pads: readonly number[];
+  /** Buildings are drawn at this share of their height (tactical view, D050). */
+  heightScale: number;
 }) {
   const { blocks, goal } = useMemo(() => classifyTiles(map), [map]);
   const labels = useMemo(() => mapLabels(city, frame, map, heights), [city, frame, map, heights]);
@@ -118,7 +121,7 @@ export function CityMap({
 
       <TileBoxes boxes={blocks} frame={frame} colorOf={blockColor} />
       <TileBoxes boxes={goal} frame={frame} colorOf={goalColor} />
-      <mesh geometry={buildings} material={buildingMaterial} />
+      <mesh geometry={buildings} material={buildingMaterial} scale-y={heightScale} />
 
       {city.spawns.map((s) => {
         const [x, z] = tileToWorld(frame, s.tx, s.ty);

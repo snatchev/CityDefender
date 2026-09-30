@@ -32,7 +32,16 @@ const GROUND_Y = -3;
  * boxes at their (compressed) heights, over a ground plane covering the whole extent. Static; never
  * pickable; the sim doesn't know it exists.
  */
-export function Backdrop({ file, frame }: { file: BackdropFileV0; frame: TileFrame }) {
+export function Backdrop({
+  file,
+  frame,
+  heightScale,
+}: {
+  file: BackdropFileV0;
+  frame: TileFrame;
+  /** Boxes are drawn at this share of their height (tactical view, D050); the ground stays put. */
+  heightScale: number;
+}) {
   const outer = file.layers[file.layers.length - 1]!;
   const [x0, z0] = uvToWorld(frame, outer.u0, outer.v0);
   const w = outer.width * outer.cellTiles * TILE_M;
@@ -48,9 +57,11 @@ export function Backdrop({ file, frame }: { file: BackdropFileV0; frame: TileFra
           polygonOffsetUnits={4}
         />
       </mesh>
-      {file.layers.map((l, k) => (
-        <LayerBoxes key={k} layer={l} frame={frame} haze={HAZE_PER_LAYER[k] ?? 0.4} />
-      ))}
+      <group scale-y={heightScale}>
+        {file.layers.map((l, k) => (
+          <LayerBoxes key={k} layer={l} frame={frame} haze={HAZE_PER_LAYER[k] ?? 0.4} />
+        ))}
+      </group>
     </group>
   );
 }
