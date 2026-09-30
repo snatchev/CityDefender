@@ -126,6 +126,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Fixed 2026-09-30: flickering windows and rooftops (Stefan). Overlapping shapes drew two roofs and two facades in the same plane (z-fighting), and parapets shared a plane with neighbours' walls. map:build now cuts covered areas out of lower shapes and parapets have thickness (D048).
 - Pass 10a: the sim/drawn height mismatch on setback pads (see Open questions). A tower's range ring is computed from the sim height.
 - Balance after Pass 9 (throwaway headless bot on the real map, no barricades, grants by preference, tier-3 upgrades): waiting out every prep → **won with 30 Integrity in 26 minutes** of game time; calling every wave early → won with 8 in 15 minutes. The curve is gentle to wave 11 and bites from 12 (the inner stations breach next to City Hall). The Brood Mother comes from Race-Vine: from 15th Street she reached City Hall almost untouched. Needs Stefan's playtest (acceptance: finish one run, lose one).
 - Fixed 2026-09-29: a sharp edge along the bottom of the camera cutaway, worst at shallow angles (Stefan). The cutaway now eases out below the sight line and near the target (D041).

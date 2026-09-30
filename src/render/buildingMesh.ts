@@ -24,6 +24,12 @@ const TOWER_M = 60;
 const PARAPET_FROM_M = 6;
 /** Parapet inner faces are a little darker than the facade. */
 const PARAPET_INNER_SHADE = 0.8;
+/**
+ * Parapets have thickness: the inner face sits this far inside the outline, with a cap on top. A
+ * zero-thickness parapet's inner face lay in the same plane as a taller neighbour's wall and
+ * z-fought with it (D048).
+ */
+const PARAPET_THICKNESS_M = 0.35;
 
 /** Rooftop boxes (mechanical rooms, stair and elevator bulkheads) on flat roofs. */
 const BOX = {
@@ -118,6 +124,7 @@ function walls(
     // Outward from the solid: the outline's normals point out, a courtyard's point into the court.
     const ccw = polygonArea(ring) > 0;
     const outward = k === 0 ? ccw : !ccw;
+    const inset = parapet > 0 ? insetRing(ring, outward, PARAPET_THICKNESS_M) : null;
     let along = 0;
     for (let i = 0; i < ring.length; i++) {
       const p = ring[i]!;
@@ -147,21 +154,61 @@ function walls(
           color,
           [facade(ua), facade(ub), facade(ub), facade(ua)],
         );
-        if (parapet > 0) {
-          // The parapet's inside face, looking onto the roof.
-          const ni: Vec3 = [-n[0], 0, -n[2]];
-          out.quad(
-            [b[0], eave, b[1]],
-            [a[0], eave, a[1]],
-            [a[0], topA, a[1]],
-            [b[0], topB, b[1]],
-            ni,
-            inner,
-          );
-        }
+      }
+      if (inset) {
+        // Parapets only sit on flat roofs, so the edge is one piece at a constant height.
+        const top = eave + parapet;
+        const pi = inset[i]!;
+        const qi = inset[(i + 1) % ring.length]!;
+        const ni: Vec3 = [-n[0], 0, -n[2]];
+        out.quad(
+          [qi[0], eave, qi[1]],
+          [pi[0], eave, pi[1]],
+          [pi[0], top, pi[1]],
+          [qi[0], top, qi[1]],
+          ni,
+          inner,
+        );
+        out.quad(
+          [p[0], top, p[1]],
+          [q[0], top, q[1]],
+          [qi[0], top, qi[1]],
+          [pi[0], top, pi[1]],
+          [0, 1, 0],
+          inner,
+        );
       }
       along += len;
     }
+  });
+}
+
+/** The ring moved `t` metres into the solid, with mitred corners (capped so spikes don't shoot out). */
+function insetRing(ring: readonly P2[], outward: boolean, t: number): P2[] {
+  const m = ring.length;
+  // Inward normal of each edge (i → i + 1); zero-length edges borrow the previous one.
+  const normals: P2[] = [];
+  for (let i = 0; i < m; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % m]!;
+    const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    const prev = normals[i - 1] ?? [0, 0];
+    if (len < 1e-6) {
+      normals.push(prev);
+      continue;
+    }
+    const [dx, dz] = [(q[0] - p[0]) / len, (q[1] - p[1]) / len];
+    normals.push(outward ? [-dz, dx] : [dz, -dx]);
+  }
+  return ring.map((v, i) => {
+    const a = normals[(i - 1 + m) % m]!;
+    const b = normals[i]!;
+    let [mx, mz] = [a[0] + b[0], a[1] + b[1]];
+    const ml = Math.hypot(mx, mz);
+    if (ml < 1e-6) [mx, mz] = b;
+    else [mx, mz] = [mx / ml, mz / ml];
+    const d = t / Math.max(1 / 3, mx * b[0] + mz * b[1]);
+    return [v[0] + mx * d, v[1] + mz * d];
   });
 }
 

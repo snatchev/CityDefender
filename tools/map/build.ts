@@ -39,6 +39,7 @@ import {
   paintStreetBetweenBuildings,
   T_STREET,
 } from './raster';
+import { resolveOverlaps } from './overlaps';
 import { loadOsmParts, resolveSolids, surfaceHeights } from './parts';
 import { stationSpawns } from './stations';
 
@@ -90,8 +91,11 @@ export async function buildCity(city: string): Promise<BuildResult> {
     grid,
     cfg,
   );
-  const solids = simplifySolids(resolved.solids, cfg);
-  const landmark = simplifySolids(resolved.landmark, cfg);
+  // Simplify first, then cut overlaps (D048), so the cut edges stay exact.
+  const levelCut = resolveOverlaps(simplifySolids(resolved.solids, cfg), cfg.tileM);
+  const landmarkCut = resolveOverlaps(simplifySolids(resolved.landmark, cfg), cfg.tileM);
+  const solids = levelCut.solids;
+  const landmark = landmarkCut.solids;
   // The sim keeps the raster heights; towers are drawn on the roofs as drawn (render only).
   const surface = surfaceHeights(grid, solids, raster.heights, cfg.tileM);
   const heights = heightRows(grid, raster.heights);
@@ -106,7 +110,8 @@ export async function buildCity(city: string): Promise<BuildResult> {
       `goal ${goalTiles} tiles, ${spawns.length} spawns, ${labels.length} labels, ` +
       `${fps.city.length} city + ${fps.osm.length} OSM footprints → ${heights.built} built tiles ` +
       `(${raster.fromOsm} from OSM, tallest ${heights.tallestM} m), ${buildings.solids.length} drawn solids ` +
-      `(${resolved.parts} OSM parts replace ${resolved.replaced} footprints), landmark ${landmark.length} solids`,
+      `(${resolved.parts} OSM parts replace ${resolved.replaced} footprints; overlaps: ${levelCut.cut} cut, ` +
+      `${levelCut.dropped} covered), landmark ${landmark.length} solids`,
   );
   for (const s of spawns)
     console.log(`  spawn ${s.name.padEnd(22)} (${s.tx}, ${s.ty})  ${s.goalDistM} m`);
