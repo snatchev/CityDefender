@@ -1,9 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Color, MeshStandardMaterial, Object3D, type InstancedMesh } from 'three';
+import {
+  Color,
+  InstancedBufferAttribute,
+  MeshStandardMaterial,
+  Object3D,
+  type InstancedMesh,
+} from 'three';
 import type { BackdropFileV0, BackdropLayer } from '../sim/cityFile';
 import { TILE_M } from '../sim/constants';
-import { buildingColor } from './buildingMesh';
 import { uvToWorld, type TileFrame } from './coords';
+import { backdropLook, withWindows } from './facades';
+import { createRng } from '../sim/rng';
 import { withSeeThrough } from './seeThrough';
 
 /** Ground beyond the level (slightly lighter than street asphalt, so the play area stands out). */
@@ -11,6 +18,7 @@ const GROUND = '#5a5e63';
 /** Backdrop buildings are washed toward this haze colour, more for coarser (farther) layers. */
 const HAZE = new Color('#c9d3db');
 const HAZE_PER_LAYER = [0.18, 0.32];
+const ROUGHNESS = 0.9;
 /** The ground reaches far past the backdrop so it fades into the fog instead of ending in an edge. */
 const GROUND_SIZE_M = 30000;
 /**
@@ -18,8 +26,6 @@ const GROUND_SIZE_M = 30000;
  * pushed back further with a polygon offset, so the two never z-fight (flickering streets) at distance.
  */
 const GROUND_Y = -3;
-/** Per-cell brightness jitter (±), so merged cells don't read as a uniform carpet. */
-const JITTER = 0.06;
 
 /**
  * The decorative city beyond the playable level (D027): each backdrop layer as one InstancedMesh of
@@ -59,7 +65,13 @@ function LayerBoxes({
   haze: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
-  const material = useMemo(() => withSeeThrough(new MeshStandardMaterial()), []);
+  const material = useMemo(
+    () =>
+      withSeeThrough(
+        withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), { instancedBoxes: true }),
+      ),
+    [],
+  );
   useEffect(() => () => material.dispose(), [material]);
   const cells = useMemo(() => {
     const out: { cx: number; cy: number; h: number }[] = [];
@@ -76,7 +88,7 @@ function LayerBoxes({
     const mesh = ref.current;
     if (!mesh) return;
     const o = new Object3D();
-    const c = new Color();
+    const styles = new Float32Array(cells.length);
     const size = layer.cellTiles * TILE_M;
     cells.forEach(({ cx, cy, h }, i) => {
       const [x, z] = uvToWorld(
@@ -88,9 +100,12 @@ function LayerBoxes({
       o.scale.set(size, h, size);
       o.updateMatrix();
       mesh.setMatrixAt(i, o.matrix);
-      const jitter = 1 + (hash(cx, cy) - 0.5) * 2 * JITTER;
-      mesh.setColorAt(i, buildingColor(h, c).lerp(HAZE, haze).multiplyScalar(jitter));
+      // Same palettes and window styles as the level (facades.ts), washed toward the haze.
+      const look = backdropLook(h, createRng(cx * 7919 + cy * 104729 + layer.width));
+      styles[i] = look.style;
+      mesh.setColorAt(i, look.wall.lerp(HAZE, haze));
     });
+    mesh.geometry.setAttribute('aStyle', new InstancedBufferAttribute(styles, 1));
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
@@ -102,10 +117,4 @@ function LayerBoxes({
       <boxGeometry />
     </instancedMesh>
   );
-}
-
-/** Stable pseudo-random value in [0, 1) for a cell. */
-function hash(x: number, y: number): number {
-  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-  return s - Math.floor(s);
 }

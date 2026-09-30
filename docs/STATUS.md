@@ -2,12 +2,18 @@
 
 > **Agents: read this first after CLAUDE.md**, and update it at the end of every pass.
 
-**Last updated:** 2026-09-27
-**Current pass:** Pass 9 (Full run structure): **done**, tagged `pass-09`. Acceptance still needs Stefan's playtest (finish one run, lose one).
-**Next up:** Pass 10 (presentation: models, VFX, audio, postprocessing, building shapes and windows)
+**Last updated:** 2026-09-30
+**Current pass:** Pass 10a (Buildings and City Hall): **done**, tagged `pass-10a`. Pass 9 playtested by Stefan (2026-09-30): "It was okay", no balance changes asked for.
+**Next up:** Pass 10b (bug and tower models, VFX, postprocessing, day/night), then 10c (audio, performance pass). One open question below (sim heights vs drawn roofs).
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
+- Pass 10a: buildings and City Hall (tag `pass-10a`, D046).
+  - **Real 3D shapes from OSM `building:part`**: setback tiers and roofs. 478 parts replace 87 footprints (Liberty Place's crowns, Comcast towers, podiums). Roof shapes: gabled, hipped (also quadruple saltbox), pyramidal, mansard, skillion, dome/onion, cone, round, as faceted planes (`render/roofShape.ts`, tested).
+  - **City Hall** built from its OSM relation and 30 parts with hand-set heights (`osmTagOverrides` in `tools/map/cities/philly.json`): marble block with courtyard, pavilions with slate mansards and pyramids, clock tower, cupola, gold William Penn at 167 m. Still flashes red on hits. The plaza around it is a warm grey now.
+  - **Procedural windows** in the building shader (brick, stone, glass, parking and landmark styles), fading to their average colour at distance so they don't shimmer. Colours from OSM where tagged, otherwise seeded palettes by height. **Parapets** on flat roofs, seeded **rooftop boxes** (kept clear of roof pads).
+  - The **backdrop** uses the same palettes and windows, so the city past the level edge matches.
+  - **Towers stand on the drawn roof**: `buildings.json` v1 carries the drawn roof height per tile (`roofRows`), used for towers, pads, labels and picking. The sim's heights are unchanged (city.json is identical apart from the OSM timestamp).
 - Research: map sources and formats → decision D001 ([research/map-sources.md](research/map-sources.md))
 - Design doc v0.1 ([DESIGN.md](DESIGN.md))
 - Implementation plan v0.1 ([IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md))
@@ -57,6 +63,8 @@
   - Done: sell (70%) with free undo of this prep's builds; click a tower to select it (range disc, kills, Sell, Esc); hover shows range and sell value; right-click sells. HP bars on damaged bugs, death pops, screen shake on barricade breaks. Wave intel panel. 10 waves over 3 stations (Race-Vine; 11th Street from wave 4; Walnut-Locust from wave 6), tuned harder (see Known issues).
 
 ## How Claude builds and checks things (Claude Code on the Mac, since 2026-09-26)
+- 2026-09-30: the Chrome DevTools MCP isn't configured in the current Claude Code setup (`claude mcp add chrome-devtools --scope user npx chrome-devtools-mcp@latest` restores it, see TOOLING.md). Pass 10a was checked in real Chrome driven headlessly by a throwaway puppeteer-core script (installed in the session scratch folder, not the project) against `npm run dev`, with Metal/ANGLE: screenshots, console, `window.__cd`, frame times.
+- 2026-09-30: `tools/map/cache/` was missing on this Mac (it's gitignored); `map:build` re-downloaded everything and produced byte-identical city/buildings/backdrop files apart from the OSM timestamp.
 - Development moved from Cowork to **Claude Code running directly on Stefan's Mac** (see D010). npm, vitest, eslint and the dev server run natively in the project folder. The Cowork workarounds (a scratch copy of the project for Linux builds, checking the game through a published artifact) are no longer needed.
 - Checking the game: `npm run dev`, then Chrome DevTools MCP against `http://localhost:5173` (console, screenshots, `window.__cd`, performance traces).
 - The HUD shows runtime errors on screen (red panel) and a Renderer line, so problems show up in screenshots.
@@ -64,7 +72,7 @@
 - Git: one commit per pass, tagged `pass-NN` (see D011).
 
 ## Open questions for Stefan
-- None right now.
+- **Sim heights vs drawn roofs (D046).** Setbacks mean some roof pads are now drawn on a podium while the sim still counts the tower's full height for range: 118 of 838 pads are drawn ≥ 3 m from their sim height, 69 by ≥ 10 m (e.g. the pad at tile 8,55 is 300 m in the sim but sits on a 17 m podium beside a Comcast tower, near 18th & Arch). A few go the other way (tile 79,123: 17 m in the city height data, drawn on a 121 m OSM tower). Option: let map:build write the drawn heights into city.json, so range matches the picture. That moves pads and changes balance, so it's your call; Pass 10a keeps the sim as it was, per the plan.
 
 ## Deferred from Pass 1 (planned for Pass 6 unless noted)
 - Footprint meshes (heights are per tile for now), street widths from lanes, alleys, slots, street graph.
@@ -72,6 +80,11 @@
 - Diagonal streets (the Parkway) rasterize as stair-steps and a bit fat.
 - Camera isn't clamped to the level bounds (camera work is Pass 4–5).
 - Street labels are dense when zoomed out; no label culling or level-of-detail yet.
+
+## Deferred from Pass 10a
+- Shadows and lit night windows (IDEAS, Pass 10b). Hand-modelled landmarks beyond City Hall: the OSM parts already give Liberty Place, the Comcast towers and others real shapes; revisit if one needs more.
+- Parts hidden inside footprints they cover < 60% of, skybridges, pitched roofs over courtyards (drawn flat). See IDEAS.
+- City Hall's real details (clock faces, dormers, statue shape): the parts give the massing only.
 
 ## Deferred from Pass 9
 - Splitting and Shielded elites (DESIGN §6); only Armored, Hasted and Regenerating so far.
@@ -112,6 +125,7 @@
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+- Pass 10a: the sim/drawn height mismatch on setback pads (see Open questions). A tower's range ring is computed from the sim height.
 - Balance after Pass 9 (throwaway headless bot on the real map, no barricades, grants by preference, tier-3 upgrades): waiting out every prep → **won with 30 Integrity in 26 minutes** of game time; calling every wave early → won with 8 in 15 minutes. The curve is gentle to wave 11 and bites from 12 (the inner stations breach next to City Hall). The Brood Mother comes from Race-Vine: from 15th Street she reached City Hall almost untouched. Needs Stefan's playtest (acceptance: finish one run, lose one).
 - Fixed 2026-09-29: a sharp edge along the bottom of the camera cutaway, worst at shallow angles (Stefan). The cutaway now eases out below the sight line and near the target (D041).
 - Fixed 2026-09-29: moving the mouse dithered buildings under the pointer (Stefan). The cutaway now follows the camera only, never the mouse (D040); the centre-of-screen cutaway (D030) is unchanged.
@@ -152,3 +166,4 @@
 | 7 | 2026-09-27 | ✅ typecheck, lint, 50/50 tests (+ damage formula, table schemas, matchups: Mortar vs swarm, Railgun vs beetles). Real clicks: select a Railgun, Upgrade $200 → tier 2 (172 m), targeting dropdown, Cryo refused on a roof pad. Sawhorse → Jersey upgrade keeps damage (60/100 → 360/400). Wave 3 with beetles played in Chrome. 400 bugs (80 beetles) + 12 mixed towers at 3×: 60 fps, p95 17.6 ms, 37 draw calls | [pass-07.png](screenshots/pass-07.png) | Headless re-balance with beetles |
 | 8 | 2026-09-27 | ✅ typecheck, lint, 62/62 tests (+ per-bug matchups, width cost, spike wear, Blast Wall repair). Chrome: all seven towers placed, a mixed wave of wasps, grubs and spitters played; Jersey Barrier on Broad rerouted the route via 15th, spike strip beside it. 420 bugs of five types + 14 towers of seven types at 3×: 60 fps, p95 17.4 ms, 52 draw calls | [pass-08.png](screenshots/pass-08.png) | Headless re-balance with the new bugs |
 | 9 | 2026-09-29 | ✅ typecheck, lint, 74/74 tests (+ grant phase, interest cap, save/resume replays exactly, Brood Mother thresholds, tier-3 branch + Penetrator line). Chrome: resume prompt (paused) → Continue restored wave 10; breach telegraph and Matriarch in intel; Penetrator chosen by real click; Incendiary fire under the Matriarch; wall Repair $53; Federal Grant picked by real click; end screen ★★ with score. Wave 20 finale at 3×: 60 fps, p95 17.9 ms | [pass-09.png](screenshots/pass-09.png) | Headless re-balance of the 20-wave script |
+| 10a | 2026-09-30 | ✅ typecheck, lint, 82/82 tests (+ roof shapes: gable/hip/mansard/dome heights, gable wall breaks, facets tile a concave footprint). map:build 0.9 s from cache; city.json unchanged. Chrome (headless, Metal): no errors; towers built on setback pads stand on the drawn podium/roof; single-file preview runs. dpr 2: idle 60 fps, 286 bugs at 3× 60 fps (p95 16.8 ms), 20–24 draw calls, 560k tris; building mesh ~60 ms at load | [pass-10a.png](screenshots/pass-10a.png) | Pass 9 playtest: "It was okay" |

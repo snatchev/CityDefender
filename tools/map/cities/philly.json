@@ -40,7 +40,8 @@
     "defaultHeightM": 10,
     "minTileCoverage": 0.25,
     "osmLevelM": 3.5,
-    "maxHeightTrustRatio": 1.25
+    "maxHeightTrustRatio": 1.25,
+    "roofLevelM": 3
   },
   "backdrop": {
     "bbox": {
@@ -55,5 +56,192 @@
     "farCellM": 32,
     "minCoverage": 0.4,
     "osmMinHeightM": 30
+  },
+  "parts": {
+    "replaceCoverage": 0.6
+  },
+  "osmTagOverrides": {
+    "relation/4720912": {
+      "roof:shape": "flat",
+      "building:colour": "#e4ddcc"
+    },
+    "way/333316163": {
+      "roof:shape": "flat",
+      "building:colour": "#e4ddcc"
+    },
+    "way/335828083": {
+      "height": "155.8",
+      "roof:shape": "dome",
+      "roof:height": "12",
+      "building:colour": "#d9d2c0",
+      "roof:colour": "#8f928a"
+    },
+    "way/333316166": {
+      "height": "167",
+      "min_height": "155.8",
+      "roof:shape": "cone",
+      "roof:height": "11.2",
+      "roof:colour": "#b58d3c"
+    },
+    "way/336681405": {
+      "height": "46",
+      "roof:shape": "hipped",
+      "roof:height": "6",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/336855475": {
+      "height": "46",
+      "roof:shape": "hipped",
+      "roof:height": "6",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/333316165": {
+      "height": "46",
+      "roof:shape": "hipped",
+      "roof:height": "6",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/333316169": {
+      "height": "54",
+      "roof:shape": "mansard",
+      "roof:height": "8",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/333316168": {
+      "height": "54",
+      "roof:shape": "mansard",
+      "roof:height": "8",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/336855471": {
+      "height": "54",
+      "roof:shape": "mansard",
+      "roof:height": "8",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/335828086": {
+      "height": "60",
+      "roof:shape": "flat",
+      "building:colour": "#e4ddcc"
+    },
+    "way/335828089": {
+      "height": "60",
+      "roof:shape": "flat",
+      "building:colour": "#e4ddcc"
+    },
+    "way/335828091": {
+      "height": "60",
+      "roof:shape": "flat",
+      "building:colour": "#e4ddcc"
+    },
+    "way/333316170": {
+      "height": "60",
+      "roof:shape": "flat",
+      "building:colour": "#e4ddcc"
+    },
+    "way/335828087": {
+      "height": "72",
+      "roof:shape": "pyramidal",
+      "roof:height": "12",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/335828090": {
+      "height": "72",
+      "roof:shape": "pyramidal",
+      "roof:height": "12",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/335828092": {
+      "height": "72",
+      "roof:shape": "pyramidal",
+      "roof:height": "12",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/333316171": {
+      "height": "72",
+      "roof:shape": "pyramidal",
+      "roof:height": "12",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/336681406": {
+      "height": "40",
+      "roof:shape": "hipped",
+      "roof:height": "6",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/336855472": {
+      "height": "40",
+      "roof:shape": "hipped",
+      "roof:height": "6",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/336855474": {
+      "height": "40",
+      "roof:shape": "hipped",
+      "roof:height": "6",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/333316164": {
+      "height": "42",
+      "roof:shape": "hipped",
+      "roof:height": "7",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/335828082": {
+      "height": "50",
+      "roof:shape": "pyramidal",
+      "roof:height": "9",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/335828084": {
+      "height": "50",
+      "roof:shape": "pyramidal",
+      "roof:height": "9",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/335828085": {
+      "height": "50",
+      "roof:shape": "pyramidal",
+      "roof:height": "9",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/335828088": {
+      "height": "50",
+      "roof:shape": "pyramidal",
+      "roof:height": "9",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/336855470": {
+      "height": "42",
+      "roof:shape": "hipped",
+      "roof:height": "5",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    },
+    "way/336855473": {
+      "height": "42",
+      "roof:shape": "hipped",
+      "roof:height": "5",
+      "building:colour": "#e4ddcc",
+      "roof:colour": "#5d646b"
+    }
   }
 }

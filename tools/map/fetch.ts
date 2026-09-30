@@ -11,6 +11,7 @@ import {
   buildingsCachePath,
   CACHE_DIR,
   osmBuildingsCachePath,
+  osmPartsCachePath,
   cachePath,
   loadConfig,
   type CityConfig,
@@ -82,6 +83,21 @@ export async function fetchOsmBuildings(city: string, force = false): Promise<st
   writeFileSync(out, text);
   console.log(`[map:fetch] wrote ${out} (${(text.length / 1024).toFixed(0)} kB)`);
   return out;
+}
+
+/**
+ * OSM `building:part`s (3D shapes: setbacks and roofs) and building relations (outlines with
+ * courtyards, e.g. City Hall). A separate cache so the older downloads, and the level, stay as they were.
+ */
+export async function fetchOsmParts(city: string, force = false): Promise<string> {
+  const cfg = loadConfig(city);
+  const { south, west, north, east } = cfg.fetchBbox;
+  const bbox = `${south},${west},${north},${east}`;
+  return cached(osmPartsCachePath(city), force, `${city}: OSM building parts`, () =>
+    overpass(
+      `[out:json][timeout:120];(way["building:part"](${bbox});relation["building:part"](${bbox});relation["building"](${bbox}););out geom;`,
+    ),
+  );
 }
 
 /** ArcGIS feature services cap each response; page through with resultOffset. */
@@ -176,5 +192,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   await fetchCity(city, args.includes('--force'));
   await fetchBuildings(city, args.includes('--force'));
   await fetchOsmBuildings(city, args.includes('--force'));
+  await fetchOsmParts(city, args.includes('--force'));
   await fetchBackdrop(city, args.includes('--force'));
 }

@@ -7,11 +7,12 @@ import {
   Object3D,
   type InstancedMesh,
 } from 'three';
-import type { BuildingsFileV0, CityFileV0 } from '../sim/cityFile';
-import { buildingGeometry, laneLineGeometry } from './buildingMesh';
+import type { BuildingsFileV1, CityFileV0 } from '../sim/cityFile';
+import { laneLineGeometry, solidsGeometry } from './buildingMesh';
 import { TILE_M } from '../sim/constants';
 import { Tile, type TileMap } from '../sim/map';
-import { tileToWorld, type TileFrame } from './coords';
+import { indexToWorld, tileToWorld, type TileFrame } from './coords';
+import { withWindows } from './facades';
 import { LOT_M } from './heights';
 import { LabelLayer, type MapLabel } from './LabelLayer';
 import type { GroundHandlers } from './pointer';
@@ -21,11 +22,14 @@ const COLORS = {
   asphalt: '#3b3e44',
   /** Block ground (sidewalks, yards, lots): every non-street tile gets a thin slab of this. */
   block: '#8a857c',
-  goal: '#efe9dc',
+  /** The plaza around the landmark: a warm grey, so City Hall's marble stands out. */
+  goal: '#bdb6a6',
   station: '#f28c28',
   lane: '#e8e2cf',
 } as const;
 const GOAL_PLINTH_M = 1.5;
+/** Facades and roofs are matte; windows get their own, lower roughness (facades.ts). */
+const BUILDING_ROUGHNESS = 0.9;
 const STATION_RADIUS_M = 7;
 const STATION_HEIGHT_M = 1;
 const STATION_LABEL_ABOVE_M = 10;
@@ -42,8 +46,8 @@ interface TileBox {
 }
 
 /**
- * The city: asphalt ground, a thin slab on every block tile, real building footprints extruded to
- * their (compressed) heights as one merged mesh, dashed center lines on major streets, the goal block
+ * The city: asphalt ground, a thin slab on every block tile, the buildings as one merged mesh of
+ * solids with roofs and procedural windows (D046), dashed center lines on major streets, the goal block
  * as a white plinth, stations as orange discs, and HTML labels.
  * The ground plane carries the pointer handlers (render/pointer.ts).
  */
@@ -54,18 +58,27 @@ export function CityMap({
   frame,
   heights,
   ground,
+  pads,
 }: {
   city: CityFileV0;
-  buildingsFile: BuildingsFileV0;
+  buildingsFile: BuildingsFileV1;
   map: TileMap;
   frame: TileFrame;
   /** Display height per tile (render/heights.ts). */
   heights: Float32Array;
   ground: GroundHandlers;
+  /** Roof pad tiles: rooftop clutter keeps clear of them. */
+  pads: readonly number[];
 }) {
   const { blocks, goal } = useMemo(() => classifyTiles(map), [map]);
   const labels = useMemo(() => mapLabels(city, frame, map, heights), [city, frame, map, heights]);
-  const buildings = useMemo(() => buildingGeometry(buildingsFile, frame), [buildingsFile, frame]);
+  const buildings = useMemo(
+    () =>
+      solidsGeometry(buildingsFile.solids, buildingsFile.coordScale, frame, {
+        keepClear: pads.map((i) => indexToWorld(frame, map.width, i)),
+      }),
+    [buildingsFile, frame, pads, map.width],
+  );
   const lanes = useMemo(() => {
     const g = laneLineGeometry(buildingsFile, frame, LANE_KINDS);
     return new LineSegments(
@@ -82,7 +95,12 @@ export function CityMap({
   }, [lanes]);
   useEffect(() => () => buildings.dispose(), [buildings]);
   const buildingMaterial = useMemo(
-    () => withSeeThrough(new MeshStandardMaterial({ vertexColors: true })),
+    () =>
+      withSeeThrough(
+        withWindows(
+          new MeshStandardMaterial({ vertexColors: true, roughness: BUILDING_ROUGHNESS }),
+        ),
+      ),
     [],
   );
   useEffect(() => () => buildingMaterial.dispose(), [buildingMaterial]);

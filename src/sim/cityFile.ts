@@ -35,17 +35,60 @@ export interface CityFileV0 {
 }
 
 /**
- * `public/cities/<city>/buildings.json`, for rendering only (the sim never reads it): building
- * outlines and street centerlines in tile units × `coordScale`, as flat [u0, v0, u1, v1, …] arrays.
+ * `public/cities/<city>/buildings.json`, for rendering only (the sim never reads it): the drawn
+ * buildings as solids (outline, height, roof) and street centerlines, in tile units × `coordScale`
+ * as flat [u0, v0, u1, v1, …] arrays. v1 (Pass 10a, D046) adds roofs, setbacks from OSM
+ * `building:part`s, colours and facade hints, and the landmark as its own list.
  */
-export interface BuildingsFileV0 {
-  version: 0;
+export interface BuildingsFileV1 {
+  version: 1;
   coordScale: number;
-  /** `h` = real height (m); `rings[0]` is the outline, any further rings are courtyards. */
-  buildings: { h: number; rings: number[][] }[];
+  solids: SolidRecord[];
+  /** The goal landmark (City Hall), drawn apart so it can flash when bugs reach it. */
+  landmark: SolidRecord[];
   /** OSM `highway` class and centerline, for lane markings. */
   streets: { kind: string; pts: number[] }[];
+  /**
+   * Drawn roof height at each tile's centre in decimetres (0 off buildings), one comma-separated row
+   * per map row: towers stand here. The sim keeps city.json's `heightRows` (D046).
+   */
+  roofRows: string[];
 }
+
+/** One extruded shape with a roof: a whole footprint, or one OSM `building:part`. */
+export interface SolidRecord {
+  /** `rings[0]` is the outline, any further rings are courtyards (closed: first point repeated). */
+  rings: number[][];
+  /** Top of the walls (the eaves), m. */
+  h: number;
+  /** Bottom of the walls (m) for parts that start above the ground (OSM `min_height`). */
+  base?: number;
+  /** Roof shape (render/roofShape.ts), flat when absent, and its rise above the eaves (m). */
+  roof?: RoofShape;
+  rise?: number;
+  /** The ridge runs along the short side (OSM `roof:orientation=across`). */
+  across?: 1;
+  /** Colours from OSM, `#rrggbb`. */
+  color?: string;
+  roofColor?: string;
+  /** Facade hint from OSM tags (`building:material`, parking garages). */
+  facade?: FacadeHint;
+}
+
+export type FacadeHint = 'glass' | 'brick' | 'stone' | 'concrete' | 'parking';
+
+/** Roof shapes we draw (render/roofShape.ts maps OSM `roof:shape` values onto these). */
+export type RoofShape =
+  | 'flat'
+  | 'skillion'
+  | 'gabled'
+  | 'hipped'
+  | 'pyramidal'
+  | 'mansard'
+  | 'dome'
+  | 'onion'
+  | 'cone'
+  | 'round';
 
 /**
  * `public/cities/<city>/backdrop.json`, render only (D027): the city beyond the playable level as

@@ -79,9 +79,15 @@ function smoothstep(a: number, b: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/** Patch a built-in lit material (standard/basic) so it takes part in the cutaway. Returns it. */
+/**
+ * Patch a built-in lit material (standard/basic) so it takes part in the cutaway. Chains any earlier
+ * patch (e.g. windows). Returns it.
+ */
 export function withSeeThrough<M extends Material>(material: M): M {
-  material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+  const prev = material.onBeforeCompile.bind(material);
+  const prevKey = material.customProgramCacheKey.bind(material);
+  material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer) => {
+    prev(shader, renderer);
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vSeeWorld;\nvoid main() {')
@@ -133,6 +139,6 @@ export function withSeeThrough<M extends Material>(material: M): M {
         }`,
       );
   };
-  material.customProgramCacheKey = () => 'see-through-v5';
+  material.customProgramCacheKey = () => `${prevKey()}|see-through-v5`;
   return material;
 }

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { BuildingsFileV0 } from '../../src/sim/cityFile';
+import type { BuildingsFileV1, SolidRecord } from '../../src/sim/cityFile';
 import {
   buildingsCachePath,
   footprintHeightM,
@@ -9,6 +9,7 @@ import {
   type OverpassResponse,
 } from './config';
 import type { Level } from './level';
+import type { Solid } from './parts';
 import { rasterizeHeights, T_BUILDING, T_GOAL, type Footprint, type Grid, type UV } from './raster';
 
 export interface Footprints {
@@ -42,7 +43,7 @@ export function loadFootprints(city: string, cfg: CityConfig, level: Level): Foo
       parseFloat(t.height ?? '') ||
       (parseFloat(t['building:levels'] ?? '') || 0) * b.osmLevelM ||
       b.defaultHeightM;
-    osmFps.push({ heightM, rings: [e.geometry.map((p) => toTile([p.lon, p.lat]))] });
+    osmFps.push({ heightM, rings: [e.geometry.map((p) => toTile([p.lon, p.lat]))], tags: t });
   }
   return { city: cityFps, osm: osmFps };
 }
@@ -99,17 +100,15 @@ const SIMPLIFY_M = 0.5;
 const COORD_SCALE = 100;
 
 /**
- * Building outlines for rendering (public/cities/<city>/buildings.json): city footprints plus OSM
- * outlines that fill gaps in the city data, simplified, without tiny ones, the goal block or anything
- * outside the level. Also the street centerlines, for lane lines.
+ * The footprints to draw: city footprints plus OSM outlines that fill gaps in the city data, without
+ * tiny ones, the goal block or anything outside the level.
  */
-export function buildingsFile(
+export function drawnFootprints(
   level: Level,
   fps: Footprints,
   grid: Grid,
   cfg: CityConfig,
-): BuildingsFileV0 {
-  const tolTiles = SIMPLIFY_M / cfg.tileM;
+): Footprint[] {
   const minAreaTiles = MIN_AREA_M2 / (cfg.tileM * cfg.tileM);
   const cityCov = rasterizeHeights(level.width, level.height, fps.city, 0).coverage;
   const keep = (fp: Footprint, isOsm: boolean) => {
@@ -122,30 +121,69 @@ export function buildingsFile(
     // OSM outlines only where the city data has nothing (the same rule the heights use).
     return !isOsm || cityCov[ty * level.width + tx]! < cfg.buildings.minTileCoverage;
   };
-  const out: BuildingsFileV0['buildings'] = [];
-  for (const [list, isOsm] of [
-    [fps.city, false],
-    [fps.osm, true],
-  ] as const) {
-    for (const fp of list) {
-      if (!keep(fp, isOsm)) continue;
-      const rings = fp.rings
-        .map((r) => simplify(r, tolTiles))
-        .filter((r) => r.length >= 3)
-        .map((r) =>
-          r.flatMap((p) => [Math.round(p.u * COORD_SCALE), Math.round(p.v * COORD_SCALE)]),
-        );
-      if (rings.length > 0) out.push({ h: Math.round(fp.heightM), rings });
-    }
-  }
+  return [...fps.city.filter((fp) => keep(fp, false)), ...fps.osm.filter((fp) => keep(fp, true))];
+}
+
+/** Outlines simplified for drawing (and for sampling roof heights, so both use the same shapes). */
+export function simplifySolids(solids: Solid[], cfg: CityConfig): Solid[] {
+  const tol = SIMPLIFY_M / cfg.tileM;
+  return solids
+    .map((s) => ({
+      ...s,
+      rings: s.rings.map((r) => simplify(r, tol)).filter((r) => r.length >= 4),
+    }))
+    .filter((s) => s.rings.length > 0 && s.eaveM + s.riseM > 0);
+}
+
+/**
+ * public/cities/<city>/buildings.json: the drawn solids, the landmark, street centerlines, and the
+ * drawn roof height at every tile centre (`surface`, m).
+ */
+export function buildingsFile(
+  level: Level,
+  grid: Grid,
+  solids: readonly Solid[],
+  landmark: readonly Solid[],
+  surface: Float32Array,
+  cfg: CityConfig,
+): BuildingsFileV1 {
+  const tolTiles = SIMPLIFY_M / cfg.tileM;
   const streets = level.ways
     .map((w, i) => ({ w, line: simplify(level.uvLines[i]!, tolTiles) }))
     .filter(({ line }) => line.some((p) => grid.inBounds(Math.floor(p.u), Math.floor(p.v))))
-    .map(({ w, line }) => ({
-      kind: w.tags.highway!,
-      pts: line.flatMap((p) => [Math.round(p.u * COORD_SCALE), Math.round(p.v * COORD_SCALE)]),
-    }));
-  return { version: 0, coordScale: COORD_SCALE, buildings: out, streets };
+    .map(({ w, line }) => ({ kind: w.tags.highway!, pts: encode(line) }));
+  return {
+    version: 1,
+    coordScale: COORD_SCALE,
+    solids: solids.map(solidRecord),
+    landmark: landmark.map(solidRecord),
+    streets,
+    roofRows: Array.from({ length: grid.height }, (_, ty) =>
+      Array.from(surface.subarray(ty * grid.width, (ty + 1) * grid.width), (m) =>
+        Math.round(m * 10),
+      ).join(','),
+    ),
+  };
+}
+
+const round1 = (m: number) => Math.round(m * 10) / 10;
+
+function encode(pts: readonly UV[]): number[] {
+  return pts.flatMap((p) => [Math.round(p.u * COORD_SCALE), Math.round(p.v * COORD_SCALE)]);
+}
+
+function solidRecord(s: Solid): SolidRecord {
+  const r: SolidRecord = { rings: s.rings.map(encode), h: round1(s.eaveM) };
+  if (s.baseM > 0) r.base = round1(s.baseM);
+  if (s.roof !== 'flat') {
+    r.roof = s.roof;
+    r.rise = round1(s.riseM);
+    if (s.across) r.across = 1;
+  }
+  if (s.color) r.color = s.color;
+  if (s.roofColor) r.roofColor = s.roofColor;
+  if (s.facade) r.facade = s.facade;
+  return r;
 }
 
 function ringArea(r: readonly UV[]): number {

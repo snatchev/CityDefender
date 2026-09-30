@@ -38,6 +38,8 @@ export interface CityConfig {
     defaultHeightM: number;
     /** Storey height used to turn OSM `building:levels` into metres. */
     osmLevelM: number;
+    /** Storey height of OSM `roof:levels` (attic storeys inside the roof). */
+    roofLevelM: number;
     /** Fraction of a tile a footprint must cover before the tile counts as built (else it's an open lot). */
     minTileCoverage: number;
   };
@@ -59,6 +61,16 @@ export interface CityConfig {
   };
   /** Max search distance when snapping a station to the nearest street tile. */
   stationSnapMaxTiles: number;
+  /** OSM `building:part`s: real 3D shapes (setbacks, roofs) drawn instead of plain footprints (D046). */
+  parts: {
+    /** A footprint at least this share covered by parts is drawn as its parts instead. */
+    replaceCoverage: number;
+  };
+  /**
+   * Hand-set OSM tags merged over the downloaded ones, keyed `way/<id>` or `relation/<id>`: fills in
+   * heights and roofs the map data lacks, mainly for the landmark (render only).
+   */
+  osmTagOverrides: Record<string, Record<string, string>>;
 }
 
 /** A city footprint's height in metres (D029): approx height, or max height when it's plausible. */
@@ -97,6 +109,11 @@ export function backdropOsmCachePath(city: string): string {
   return join(CACHE_DIR, `${city}-backdrop-osm-tall.json`);
 }
 
+/** OSM building parts, plus building relations (outlines with courtyards, e.g. City Hall). */
+export function osmPartsCachePath(city: string): string {
+  return join(CACHE_DIR, `${city}-osm-parts.json`);
+}
+
 export function osmBuildingsCachePath(city: string): string {
   return join(CACHE_DIR, `${city}-osm-buildings.json`);
 }
@@ -126,5 +143,12 @@ export interface OverpassElement {
   lon?: number;
   center?: { lat: number; lon: number };
   geometry?: { lat: number; lon: number }[];
+  /** Relations (`out geom`): member ways with their geometry. */
+  members?: {
+    type: string;
+    ref: number;
+    role: string;
+    geometry?: { lat: number; lon: number }[];
+  }[];
   tags?: Record<string, string>;
 }

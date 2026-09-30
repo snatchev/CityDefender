@@ -1,4 +1,4 @@
-import type { BackdropFileV0, BuildingsFileV0, CityFileV0 } from './sim/cityFile';
+import type { BackdropFileV0, BuildingsFileV1, CityFileV0 } from './sim/cityFile';
 
 declare global {
   interface Window {
@@ -8,7 +8,11 @@ declare global {
 }
 
 /** Fetch a generated city file, from the inlined copy in the single-file preview or over HTTP. */
-async function loadCityAsset(name: string, file: string): Promise<{ version: number }> {
+async function loadCityAsset(
+  name: string,
+  file: string,
+  version: number,
+): Promise<{ version: number }> {
   const path = `cities/${name}/${file}`;
   let data = window.__CD_INLINE__?.[path];
   if (data === undefined) {
@@ -21,21 +25,22 @@ async function loadCityAsset(name: string, file: string): Promise<{ version: num
     data = await res.json();
   }
   const asset = data as { version: number };
-  if (asset.version !== 0) throw new Error(`${path}: unsupported version ${String(asset.version)}`);
+  if (asset.version !== version)
+    throw new Error(`${path}: unsupported version ${String(asset.version)}`);
   return asset;
 }
 
 /** `public/cities/<name>/city.json` (tiles, stations, labels: what the sim needs). */
 export async function loadCityFile(name: string): Promise<CityFileV0> {
-  return (await loadCityAsset(name, 'city.json')) as CityFileV0;
+  return (await loadCityAsset(name, 'city.json', 0)) as CityFileV0;
 }
 
 /** `public/cities/<name>/backdrop.json` (the city beyond the level: render only). */
 export async function loadBackdropFile(name: string): Promise<BackdropFileV0> {
-  return (await loadCityAsset(name, 'backdrop.json')) as BackdropFileV0;
+  return (await loadCityAsset(name, 'backdrop.json', 0)) as BackdropFileV0;
 }
 
 /** `public/cities/<name>/buildings.json` (outlines and centerlines: render only). */
-export async function loadBuildingsFile(name: string): Promise<BuildingsFileV0> {
-  return (await loadCityAsset(name, 'buildings.json')) as BuildingsFileV0;
+export async function loadBuildingsFile(name: string): Promise<BuildingsFileV1> {
+  return (await loadCityAsset(name, 'buildings.json', 1)) as BuildingsFileV1;
 }

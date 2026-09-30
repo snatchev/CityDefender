@@ -12,11 +12,24 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { BackdropFileV0, BuildingsFileV0, CityFileV0 } from '../../src/sim/cityFile';
+import type { BackdropFileV0, BuildingsFileV1, CityFileV0 } from '../../src/sim/cityFile';
 import { bakeBackdrop } from './backdrop';
 import { cachePath, loadConfig, type OverpassResponse } from './config';
-import { fetchBackdrop, fetchBuildings, fetchCity, fetchOsmBuildings } from './fetch';
-import { buildingsFile, heightRows, loadFootprints, rasterizeBuildings } from './footprints';
+import {
+  fetchBackdrop,
+  fetchBuildings,
+  fetchCity,
+  fetchOsmBuildings,
+  fetchOsmParts,
+} from './fetch';
+import {
+  buildingsFile,
+  drawnFootprints,
+  heightRows,
+  loadFootprints,
+  rasterizeBuildings,
+  simplifySolids,
+} from './footprints';
 import { streetLabels } from './labels';
 import { buildLevel } from './level';
 import {
@@ -26,6 +39,7 @@ import {
   paintStreetBetweenBuildings,
   T_STREET,
 } from './raster';
+import { loadOsmParts, resolveSolids, surfaceHeights } from './parts';
 import { stationSpawns } from './stations';
 
 /** A landmark block larger than this means the ring road around it didn't rasterize closed. */
@@ -33,7 +47,7 @@ const MAX_GOAL_TILES = 40 * 40;
 
 export interface BuildResult {
   city: CityFileV0;
-  buildings: BuildingsFileV0;
+  buildings: BuildingsFileV1;
   backdrop: BackdropFileV0;
 }
 
@@ -42,6 +56,7 @@ export async function buildCity(city: string): Promise<BuildResult> {
   await fetchCity(city);
   await fetchBuildings(city);
   await fetchOsmBuildings(city);
+  await fetchOsmParts(city);
   await fetchBackdrop(city);
   const osm = JSON.parse(readFileSync(cachePath(city), 'utf8')) as OverpassResponse;
 
@@ -68,8 +83,19 @@ export async function buildCity(city: string): Promise<BuildResult> {
 
   const spawns = stationSpawns(osm, level, grid, cfg);
   const labels = streetLabels(level, grid);
+  // Drawn shapes (D046): footprints, or their OSM building parts; the landmark from its OSM parts.
+  const resolved = resolveSolids(
+    drawnFootprints(level, fps, grid, cfg),
+    loadOsmParts(city, cfg, level),
+    grid,
+    cfg,
+  );
+  const solids = simplifySolids(resolved.solids, cfg);
+  const landmark = simplifySolids(resolved.landmark, cfg);
+  // The sim keeps the raster heights; towers are drawn on the roofs as drawn (render only).
+  const surface = surfaceHeights(grid, solids, raster.heights, cfg.tileM);
   const heights = heightRows(grid, raster.heights);
-  const buildings = buildingsFile(level, fps, grid, cfg);
+  const buildings = buildingsFile(level, grid, solids, landmark, surface, cfg);
   const backdrop = bakeBackdrop(city, cfg, level);
 
   const streetTiles = grid.cells.filter((c) => c === T_STREET).length;
@@ -79,7 +105,8 @@ export async function buildCity(city: string): Promise<BuildResult> {
       `${((100 * streetTiles) / grid.cells.length).toFixed(0)}% street (${diagonalFixes} diagonal fixes), ` +
       `goal ${goalTiles} tiles, ${spawns.length} spawns, ${labels.length} labels, ` +
       `${fps.city.length} city + ${fps.osm.length} OSM footprints → ${heights.built} built tiles ` +
-      `(${raster.fromOsm} from OSM, tallest ${heights.tallestM} m), ${buildings.buildings.length} drawn outlines`,
+      `(${raster.fromOsm} from OSM, tallest ${heights.tallestM} m), ${buildings.solids.length} drawn solids ` +
+      `(${resolved.parts} OSM parts replace ${resolved.replaced} footprints), landmark ${landmark.length} solids`,
   );
   for (const s of spawns)
     console.log(`  spawn ${s.name.padEnd(22)} (${s.tx}, ${s.ty})  ${s.goalDistM} m`);

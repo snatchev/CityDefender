@@ -113,6 +113,8 @@ export function nearestStreet(
 export interface Footprint {
   rings: UV[][];
   heightM: number;
+  /** OSM tags, for OSM outlines (roof shape, colour). */
+  tags?: Record<string, string>;
 }
 
 /** Even-odd point-in-polygon over all rings, so holes work without caring about winding. */

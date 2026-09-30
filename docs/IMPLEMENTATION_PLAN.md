@@ -150,7 +150,7 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 
 ## Milestone D: Juice & replayability (Passes 10–11+)
 
-### Pass 10: Presentation · timebox 3+ days (can be split)
+### Pass 10: Presentation · timebox 3+ days (split: 10a buildings ✅ 2026-09-30, see D046; 10b models, VFX, postprocessing; 10c audio + performance)
 - Low‑poly glTF models for mobs and towers (animated walk, idle, attack). City Hall and hero landmark models.
 - VFX: muzzle flashes, splash rings, frost, lightning, acid, bug splat decals that fade.
 - Audio: bus/mixer, weapon sounds, siren on breach, radio chatter lines with Philly flavor.

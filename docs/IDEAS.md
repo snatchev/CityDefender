@@ -96,3 +96,11 @@
 - 🏙️ Fill each map with **popular, beloved and locally hated landmarks and signs**, so locals recognise their city.
 - **Philadelphia first** (Stefan, 2026-09-27), built so other cities plug in: generic mechanics in `src/sim/`, per-city content in data keyed by city (like `waves.json`).
 - Research first, build later: candidate events, characters and landmarks for Boston, NYC, Philadelphia, San Francisco and Portland (Oregon) are in [research/city-flavor.md](research/city-flavor.md).
+
+## From Pass 10a (2026-09-30)
+- ✨ **Shadows** from the sun: the new setbacks and roofs would read much better with a shadow map over the level (one 4096 map ≈ 0.4 m/texel). → Pass 10b (lighting/postprocessing)
+- ✨ **Lit windows at night**: the window shader already knows every window cell; a per-cell hash could light some of them for the day/night cycle. → Pass 10b
+- 🗺️ **Parts hidden inside footprints**: parts under a footprint they cover less than 60% of are drawn but hidden (e.g. a dome near Broad & Chestnut). Could clip the footprint instead. Low priority.
+- 🗺️ **Skybridges and canopies**: parts over streets (`min_height` above the street) are dropped today.
+- 🗺️ **Straight-skeleton roofs** for pitched roofs over courtyards (drawn flat now).
+

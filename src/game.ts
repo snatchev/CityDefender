@@ -5,7 +5,7 @@ import { loadBackdropFile, loadBuildingsFile, loadCityFile } from './loadCity';
 import {
   cityToTileMap,
   type BackdropFileV0,
-  type BuildingsFileV0,
+  type BuildingsFileV1,
   type CityFileV0,
 } from './sim/cityFile';
 import type { EliteType, MobType } from './sim/mobs';
@@ -24,7 +24,7 @@ export interface Game {
   /** The loaded city file (labels, station names, meta). Its tiles live in `world.map`. */
   city: CityFileV0 | null;
   /** Building outlines and street centerlines for drawing (never read by the sim). */
-  buildings: BuildingsFileV0 | null;
+  buildings: BuildingsFileV1 | null;
   /** The decorative city beyond the level (never read by the sim). */
   backdrop: BackdropFileV0 | null;
 }

@@ -54,7 +54,10 @@ export function Scene() {
   const showFps = useHud((s) => s.showFps);
   const map = game.world.map;
   const frame = useMemo(() => (map ? tileFrame(map) : null), [map]);
-  const heights = useMemo(() => (city && map ? displayHeights(map) : null), [city, map]);
+  const heights = useMemo(
+    () => (city && map && buildingsFile ? displayHeights(map, buildingsFile) : null),
+    [city, map, buildingsFile],
+  );
   const ground = useMemo(
     () => (frame && map && heights ? groundHandlers(frame, map, heights) : null),
     [frame, map, heights],
@@ -94,6 +97,12 @@ export function Scene() {
             frame={frame}
             heights={heights}
             ground={ground}
+            pads={slots?.pads ?? []}
+          />
+          <CityHall
+            solids={buildingsFile.landmark}
+            coordScale={buildingsFile.coordScale}
+            frame={frame}
           />
           {slots && <SlotMarkers slots={slots} frame={frame} width={map.width} heights={heights} />}
           {slots && debugMap && <MapDebug slots={slots} frame={frame} width={map.width} />}
@@ -108,8 +117,6 @@ export function Scene() {
           <CameraBridge frame={frame} heights={heights} width={map.width} />
         </>
       )}
-
-      <CityHall />
 
       <MapControls
         makeDefault
