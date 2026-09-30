@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-09-30
 **Current pass:** Pass 10a (Buildings and City Hall): **done**, tagged `pass-10a`. Pass 9 playtested by Stefan (2026-09-30): "It was okay", no balance changes asked for.
-**Next up:** Pass 10b (bug and tower models, VFX, postprocessing, day/night), then 10c (audio, performance pass). One open question below (sim heights vs drawn roofs).
+**Next up:** Pass 10b (bug and tower models, VFX, postprocessing, day/night), then 10c (audio, performance pass). 
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
@@ -73,7 +73,7 @@
 - Git: one commit per pass, tagged `pass-NN` (see D011).
 
 ## Open questions for Stefan
-- **Sim heights vs drawn roofs (D046).** Setbacks mean some roof pads are now drawn on a podium while the sim still counts the tower's full height for range: 118 of 838 pads are drawn ≥ 3 m from their sim height, 69 by ≥ 10 m (e.g. the pad at tile 8,55 is 300 m in the sim but sits on a 17 m podium beside a Comcast tower, near 18th & Arch). A few go the other way (tile 79,123: 17 m in the city height data, drawn on a 121 m OSM tower). Option: let map:build write the drawn heights into city.json, so range matches the picture. That moves pads and changes balance, so it's your call; Pass 10a keeps the sim as it was, per the plan.
+- None right now. (Sim heights vs drawn roofs is parked for the end of the project: IMPLEMENTATION_PLAN, "Final polish & playtest".)
 
 ## Deferred from Pass 1 (planned for Pass 6 unless noted)
 - Footprint meshes (heights are per tile for now), street widths from lanes, alleys, slots, street graph.
@@ -127,7 +127,7 @@
 
 ## Known issues / tech debt
 - Fixed 2026-09-30: flickering windows and rooftops (Stefan). Overlapping shapes drew two roofs and two facades in the same plane (z-fighting), and parapets shared a plane with neighbours' walls. map:build now cuts covered areas out of lower shapes and parapets have thickness (D048).
-- Pass 10a: the sim/drawn height mismatch on setback pads (see Open questions). A tower's range ring is computed from the sim height.
+- Pass 10a: the sim/drawn height mismatch on setback pads; a tower's range uses the sim height. Parked for final polish (IMPLEMENTATION_PLAN, "Final polish & playtest").
 - Balance after Pass 9 (throwaway headless bot on the real map, no barricades, grants by preference, tier-3 upgrades): waiting out every prep → **won with 30 Integrity in 26 minutes** of game time; calling every wave early → won with 8 in 15 minutes. The curve is gentle to wave 11 and bites from 12 (the inner stations breach next to City Hall). The Brood Mother comes from Race-Vine: from 15th Street she reached City Hall almost untouched. Needs Stefan's playtest (acceptance: finish one run, lose one).
 - Fixed 2026-09-29: a sharp edge along the bottom of the camera cutaway, worst at shallow angles (Stefan). The cutaway now eases out below the sight line and near the target (D041).
 - Fixed 2026-09-29: moving the mouse dithered buildings under the pointer (Stefan). The cutaway now follows the camera only, never the mouse (D040); the centre-of-screen cutaway (D030) is unchanged.

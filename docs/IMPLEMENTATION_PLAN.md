@@ -164,6 +164,10 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 - Daily seed. Achievements. Local best scores.
 - Generalize `map:build` to a `cities/<name>.config.json` (bbox, goal, landmark list) and try a second city.
 
+### Final polish & playtest (end of project)
+Collected here to settle with a full playtest once the content is in (Stefan, 2026-09-30).
+- **Sim heights vs drawn roofs (D046).** 118 of 838 roof pads are drawn ≥ 3 m from their sim height (69 by ≥ 10 m), mostly towers on podiums whose range still uses the tower's full height (e.g. tile 8,55: 300 m in the sim, drawn on a 17 m podium near 18th & Arch); a few go the other way (tile 79,123: 17 m in the city data, drawn on a 121 m OSM tower). Option: map:build writes the drawn heights (`roofRows`) into city.json so range matches the picture. Moves pads and shifts balance, so decide together with the final balance pass.
+
 ### Beyond: see [IDEAS.md](IDEAS.md)
 Destruction (voxelize on damage), active abilities, more cities, endless mode, campaign map.
 City flavor: per-city special events, power-ups, debuffs and landmarks (research in [research/city-flavor.md](research/city-flavor.md)).
