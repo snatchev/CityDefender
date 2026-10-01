@@ -429,9 +429,9 @@
 
 /* ---- Selected tower (bottom left, above the gear) ---- */
 .tower-card {
-  /* Above the build bar (it spans most of the bottom edge) and the gear. */
+  /* Above the build bar, on the right: the left column is status and threats (D054). */
   bottom: 124px;
-  left: var(--hud-gap);
+  right: var(--hud-gap);
   width: 220px;
 }
 

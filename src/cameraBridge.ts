@@ -19,6 +19,10 @@ export const cameraBridge = {
   flyTo: null as
     | ((target: [number, number, number], view: Required<CameraView>, seconds: number) => void)
     | null,
+  /** A glide (`flyTo`) is moving the camera this frame; the rail waits. */
+  flying: false,
+  /** A cutscene owns the camera (render/Director.tsx); the rail and player input wait. */
+  cinematic: false,
   view: {
     /** Tile under the orbit target. */
     tx: 0,

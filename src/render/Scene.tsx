@@ -1,4 +1,4 @@
-import { MapControls, Stats } from '@react-three/drei';
+import { OrbitControls, Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { MOUSE } from 'three';
 import { useMemo } from 'react';
@@ -11,18 +11,19 @@ import { Barricades } from './Barricades';
 import { CityHall } from './CityHall';
 import { CityMap } from './CityMap';
 import { tileFrame } from './coords';
-import { CameraBounds } from './CameraBounds';
+import { Director } from './Director';
+import { RailCamera } from './RailCamera';
+import { StationBursts } from './StationBursts';
+import { ThreatTracker } from './ThreatTracker';
 import { CameraBridge } from './CameraBridge';
 import { Effects } from './Effects';
 import { displayHeights, TACTICAL_HEIGHT_SCALE } from './heights';
 import { HpBars } from './HpBars';
-import { KeyboardCamera } from './KeyboardCamera';
 import { HEMI_GROUND, HEMI_INTENSITY, HEMI_SKY, SUN_INTENSITY, SUN_POSITION } from './lighting';
 import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { RouteFocus } from './RouteFocus';
-import { GrabPan } from './GrabPan';
 import { groundHandlers } from './pointer';
 import { SeeThroughDriver } from './SeeThroughDriver';
 import { Shots } from './Shots';
@@ -47,8 +48,6 @@ const SKY_ZENITH = '#5b8fcc';
 const CAMERA_NEAR_M = 4;
 const CAMERA_FAR_M = 16000;
 const MAX_ZOOM_OUT_M = 3000;
-/** OrbitControls ignores a mouse button mapped to -1 (three has no named constant for it). */
-const NO_BUTTON = -1 as MOUSE;
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
@@ -99,8 +98,8 @@ export function Scene() {
 
       {city && buildingsFile && map && frame && heights && ground && (
         <>
-          {/* First in the frame after the controls, so everything below sees the clamped view. */}
-          <CameraBounds frame={frame} width={map.width} height={map.height} />
+          {/* First in the frame after the controls, so everything below sees where the rail put the camera. */}
+          <RailCamera frame={frame} width={map.width} />
           <CityMap
             city={city}
             buildingsFile={buildingsFile}
@@ -128,25 +127,26 @@ export function Scene() {
           <Effects frame={frame} />
           <PlanOverlay frame={frame} heights={heights} />
           <RouteFocus frame={frame} width={map.width} />
+          <ThreatTracker />
+          <StationBursts frame={frame} />
+          <Director frame={frame} width={map.width} />
           <TacticalView />
           <SeeThroughDriver />
-          <CameraBridge frame={frame} heights={heights} width={map.width} />
+          <CameraBridge frame={frame} />
         </>
       )}
 
-      <MapControls
+      <OrbitControls
         makeDefault
         target={[120, 0, 60]}
         enableDamping
+        // Nothing pans: the rail camera (RailCamera) moves the orbit point along the active track.
+        enablePan={false}
         minDistance={80}
         maxDistance={MAX_ZOOM_OUT_M}
         maxPolarAngle={Math.PI * 0.42}
-        // Left drag is grab panning (GrabPan; with Ctrl/Cmd/Shift it's MapControls' rotate); the
-        // wheel zooms, right drag rotates.
-        mouseButtons={{ LEFT: NO_BUTTON, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
+        mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
       />
-      <GrabPan />
-      <KeyboardCamera />
       <SimDriver />
       {showFps && <Stats className="fps-meter" />}
     </Canvas>

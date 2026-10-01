@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
 import rulesData from '../data/rules.json';
 import { callWave, game } from '../game';
-import { ELITES, MOBS } from '../sim/mobs';
 import { TOWERS } from '../sim/towers';
 import { TARGETING_MODES, type TargetingMode } from '../data/schema';
 import {
-  clearRouteFocus,
-  focusRoute,
   repairSelectedWall,
   restartRun,
   selectTool,
@@ -26,6 +23,9 @@ import { GearIcon } from './icons';
 import { Minimap } from './Minimap';
 import { usePlan } from './planStore';
 import { SpeedButton, TacticalButton } from './SpeedButton';
+import { ThreatBoard } from './ThreatBoard';
+import { CinemaOverlay } from './CinemaOverlay';
+import './cinema.css';
 import { useHud } from './store';
 
 /** Integrity below this shows in red (DESIGN §3.2 lives). */
@@ -43,7 +43,10 @@ export function Hud() {
   const map = cityName ? game.world.map : null;
   return (
     <>
-      <StatusPanel />
+      <div className="hud-left">
+        <StatusPanel />
+        <ThreatBoard />
+      </div>
       <div className="hud-top-right">
         {map && <Minimap map={map} />}
         <div className="hud-button-row">
@@ -58,12 +61,13 @@ export function Hud() {
       <ResumePrompt />
       <Toasts />
       <DebugMenu />
+      <CinemaOverlay />
     </>
   );
 }
 
 /**
- * Esc puts the build tool down, then closes the tower card and lets go of a focused route.
+ * Esc puts the build tool down, then closes the tower card.
  * T toggles the tactical view, M the map debug view.
  */
 function useHotkeys() {
@@ -75,7 +79,6 @@ function useHotkeys() {
         else {
           selectTower(null);
           selectWall(null);
-          clearRouteFocus();
         }
       }
       if (e.code === 'KeyM') usePlan.setState((p) => ({ debugMap: !p.debugMap }));
@@ -124,7 +127,6 @@ function StatusPanel() {
           Start wave{s.phaseSeconds > 0 ? ` +$${s.phaseSeconds}` : ''}
         </button>
       )}
-      <WaveIntel />
 
       <div className="status-metrics">
         <Metric label="Bugs" value={s.mobs} />
@@ -161,42 +163,6 @@ function PhaseChip({ phase, secs }: { phase: string; secs: number }) {
                 ? 'Fallen'
                 : '…';
   return <span className={`phase-chip ${phase}`}>{text}</span>;
-}
-
-/** Where this wave's bugs come from and how many, and which station breaches next wave. */
-function WaveIntel() {
-  const intel = useHud((s) => s.waveIntel);
-  const phase = useHud((s) => s.phase);
-  const breaches = useHud((s) => s.breaches);
-  const stations = useHud((s) => s.city?.stations);
-  const focused = usePlan((p) => p.focus?.station);
-  if ((phase !== 'prep' && phase !== 'assault') || intel.length === 0 || !stations) return null;
-  return (
-    <ul className="wave-intel" aria-label="Wave intel">
-      {breaches.map((b) => (
-        <li key={`breach-${b}`} className="breach">
-          Tremors under {stations[b]}
-        </li>
-      ))}
-      {intel.map((g, i) => (
-        <li key={i}>
-          <button
-            type="button"
-            className={`station-chip${g.spawnIndex === focused ? ' focused' : ''}`}
-            title="Show this route"
-            onClick={() => focusRoute(g.spawnIndex)}
-          >
-            {stations[g.spawnIndex]}
-          </button>
-          <span className={`intel-mob ${g.type}${MOBS[g.type].boss ? ' boss' : ''}`}>
-            {g.elite ? `${ELITES[g.elite].name} ` : ''}
-            {g.count}× {MOBS[g.type].name}
-            {g.hpMul !== 1 ? ` · HP ×${g.hpMul}` : ''}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 function SelectedTowerCard() {

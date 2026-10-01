@@ -7,6 +7,7 @@ import { TICK_DT } from '../sim/constants';
 import { solidsGeometry } from './buildingMesh';
 import type { TileFrame } from './coords';
 import { withWindows } from './facades';
+import { withSeeThrough } from './seeThrough';
 
 /** How long City Hall glows red after a bug reaches it. */
 const FLASH_S = 0.6;
@@ -38,12 +39,16 @@ export function CityHall({
   );
   const material = useMemo(
     () =>
-      withWindows(
-        new MeshStandardMaterial({
-          vertexColors: true,
-          roughness: ROUGHNESS,
-          emissive: FLASH_COLOR,
-        }),
+      // See-through too: the camera rides routes that end at City Hall, so its tower is often in
+      // the way (D054). A small mesh, so plain `discard` costs nothing measurable here.
+      withSeeThrough(
+        withWindows(
+          new MeshStandardMaterial({
+            vertexColors: true,
+            roughness: ROUGHNESS,
+            emissive: FLASH_COLOR,
+          }),
+        ),
       ),
     [],
   );

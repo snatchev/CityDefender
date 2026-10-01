@@ -32,7 +32,7 @@ import {
   upgradeTower,
   type TowerType,
 } from './sim/towers';
-import { usePlan, type BuildTool, type Route } from './ui/planStore';
+import { usePlan, type BuildTool, type Route, type TrackAt } from './ui/planStore';
 import { useHud } from './ui/store';
 
 /**
@@ -210,11 +210,8 @@ export function refreshPlanning(force = false): void {
   const key = `${w.fieldVersion}/${w.wave}/${w.phase}`;
   if (!force && key === routesKey) return;
   routesKey = key;
-  const routes = routesFrom(w.field, w.extraCost);
-  const focus = usePlan.getState().focus;
-  // A focused route stays live (walls reroute it) until its station stops sending bugs.
-  const keepFocus = focus && routes.some((r) => r.station === focus.station);
-  usePlan.setState({ routes, focus: keepFocus ? focus : null });
+  // The camera's track stays put when its station goes quiet (the rail keeps the old line).
+  usePlan.setState({ routes: routesFrom(w.field, w.extraCost) });
   refreshGhost();
 }
 
@@ -269,12 +266,12 @@ export function buildAt(
   const i = ty * w.map.width + tx;
   if (!tool) {
     // No tool: a click selects the tower (or failing that the wall) on this tile, and failing
-    // both, focuses the route through it (or clears the focus off a route).
+    // both, a click on a route moves the camera onto that track, at the clicked spot.
     selectTower(w.towerAt[i] ? w.towerAt[i]! : null);
     selectWall(!w.towerAt[i] && w.barricadeAt[i] ? w.barricadeAt[i]! : null);
     if (!w.towerAt[i] && !w.barricadeAt[i]) {
-      if (routeStation !== undefined) focusRoute(routeStation);
-      else focusRouteAt(tx, ty);
+      if (routeStation === undefined) focusRouteAt(tx, ty);
+      else if (routeStation !== null) focusRoute(routeStation, { kind: 'tile', tx, ty });
     }
     return null;
   }
@@ -320,9 +317,9 @@ export function clickMap(
 const ROUTE_CLICK_TILES = 1;
 
 /**
- * Focus the route through (or next to) a tile: the camera frames it and buildings in front of it
- * fade (render/RouteFocus.tsx, D049). A tile on no route clears the focus. Where routes overlap, the
- * focused one keeps priority, then the one listed first. Returns the station, or null.
+ * Put the camera on the track through (or next to) a tile, at that tile (D049, D054). A tile on no
+ * route does nothing. Where routes overlap, the current track keeps priority, then the one listed
+ * first. Returns the station, or null.
  */
 export function focusRouteAt(tx: number, ty: number): number | null {
   const map = game.world.map;
@@ -336,22 +333,23 @@ export function focusRouteAt(tx: number, ty: number): number | null {
     });
   const hits = routes.filter(near);
   const hit = hits.find((r) => r.station === focus?.station) ?? hits[0];
-  return focusRoute(hit?.station ?? null);
+  return hit ? focusRoute(hit.station, { kind: 'tile', tx, ty }) : null;
 }
 
 /**
- * Focus a station's route (the camera frames it again even if it's already focused), or clear the
- * focus with null or a station that sends no bugs this wave. Returns the focused station.
+ * Put the camera on a station's track (render/RailCamera.tsx, D054), at `at`, gliding there unless
+ * `fly` is false. Asking again for the same track moves the camera again. Returns the station, or
+ * null if that station has no route this wave.
  */
-export function focusRoute(station: number | null): number | null {
+export function focusRoute(
+  station: number,
+  at: TrackAt = { kind: 'start' },
+  fly = true,
+): number | null {
   const { routes, focus } = usePlan.getState();
-  const ok = station !== null && routes.some((r) => r.station === station);
-  usePlan.setState({ focus: ok ? { station, seq: (focus?.seq ?? 0) + 1 } : null });
-  return ok ? station : null;
-}
-
-export function clearRouteFocus(): void {
-  usePlan.setState({ focus: null });
+  if (!routes.some((r) => r.station === station)) return null;
+  usePlan.setState({ focus: { station, seq: (focus?.seq ?? 0) + 1, at, fly } });
+  return station;
 }
 
 /** Tactical view on/off (D050; render/TacticalView.tsx does the camera, Scene the squash). */
