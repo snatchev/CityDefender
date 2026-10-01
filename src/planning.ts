@@ -236,6 +236,11 @@ export function refreshSelection(): void {
   }
 }
 
+/** The tile under the pointer (render/pointer.ts picks it), or null. */
+export function hoveredTile(): readonly [number, number] | null {
+  return hovered;
+}
+
 export function hoverTile(tile: [number, number] | null): void {
   if (tile && hovered && tile[0] === hovered[0] && tile[1] === hovered[1]) return;
   if (!tile && !hovered) return;
@@ -258,21 +263,14 @@ export function buildAt(
   tx: number,
   ty: number,
   tool: BuildTool | null = usePlan.getState().tool,
-  /** With no tool: the route the pointer was over on screen (render/pointer.ts), if known. */
-  routeStation?: number | null,
 ): string | null {
   const w = game.world;
   if (!w.map) return 'no map';
   const i = ty * w.map.width + tx;
   if (!tool) {
-    // No tool: a click selects the tower (or failing that the wall) on this tile, and failing
-    // both, a click on a route moves the camera onto that track, at the clicked spot.
+    // No tool: a click selects the tower (or failing that the wall) on this tile.
     selectTower(w.towerAt[i] ? w.towerAt[i]! : null);
     selectWall(!w.towerAt[i] && w.barricadeAt[i] ? w.barricadeAt[i]! : null);
-    if (!w.towerAt[i] && !w.barricadeAt[i]) {
-      if (routeStation === undefined) focusRouteAt(tx, ty);
-      else if (routeStation !== null) focusRoute(routeStation, { kind: 'tile', tx, ty });
-    }
     return null;
   }
   const existing = w.barricades.find((b) => b.id === w.barricadeAt[i]);
@@ -295,10 +293,7 @@ export function buildAt(
  * (hover and click pick tiles separately, and the see-through cutaway can shift between them, so
  * re-picking could land on a different roof). Everything else goes through `buildAt`.
  */
-export function clickMap(
-  tile: [number, number] | null,
-  routeStation?: number | null,
-): string | null {
+export function clickMap(tile: [number, number] | null): string | null {
   const tool = usePlan.getState().tool;
   const ghost = usePlan.getState().ghost;
   if (
@@ -310,30 +305,7 @@ export function clickMap(
     const result = placeTower(game.world, ghost.tx, ghost.ty, tool.type);
     return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
   }
-  return tile ? buildAt(tile[0], tile[1], tool, routeStation) : null;
-}
-
-/** A click this many tiles from a route line still counts as on it (streets are wider than the line). */
-const ROUTE_CLICK_TILES = 1;
-
-/**
- * Put the camera on the track through (or next to) a tile, at that tile (D049, D054). A tile on no
- * route does nothing. Where routes overlap, the current track keeps priority, then the one listed
- * first. Returns the station, or null.
- */
-export function focusRouteAt(tx: number, ty: number): number | null {
-  const map = game.world.map;
-  if (!map) return null;
-  const { routes, focus } = usePlan.getState();
-  const near = (r: Route) =>
-    r.tiles.some((i) => {
-      const x = i % map.width;
-      const y = (i - x) / map.width;
-      return Math.abs(x - tx) <= ROUTE_CLICK_TILES && Math.abs(y - ty) <= ROUTE_CLICK_TILES;
-    });
-  const hits = routes.filter(near);
-  const hit = hits.find((r) => r.station === focus?.station) ?? hits[0];
-  return hit ? focusRoute(hit.station, { kind: 'tile', tx, ty }) : null;
+  return tile ? buildAt(tile[0], tile[1], tool) : null;
 }
 
 /**

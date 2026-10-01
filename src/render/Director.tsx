@@ -11,7 +11,7 @@ import { usePlan } from '../ui/planStore';
 import { mobLabel, threatMemory, useThreats } from '../ui/threats';
 import { indexToWorld, tileToWorld, type TileFrame } from './coords';
 import { mobWorldXZ } from './Mobs';
-import { TRACK_Y_M } from './RailCamera';
+import { rail, TRACK_Y_M } from './RailCamera';
 import { queueBurst } from './StationBursts';
 import { headingAt, makeTrack, nearestS, pointAt, type Track } from './track';
 
@@ -106,11 +106,16 @@ export function Director({ frame, width }: { frame: TileFrame; width: number }) 
   // Start a cutscene.
   useEffect(() => {
     if (!cut || !controls) return;
-    const script = buildScript(cut, camera, controls.target, trackOf(cut.station), frame);
-    if (!script) {
+    const track = trackOf(cut.station);
+    const script = buildScript(cut, camera, controls.target, track, frame);
+    if (!script || !track) {
       useCinema.setState({ cut: null, card: null });
       return;
     }
+    // The cutscene ends on this track: switch the rail now, so the see-through cutaway (which
+    // follows it) already clears the view of the station and its street.
+    rail.track = track;
+    rail.s = rail.sGoal = script.landS;
     cameraBridge.cinematic = true;
     controls.enabled = false;
     play.current = { script, start: performance.now(), fired: 0 };

@@ -7,7 +7,7 @@ import { TICK_DT } from '../sim/constants';
 import { solidsGeometry } from './buildingMesh';
 import type { TileFrame } from './coords';
 import { withWindows } from './facades';
-import { withSeeThrough } from './seeThrough';
+import { CITY_HALL_ID, withSeeThrough } from './seeThrough';
 
 /** How long City Hall glows red after a bug reaches it. */
 const FLASH_S = 0.6;
@@ -34,13 +34,13 @@ export function CityHall({
   heightScale: number;
 }) {
   const geometry = useMemo(
-    () => solidsGeometry(solids, coordScale, frame, { landmark: true }),
+    () => solidsGeometry(solids, coordScale, frame, { landmark: true, ids: CITY_HALL_ID }),
     [solids, coordScale, frame],
   );
   const material = useMemo(
     () =>
-      // See-through too: the camera rides routes that end at City Hall, so its tower is often in
-      // the way (D054). A small mesh, so plain `discard` costs nothing measurable here.
+      // Fades as one building when it's in the way of the track (D055): routes end at City Hall,
+      // so its tower often is. A small mesh, so plain `discard` costs nothing measurable here.
       withSeeThrough(
         withWindows(
           new MeshStandardMaterial({

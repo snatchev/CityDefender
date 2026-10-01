@@ -1,3 +1,4 @@
+import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   BoxGeometry,
@@ -14,7 +15,7 @@ import { uvToWorld, type TileFrame } from './coords';
 import { backdropLook, facadeAverage, withWindows } from './facades';
 import { preLit } from './lighting';
 import { createRng } from '../sim/rng';
-import { afterDepthPass, seeThroughDepthMaterial } from './seeThrough';
+import { afterDepthPass, backdropId, fadingOccluders, seeThroughDepthMaterial } from './seeThrough';
 
 /** Ground beyond the level (slightly lighter than street asphalt, so the play area stands out). */
 const GROUND = '#5a5e63';
@@ -39,9 +40,12 @@ export function Backdrop({
   file,
   frame,
   heightScale,
+  nSolids,
 }: {
   file: BackdropFileV0;
   frame: TileFrame;
+  /** The level's building count: the near backdrop's occluder ids come after them (seeThrough.ts). */
+  nSolids: number;
   /** Boxes are drawn at this share of their height (tactical view, D050); the ground stays put. */
   heightScale: number;
 }) {
@@ -69,6 +73,7 @@ export function Backdrop({
             frame={frame}
             haze={HAZE_PER_LAYER[k] ?? 0.4}
             detailed={k === 0}
+            nSolids={nSolids}
           />
         ))}
       </group>
@@ -81,6 +86,7 @@ function LayerBoxes({
   frame,
   haze,
   detailed,
+  nSolids,
 }: {
   layer: BackdropLayer;
   frame: TileFrame;
@@ -90,12 +96,21 @@ function LayerBoxes({
    * their windows' average colour (D053): cheap, and at that distance the same picture.
    */
   detailed: boolean;
+  nSolids: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
   const depthRef = useRef<InstancedMesh>(null);
   const geometry = useMemo(() => new BoxGeometry(), []);
-  // The detailed layer draws behind a depth pre-pass that does the cutaway (seeThrough.ts, D053).
+  // The detailed layer's boxes fade when in the way of the track (seeThrough.ts, D055); while any
+  // does, it draws behind a depth pre-pass that does the discarding (D053).
   const material = useMemo(
+    () =>
+      detailed
+        ? withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), { instancedBoxes: true })
+        : new MeshLambertMaterial(),
+    [detailed],
+  );
+  const afterDepth = useMemo(
     () =>
       detailed
         ? afterDepthPass(
@@ -103,28 +118,20 @@ function LayerBoxes({
               instancedBoxes: true,
             }),
           )
-        : new MeshLambertMaterial(),
+        : null,
     [detailed],
   );
   const depthMaterial = useMemo(() => (detailed ? seeThroughDepthMaterial() : null), [detailed]);
   useEffect(
     () => () => {
       material.dispose();
+      afterDepth?.dispose();
       depthMaterial?.dispose();
       geometry.dispose();
     },
-    [material, depthMaterial, geometry],
+    [material, afterDepth, depthMaterial, geometry],
   );
-  const cells = useMemo(() => {
-    const out: { cx: number; cy: number; h: number }[] = [];
-    layer.rows.forEach((row, cy) => {
-      row.split(',').forEach((v, cx) => {
-        const h = Number(v); // real metres (D029)
-        if (h > 0) out.push({ cx, cy, h });
-      });
-    });
-    return out;
-  }, [layer]);
+  const cells = useMemo(() => backdropCells(layer), [layer]);
 
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -152,6 +159,13 @@ function LayerBoxes({
       mesh.setColorAt(i, look.wall.lerp(HAZE, haze));
     });
     mesh.geometry.setAttribute('aStyle', new InstancedBufferAttribute(styles, 1));
+    mesh.geometry.setAttribute(
+      'aOcc',
+      new InstancedBufferAttribute(
+        Float32Array.from(cells, (_, k) => (detailed ? backdropId(nSolids, k) : 0)),
+        1,
+      ),
+    );
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
@@ -160,7 +174,18 @@ function LayerBoxes({
       depth.instanceMatrix = mesh.instanceMatrix; // same boxes, shared buffer
       depth.computeBoundingSphere();
     }
-  }, [cells, layer, frame, haze, detailed]);
+  }, [cells, layer, frame, haze, detailed, nSolids]);
+
+  useFrame(() => {
+    const mesh = ref.current;
+    const depth = depthRef.current;
+    if (!mesh || !depth || !afterDepth) return;
+    const first = backdropId(nSolids, 0);
+    let fading = false;
+    for (const id of fadingOccluders()) if (id >= first) fading = true;
+    depth.visible = fading;
+    mesh.material = fading ? afterDepth : material;
+  });
 
   if (cells.length === 0) return null;
   return (
@@ -175,4 +200,16 @@ function LayerBoxes({
       )}
     </>
   );
+}
+
+/** A backdrop layer's buildings: grid cell and height (real metres, D029), in drawing order. */
+export function backdropCells(layer: BackdropLayer): { cx: number; cy: number; h: number }[] {
+  const out: { cx: number; cy: number; h: number }[] = [];
+  layer.rows.forEach((row, cy) => {
+    row.split(',').forEach((v, cx) => {
+      const h = Number(v);
+      if (h > 0) out.push({ cx, cy, h });
+    });
+  });
+  return out;
 }

@@ -23,7 +23,6 @@ import { HEMI_GROUND, HEMI_INTENSITY, HEMI_SKY, SUN_INTENSITY, SUN_POSITION } fr
 import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
-import { RouteFocus } from './RouteFocus';
 import { groundHandlers } from './pointer';
 import { SeeThroughDriver } from './SeeThroughDriver';
 import { Shots } from './Shots';
@@ -94,7 +93,14 @@ export function Scene() {
       <SkyDome zenith={SKY_ZENITH} horizon={HAZE} radius={SKY_RADIUS_M} />
       <hemisphereLight args={[HEMI_SKY, HEMI_GROUND, HEMI_INTENSITY]} />
       <directionalLight position={SUN_POSITION} intensity={SUN_INTENSITY} />
-      {backdrop && frame && <Backdrop file={backdrop} frame={frame} heightScale={heightScale} />}
+      {backdrop && frame && buildingsFile && (
+        <Backdrop
+          file={backdrop}
+          frame={frame}
+          heightScale={heightScale}
+          nSolids={buildingsFile.solids.length}
+        />
+      )}
 
       {city && buildingsFile && map && frame && heights && ground && (
         <>
@@ -126,12 +132,16 @@ export function Scene() {
           <HpBars frame={frame} />
           <Effects frame={frame} />
           <PlanOverlay frame={frame} heights={heights} />
-          <RouteFocus frame={frame} width={map.width} />
           <ThreatTracker />
           <StationBursts frame={frame} />
           <Director frame={frame} width={map.width} />
           <TacticalView />
-          <SeeThroughDriver />
+          <SeeThroughDriver
+            buildings={buildingsFile}
+            backdrop={backdrop}
+            frame={frame}
+            heightScale={heightScale}
+          />
           <CameraBridge frame={frame} />
         </>
       )}

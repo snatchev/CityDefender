@@ -1,232 +1,203 @@
 import {
+  DataTexture,
   LessEqualDepth,
   MeshBasicMaterial,
+  RedFormat,
+  UnsignedByteType,
   Vector3,
-  Vector4,
   type Material,
   type PerspectiveCamera,
   type WebGLProgramParametersWithUniforms,
 } from 'three';
+import {
+  buildOccluderGrid,
+  forEachBlocker,
+  maxAt,
+  type OccluderGrid,
+  type OccluderShape,
+} from './occluders';
+import { pointAt, type Track } from './track';
 
 /**
- * See-through buildings (D030, D040): anything between the camera and what it's looking at (the
- * orbit target at the centre of the screen) fades out, so tall buildings never hide the street being
- * defended. It follows the camera only, never the mouse (Stefan). The sight line carries a cone: wide
- * at the camera (so a tower the camera is right next to fades) and narrow at the target (so the street
- * being looked at and its neighbours stay solid). Surfaces inside the cone are dithered away ("screen
- * door" transparency: stays opaque to the GPU, so no sorting problems) leaving a faint silhouette.
+ * See-through buildings (D055): a building that stands between the camera and the active track
+ * (the route the rail camera rides) fades out as a whole, and clicks go through it. Each frame,
+ * sight lines from the camera to points along the visible part of the track are walked through a
+ * grid of building footprints (occluders.ts); every building one of them passes through fades out,
+ * and fades back in a moment after none does. The fade is dithered ("screen door" transparency:
+ * stays opaque to the GPU, so no sorting problems), leaving a faint ghost of the building.
  *
- * Route cutaway (D049): while a route is focused, anything drawn in front of it on screen fades
- * almost completely, wherever the camera is. The route is projected to screen space every frame; a
- * building pixel near the projected route and closer to the camera than the route there is removed.
+ * Every building-ish mesh carries an `aOcc` vertex (or instance) attribute naming its occluder;
+ * a small texture holds each occluder's fade, which the shader looks up. Id 0 never fades.
  */
 
-/** Share of pixels removed at the core of the cutaway (the rest keep a ghost of the building). */
-const MAX_FADE = 0.8;
-/** Cone radius at the target end, as a fraction of the camera distance, clamped. */
-const RADIUS_FRACTION = 0.1;
-const RADIUS_MIN_M = 30;
-const RADIUS_MAX_M = 160;
-/** Cone radius at the camera end, as a fraction of the camera distance. */
-const CAMERA_END_FRACTION = 0.3;
-/**
- * Only surfaces above the sight line can hide the target; below it (low buildings the line passes
- * over) stay solid. The cutaway eases out between these depths below the line, as fractions of the
- * local cone radius (a band, not a hard edge: at shallow camera angles the line runs through
- * building faces, and a hard threshold drew a sharp cut across them).
- */
-const BELOW_LINE_FADE_START = 0.0;
-const BELOW_LINE_FADE_END = 0.5;
-/**
- * The cutaway eases out between these fractions of the way to the target, so the street being
- * looked at stays solid without a hard edge.
- */
-const T_FADE_START = 0.8;
-const T_END = 0.97;
+/** Share of pixels removed from a fully faded building (the rest keep a ghost of it). */
+const MAX_FADE = 0.9;
+/** Fade in and out over 1 / this (s). */
+const FADE_PER_S = 5;
+/** A building stays faded this long after it stops being in the way (s), so edges don't flicker. */
+const HOLD_S = 0.35;
+/** Sight lines go to points this far apart along the track (m), at this height, and this far to each side. */
+const SAMPLE_M = 6;
+const TARGET_Y_M = 2;
+const LATERAL_M = 3;
+/** The last stretch of a sight line, where it reaches the street between the walls lining it (m). */
+const STOP_SHORT_M = 4;
+/** Track points this far outside the screen (NDC) still count, for buildings at the edges. */
+const SCREEN_MARGIN = 1.15;
+/** Footprint grid cell size (m). */
+const CELL_M = 4;
+const TEX_W = 256;
 
-/** Share of pixels removed in front of a focused route: stronger than the camera cutaway. */
-const ROUTE_MAX_FADE = 0.95;
-/** Half-width of the cleared band around the route (m at the route's depth), with a floor in pixels. */
-const ROUTE_RADIUS_M = 14;
-const ROUTE_MIN_RADIUS_PX = 20;
-/** A surface must be this much closer than the route to count as in front of it (m). */
-const ROUTE_DEPTH_MARGIN_M = 2;
-/** Most route corners the shader takes; longer routes are thinned evenly. */
-export const MAX_ROUTE_POINTS = 48;
+/** Occluder ids: City Hall, then the level's buildings, then the near backdrop's boxes. */
+export const CITY_HALL_ID = 1;
+export const buildingId = (i: number) => 2 + i;
+export const backdropId = (nSolids: number, k: number) => 2 + nSolids + k;
 
-/** Live state, written once per frame by `updateSeeThrough`, read by every patched material. */
 const state = {
-  cam: new Vector3(),
-  target: new Vector3(),
-  /** Cone radius at the target end and at the camera end. */
-  radius: 0,
-  camRadius: 0,
-};
-
-/** The focused route: world points, and each frame their screen position, depth and band radius. */
-const route = {
-  world: [] as Vector3[],
-  /** (x px, y px, view depth m, radius px); radius 0 marks a point behind the camera. */
-  screen: Array.from({ length: MAX_ROUTE_POINTS }, () => new Vector4()),
-  count: 0,
-  camera: null as PerspectiveCamera | null,
-  bufferW: 1,
-  bufferH: 1,
+  grid: null as OccluderGrid | null,
+  heightScale: 1,
+  /** Current fade (0..1) and when each occluder was last in the way (s), by id. */
+  fade: new Float32Array(1),
+  seen: new Float64Array(1),
+  /** Occluders fading or faded. */
+  active: new Set<number>(),
+  data: new Uint8Array(TEX_W),
+  /** Sight-line targets along the track: x, z, and the unit sideways direction. */
+  samples: new Float32Array(0),
+  /** CPU time of the last update (ms), for the dev hook. */
+  lastMs: 0,
 };
 
 const uniforms = {
-  uSeeCam: { value: state.cam },
-  uSeeTarget: { value: state.target },
-  uSeeRadius: { value: 0 },
-  uSeeCamRadius: { value: 0 },
-  uRoute: { value: route.screen },
-  uRouteCount: { value: 0 },
+  uSeeFade: { value: makeTexture(state.data, 1) },
 };
 
-/** Focus the route cutaway on a polyline (world points at street level), or turn it off. */
-export function setRouteCutaway(points: readonly Vector3[] | null): void {
-  const pts = points ?? [];
-  const n = Math.min(pts.length, MAX_ROUTE_POINTS);
-  route.world =
-    pts.length <= MAX_ROUTE_POINTS
-      ? pts.map((p) => p.clone())
-      : Array.from({ length: n }, (_, k) =>
-          pts[Math.round((k * (pts.length - 1)) / (n - 1))]!.clone(),
-        );
-  route.count = route.world.length;
-  uniforms.uRouteCount.value = 0;
+function makeTexture(data: Uint8Array, rows: number): DataTexture {
+  const tex = new DataTexture(data, TEX_W, rows, RedFormat, UnsignedByteType);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/** The buildings that can fade (ids as above, each < `idCount`). Rebuilds the grid. */
+export function setOccluders(shapes: readonly OccluderShape[], idCount: number): void {
+  let x0 = Infinity;
+  let z0 = Infinity;
+  let x1 = -Infinity;
+  let z1 = -Infinity;
+  for (const s of shapes)
+    for (const [x, z] of s.rings[0] ?? []) {
+      x0 = Math.min(x0, x);
+      z0 = Math.min(z0, z);
+      x1 = Math.max(x1, x);
+      z1 = Math.max(z1, z);
+    }
+  state.grid = shapes.length > 0 ? buildOccluderGrid(shapes, [x0, z0, x1, z1], CELL_M) : null;
+  const rows = Math.max(1, Math.ceil(idCount / TEX_W));
+  state.fade = new Float32Array(idCount);
+  state.seen = new Float64Array(idCount).fill(-Infinity);
+  state.active.clear();
+  state.data = new Uint8Array(TEX_W * rows);
+  uniforms.uSeeFade.value.dispose();
+  uniforms.uSeeFade.value = makeTexture(state.data, rows);
+}
+
+/** Buildings are drawn at this share of their height (tactical view, D050). */
+export function setSeeThroughHeightScale(s: number): void {
+  state.heightScale = s;
+}
+
+/** Fade whatever hides this track, or nothing (null). */
+export function setCutawayTrack(track: Track | null): void {
+  if (!track || track.length === 0) {
+    state.samples = new Float32Array(0);
+    return;
+  }
+  const n = Math.max(2, Math.ceil(track.length / SAMPLE_M) + 1);
+  const out = new Float32Array(n * 4);
+  for (let k = 0; k < n; k++) {
+    const s = (k * track.length) / (n - 1);
+    const [x, z] = pointAt(track, s);
+    const [ax, az] = pointAt(track, s - 1);
+    const [bx, bz] = pointAt(track, s + 1);
+    const l = Math.hypot(bx - ax, bz - az) || 1;
+    out.set([x, z, -(bz - az) / l, (bx - ax) / l], k * 4);
+  }
+  state.samples = out;
 }
 
 const tmp = new Vector3();
+const from: [number, number, number] = [0, 0, 0];
+const to: [number, number, number] = [0, 0, 0];
+let now = 0;
+const hit = (id: number) => {
+  if (state.seen[id] === now) return;
+  state.seen[id] = now;
+  state.active.add(id);
+};
 
-/** Project a world point for the route cutaway: [x px, y px, depth m] in the drawing buffer. */
-function toScreen(
-  p: Vector3,
-  cam: PerspectiveCamera,
-  w: number,
-  h: number,
-): [number, number, number] {
-  tmp.copy(p).applyMatrix4(cam.matrixWorldInverse);
-  const depth = -tmp.z;
-  tmp.applyMatrix4(cam.projectionMatrix);
-  return [((tmp.x + 1) / 2) * w, ((tmp.y + 1) / 2) * h, depth];
-}
-
-/**
- * Called every frame with the camera, its orbit target and the drawing buffer size (px), before
- * anything is drawn.
- */
-export function updateSeeThrough(
-  camera: PerspectiveCamera,
-  target: Vector3,
-  bufferW: number,
-  bufferH: number,
-): void {
-  const cam = camera.position;
-  const dist = cam.distanceTo(target);
-  state.cam.copy(cam);
-  state.target.copy(target);
-  state.radius = Math.min(RADIUS_MAX_M, Math.max(RADIUS_MIN_M, dist * RADIUS_FRACTION));
-  state.camRadius = dist * CAMERA_END_FRACTION;
-  uniforms.uSeeRadius.value = state.radius;
-  uniforms.uSeeCamRadius.value = state.camRadius;
-
-  route.camera = camera;
-  route.bufferW = bufferW;
-  route.bufferH = bufferH;
-  if (route.count > 0) {
-    camera.updateMatrixWorld();
-    const focalPx = bufferH / 2 / Math.tan((camera.fov * Math.PI) / 360);
-    const minPx = (ROUTE_MIN_RADIUS_PX * bufferH) / 1000;
-    route.world.forEach((p, k) => {
-      const [x, y, depth] = toScreen(p, camera, bufferW, bufferH);
-      const r = depth > camera.near ? Math.max(minPx, (ROUTE_RADIUS_M * focalPx) / depth) : 0;
-      route.screen[k]!.set(x, y, depth, r);
-    });
+/** Called every frame, before anything is drawn: find what's in the way, and step the fades. */
+export function updateSeeThrough(camera: PerspectiveCamera, timeS: number, dt: number): void {
+  const g = state.grid;
+  if (!g) return;
+  const t0 = performance.now();
+  now = timeS;
+  camera.updateMatrixWorld();
+  from[0] = camera.position.x;
+  from[1] = camera.position.y;
+  from[2] = camera.position.z;
+  const smp = state.samples;
+  for (let k = 0; k < smp.length; k += 4) {
+    const x = smp[k]!;
+    const z = smp[k + 1]!;
+    // Only the part of the track on screen.
+    tmp.set(x, TARGET_Y_M, z).applyMatrix4(camera.matrixWorldInverse);
+    if (-tmp.z < camera.near) continue;
+    tmp.applyMatrix4(camera.projectionMatrix);
+    if (Math.abs(tmp.x) > SCREEN_MARGIN || Math.abs(tmp.y) > SCREEN_MARGIN) continue;
+    for (const side of [0, -LATERAL_M, LATERAL_M]) {
+      to[0] = x + smp[k + 2]! * side;
+      to[1] = TARGET_Y_M;
+      to[2] = z + smp[k + 3]! * side;
+      forEachBlocker(g, from, to, state.heightScale, STOP_SHORT_M, hit);
+    }
   }
-  uniforms.uRouteCount.value = route.count;
-}
 
-/**
- * Could anything inside this sphere be cut away this frame? Conservative (a cheap bound, true when
- * unsure). Buildings outside every cutaway get a material without `discard`, which keeps the GPU's
- * hidden-surface removal working for them (D053).
- */
-export function cutawayMayTouch(centre: Vector3, radius: number): boolean {
-  if (route.count > 1) return true;
-  const ab = tmpB.copy(state.target).sub(state.cam);
-  const len = ab.length();
-  if (len === 0) return false;
-  const t = tmpC.copy(centre).sub(state.cam).dot(ab) / (len * len);
-  if (t * len < -radius || t > T_END + radius / len) return false;
-  const tc = Math.min(Math.max(t, 0), 1);
-  const r = state.camRadius + (state.radius - state.camRadius) * tc;
-  const onLine = tmpC.copy(state.cam).addScaledVector(ab, tc);
-  return onLine.distanceTo(centre) < r + radius;
-}
-
-const tmpB = new Vector3();
-const tmpC = new Vector3();
-
-/** Route cutaway strength (0..1) for a surface at screen (x, y) px and view depth, as in the shader. */
-function routeFade(x: number, y: number, depth: number): number {
-  let fade = 0;
-  for (let k = 0; k + 1 < route.count; k++) {
-    const a = route.screen[k]!;
-    const b = route.screen[k + 1]!;
-    if (a.w <= 0 || b.w <= 0) continue;
-    const abx = b.x - a.x;
-    const aby = b.y - a.y;
-    const t = Math.min(
-      1,
-      Math.max(0, ((x - a.x) * abx + (y - a.y) * aby) / Math.max(abx * abx + aby * aby, 1e-4)),
-    );
-    const d = Math.hypot(x - (a.x + abx * t), y - (a.y + aby * t));
-    const r = a.w + (b.w - a.w) * t;
-    const routeDepth = 1 / (1 / a.z + (1 / b.z - 1 / a.z) * t); // 1/depth is linear on screen
-    if (depth < routeDepth - ROUTE_DEPTH_MARGIN_M)
-      fade = Math.max(fade, 1 - smoothstep(r * 0.7, r, d));
+  let dirty = false;
+  const step = FADE_PER_S * Math.min(dt, 0.1);
+  for (const id of state.active) {
+    const want = now - state.seen[id]! < HOLD_S ? 1 : 0;
+    const f = state.fade[id]!;
+    const next = want > f ? Math.min(1, f + step) : Math.max(0, f - step);
+    if (next !== f) {
+      state.fade[id] = next;
+      state.data[id] = Math.round(next * 255);
+      dirty = true;
+    }
+    if (next === 0 && want === 0) state.active.delete(id);
   }
-  return fade;
+  if (dirty) uniforms.uSeeFade.value.needsUpdate = true;
+  state.lastMs = performance.now() - t0;
 }
 
-/**
- * Cutaway strength (0..1) at a world point, CPU side, so picking can look through faded buildings.
- * Mirrors the shader below: the stronger of the camera and the route cutaway.
- */
+/** For the dev hook: buildings faded or fading, and the last update's CPU time (ms). */
+export function seeThroughStats(): { fading: number; ms: number } {
+  return { fading: state.active.size, ms: state.lastMs };
+}
+
+/** Occluders fading or faded right now (don't modify). */
+export function fadingOccluders(): ReadonlySet<number> {
+  return state.active;
+}
+
+/** How faded the building around this world point is (0..1), so picking can go through it. */
 export function seeThroughFade(p: Vector3): number {
-  const cam = route.camera;
-  let viaRoute = 0;
-  if (cam && route.count > 1) {
-    const [x, y, depth] = toScreen(p, cam, route.bufferW, route.bufferH);
-    viaRoute = routeFade(x, y, depth);
-  }
-  return Math.max(viaRoute, lineFade(p));
-}
-
-function lineFade(p: Vector3): number {
-  const ab = state.target.clone().sub(state.cam);
-  const len2 = ab.lengthSq();
-  if (len2 === 0) return 0;
-  const t = p.clone().sub(state.cam).dot(ab) / len2;
-  if (t <= 0 || t >= T_END) return 0;
-  const onLine = state.cam.clone().addScaledVector(ab, t);
-  const r = state.camRadius + (state.radius - state.camRadius) * t; // cone: wide at the camera
-  const radial = 1 - smoothstep(r * 0.6, r, p.distanceTo(onLine));
-  // Below the sight line (not in the way) and close to the target, ease out rather than cut.
-  const below = 1 - smoothstep(r * BELOW_LINE_FADE_START, r * BELOW_LINE_FADE_END, onLine.y - p.y);
-  const nearEnd = 1 - smoothstep(T_FADE_START, T_END, t);
-  return radial * below * nearEnd;
-}
-
-function smoothstep(a: number, b: number, x: number): number {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
+  const g = state.grid;
+  return g ? maxAt(g, p.x, p.y, p.z, state.heightScale, (id) => state.fade[id]!) : 0;
 }
 
 /**
- * Patch a built-in lit material (standard/basic) so it takes part in the cutaway. Chains any earlier
- * patch (e.g. windows). Returns it.
+ * Patch a built-in lit material (standard/basic) so it takes part in the fade. Its geometry needs an
+ * `aOcc` attribute (per vertex, or per instance). Chains any earlier patch (e.g. windows).
  */
 export function withSeeThrough<M extends Material>(material: M): M {
   const prev = material.onBeforeCompile.bind(material);
@@ -234,58 +205,21 @@ export function withSeeThrough<M extends Material>(material: M): M {
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer) => {
     prev(shader, renderer);
     Object.assign(shader.uniforms, uniforms);
-    shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'varying vec3 vSeeWorld;\nvoid main() {')
-      .replace(
-        '#include <project_vertex>',
-        `#include <project_vertex>
-        {
-          vec4 w = vec4(transformed, 1.0);
-          #ifdef USE_INSTANCING
-            w = instanceMatrix * w;
-          #endif
-          vSeeWorld = (modelMatrix * w).xyz;
-        }`,
-      );
+    shader.vertexShader = shader.vertexShader.replace(
+      'void main() {',
+      `attribute float aOcc;
+        uniform sampler2D uSeeFade;
+        varying float vSeeFade;
+        void main() {
+          {
+            int id = int(aOcc + 0.5);
+            vSeeFade = texelFetch(uSeeFade, ivec2(id % ${TEX_W}, id / ${TEX_W}), 0).r;
+          }`,
+    );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         'void main() {',
-        `varying vec3 vSeeWorld;
-        uniform vec3 uSeeCam;
-        uniform vec3 uSeeTarget;
-        uniform float uSeeRadius;
-        uniform float uSeeCamRadius;
-        float seeLine() {
-          vec3 ab = uSeeTarget - uSeeCam;
-          float t = dot(vSeeWorld - uSeeCam, ab) / max(dot(ab, ab), 1e-6);
-          if (t <= 0.0 || t >= ${T_END.toFixed(2)}) return 0.0;
-          vec3 onLine = uSeeCam + ab * t;
-          float r = mix(uSeeCamRadius, uSeeRadius, t);
-          float radial = 1.0 - smoothstep(r * 0.6, r, length(vSeeWorld - onLine));
-          float below = 1.0 - smoothstep(r * ${BELOW_LINE_FADE_START.toFixed(2)}, r * ${BELOW_LINE_FADE_END.toFixed(2)}, onLine.y - vSeeWorld.y);
-          float nearEnd = 1.0 - smoothstep(${T_FADE_START.toFixed(2)}, ${T_END.toFixed(2)}, t);
-          return radial * below * nearEnd;
-        }
-        uniform vec4 uRoute[${MAX_ROUTE_POINTS}];
-        uniform int uRouteCount;
-        float routeCut() {
-          float fade = 0.0;
-          vec2 f = gl_FragCoord.xy;
-          float depth = -(viewMatrix * vec4(vSeeWorld, 1.0)).z;
-          for (int k = 0; k < ${MAX_ROUTE_POINTS - 1}; k++) {
-            if (k + 1 >= uRouteCount) break;
-            vec4 a = uRoute[k];
-            vec4 b = uRoute[k + 1];
-            if (a.w <= 0.0 || b.w <= 0.0) continue;
-            vec2 ab = b.xy - a.xy;
-            float t = clamp(dot(f - a.xy, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
-            float d = length(f - (a.xy + ab * t));
-            float r = mix(a.w, b.w, t);
-            float routeDepth = 1.0 / mix(1.0 / a.z, 1.0 / b.z, t);
-            if (depth < routeDepth - ${ROUTE_DEPTH_MARGIN_M.toFixed(1)}) fade = max(fade, 1.0 - smoothstep(r * 0.7, r, d));
-          }
-          return fade;
-        }
+        `varying float vSeeFade;
         float bayer4(vec2 p) {
           int x = int(mod(p.x, 4.0));
           int y = int(mod(p.y, 4.0));
@@ -298,21 +232,18 @@ export function withSeeThrough<M extends Material>(material: M): M {
       .replace(
         '#include <clipping_planes_fragment>',
         `#include <clipping_planes_fragment>
-        {
-          float fade = max(seeLine() * ${MAX_FADE.toFixed(2)}, routeCut() * ${ROUTE_MAX_FADE.toFixed(2)});
-          if (bayer4(gl_FragCoord.xy) < fade) discard;
-        }`,
+        if (bayer4(gl_FragCoord.xy) < vSeeFade * ${MAX_FADE.toFixed(2)}) discard;`,
       );
   };
-  material.customProgramCacheKey = () => `${prevKey()}|see-through-v7`;
+  material.customProgramCacheKey = () => `${prevKey()}|see-through-v9`;
   return material;
 }
 
 /**
- * Depth pre-pass for surfaces the cutaway can reach (D053). A shader that may `discard` stops the
- * GPU from skipping hidden surfaces, so an expensive material with the cutaway would shade every
- * wall behind every other one. Instead: draw the geometry first with this depth-only material (it
- * does the dithered discard, and costs next to nothing), then with the full material prepared by
+ * Depth pre-pass for surfaces that may fade (D053). A shader that may `discard` stops the GPU from
+ * skipping hidden surfaces, so an expensive material with the fade would shade every wall behind
+ * every other one. Instead: draw the geometry first with this depth-only material (it does the
+ * dithered discard, and costs next to nothing), then with the full material prepared by
  * `afterDepthPass` (no discard; it only draws where its depth matches the pre-pass).
  */
 export function seeThroughDepthMaterial(): MeshBasicMaterial {

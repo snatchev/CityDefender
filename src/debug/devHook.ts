@@ -1,6 +1,6 @@
 import { cameraBridge, type CameraView } from '../cameraBridge';
 import { callWave, game, publish, setTimeScale } from '../game';
-import { buildAt, focusRouteAt, restartRun, sellAt } from '../planning';
+import { buildAt, focusRoute, hoveredTile, restartRun, sellAt } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
 import type { BarricadeType } from '../sim/barricades';
 import { queueWave, type MobType } from '../sim/mobs';
@@ -8,6 +8,7 @@ import { TOWERS, upgradeTower, type TowerType } from '../sim/towers';
 import type { Camera, Scene, WebGLRenderer } from 'three';
 import { usePlan, type Ghost, type Route } from '../ui/planStore';
 import { tickWorld, type World } from '../sim/world';
+import { seeThroughStats } from '../render/seeThrough';
 
 /**
  * Dev-only console API so agents (via Chrome DevTools MCP) and humans can inspect and drive the sim:
@@ -47,12 +48,16 @@ export interface DevHook {
   readonly camera: Camera | null;
   /** Render at this pixel ratio (to tell fill-rate cost from everything else); returns the old one. */
   setPixelRatio(ratio: number): number;
-  /** This wave's routes and the focused one (station index), as the planning UI sees them. */
+  /** This wave's routes and the camera's track (station index), as the planning UI sees them. */
   readonly plan: { routes: Route[]; focus: number | null };
-  /** Focus a station's route by name or index, as a click on it would (null clears). */
-  focusRoute(station: string | number | null): number | null;
+  /** Put the camera on a station's track by name or index, as its threat card would (no cutscene). */
+  focusRoute(station: string | number): number | null;
   /** Last frame's renderer counters (draw calls, triangles) and GPU resources. */
   renderInfo(): { calls: number; triangles: number; geometries: number; textures: number } | null;
+  /** See-through fade (D055): buildings faded or fading, and the last update's CPU time (ms). */
+  seeThrough(): { fading: number; ms: number };
+  /** The tile under the pointer, as picking sees it (through faded buildings), with its height. */
+  hovered(): { tx: number; ty: number; heightM: number } | null;
   /** Advance exactly `n` ticks synchronously (works while paused). */
   step(n?: number): number;
   /** Show/hide every scene object with this name (perf bisecting); returns how many matched. */
@@ -88,6 +93,14 @@ export function installDevHook(): void {
     },
     get city() {
       return game.city;
+    },
+    seeThrough: seeThroughStats,
+    hovered() {
+      const t = hoveredTile();
+      const m = game.world.map;
+      return t && m
+        ? { tx: t[0], ty: t[1], heightM: m.heightsM?.[t[1] * m.width + t[0]] ?? 0 }
+        : null;
     },
     renderInfo() {
       if (!renderer) return null;
@@ -133,15 +146,11 @@ export function installDevHook(): void {
       return { routes: p.routes, focus: p.focus?.station ?? null };
     },
     focusRoute(station) {
-      const w = game.world;
       const index =
         typeof station === 'string'
           ? (game.city?.spawns.findIndex((s) => s.name === station) ?? -1)
           : station;
-      const route = usePlan.getState().routes.find((r) => r.station === index);
-      if (!w.map || !route) return focusRouteAt(-99, -99); // clears
-      const mid = route.tiles[Math.floor(route.tiles.length / 2)]!;
-      return focusRouteAt(mid % w.map.width, Math.floor(mid / w.map.width));
+      return focusRoute(index);
     },
     restart: restartRun,
     setSeed: restartRun,

@@ -66,7 +66,7 @@ function typingInto(target: EventTarget | null): boolean {
  * active track, the route the bugs crawl from one station to City Hall. W/↑ glides toward the
  * station, S/↓ toward City Hall; A/D, ←/→ and Q/E turn the camera around that point; the mouse
  * orbits and zooms; nothing pans. The camera turns with the street, so what's ahead stays ahead.
- * Switching tracks (the threat board, a route click, the minimap) glides the camera across. The
+ * Switching tracks (the threat board, the minimap) glides the camera across. The
  * rail stands still while a glide or a cutscene drives the camera.
  */
 export function RailCamera({ frame, width }: { frame: TileFrame; width: number }) {
@@ -169,7 +169,7 @@ export function RailCamera({ frame, width }: { frame: TileFrame; width: number }
     }
   };
 
-  // A track request (threat board, route click, minimap, cutscene end): move onto it.
+  // A track request (threat board, minimap, cutscene end): move onto it.
   const seq = focus?.seq;
   useEffect(() => {
     if (!focus || !controls) return;

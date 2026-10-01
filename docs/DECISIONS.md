@@ -90,6 +90,7 @@ Consequences: Dijkstra from the goal tiles; stepping onto a tile costs `tileCost
 **D022 · 2026-09-26 · Pass 4 run loop, economy and input.**
 Why: first playable with the fewest moving parts.
 Consequences:
+
 - The phase machine lives in `sim/phase.ts` ('idle' = sandbox/tests, then prep → assault → debrief → … → won/lost). Barricades can be placed and dismantled only in prep (or idle), with a full refund until Pass 5's sell/undo rules. Towers can be built any time.
 - One click does both: street → sawhorse, rooftop overlooking a street → MG Nest. No build menu yet.
 - Tile picking marches the pointer ray through the display-height grid instead of raycasting ~15k instanced boxes.
@@ -100,6 +101,7 @@ Consequences:
 **D023 · 2026-09-26 · Unit visibility and keyboard camera (playtest 1).**
 Why: Stefan found mobs and towers hard to see and wanted bugs visible behind buildings, plus WASD/QE camera keys.
 Consequences:
+
 - Mobs are drawn in three instanced passes sharing one geometry and one matrix per mob: a self-lit body, an additive halo (fake glow; real bloom stays in Pass 10), and an x-ray pass that uses the same sphere with a flat unlit material and `depthFunc = GreaterDepth`, so it draws only where something is in front. This is the standard two-pass "occluded silhouette" shader (Unity's `ZTest Greater` pass). three.js has no multi-pass materials, so the extra pass is a second InstancedMesh: one extra draw call for all mobs, not per mob.
 - Alternatives considered: the postprocessing Outline effect's `xRay` mode (outlines through walls; revisit with the Pass 10 postprocessing stack if we prefer outlines to fills), a stencil pass (same cost, more setup), and "always on top" (loses depth cues).
 - Mobs scale with camera distance beyond 300 m so they stay readable zoomed out; towers get half that.
@@ -109,6 +111,7 @@ Consequences:
 **D024 · 2026-09-26 · Pass 5 economy and feedback details.**
 Why: finish the MVP loop from the plan with playtest 1's "a little easy".
 Consequences:
+
 - Selling refunds 70% (`sellRefund`), except builds placed during the current prep, which refund 100% ("free undo", DESIGN §3.1). Towers sell any time; barricades only in prep (D006).
 - The sim keeps a 1-second effects log (`world.fx`: kills, barricade breaks). It's for visuals only and the sim never reads it back.
 - The run is now 10 waves over 3 stations, tuned so passive play loses and a strong tower-only bot wins with ~30 Integrity.
@@ -116,6 +119,7 @@ Consequences:
 **D025 · 2026-09-27 · Code review pass: structure only, no behaviour change.**
 Why: Stefan asked for a review of code quality, readability and organisation after Pass 5.
 Consequences:
+
 - Sim: `map.ts` owns tile helpers (`N4`, `tileXY`, `inBounds`, `tileAt`), used everywhere instead of inline bounds checks. `phase.ts` has `isPlanning`/`isOver`. `world.ts` builds new and reset worlds from one `freshRun()`. `queueWave` takes a `SpawnGroup`. `mobPos` lives in `mobs.ts`.
 - Game/UI: `restartRun()` (planning.ts) is the one way to start a run; it also clears selection, hover and notices. `loadCity` only loads. Unused store fields were removed and the dev-only `spawnWave` moved to the dev hook.
 - Render: `view.ts` (controls type, view distance, `zoomScale`), `renderAlpha()` in game.ts, `indexToWorld()` in coords.ts, and pointer input in `pointer.ts` (was picking.ts plus handlers in Scene). LabelLayer compares camera matrices directly.
@@ -201,10 +205,10 @@ Consequences: `sim/save.ts` (versioned `SaveV1`); the game layer autosaves to lo
 Why: DESIGN §3.1/§3.3. A station's first wave is known from the script, so the telegraph ("Tremors under …") needs no extra data. Bosses: the Brood Mother's brood gets `broodHpMul` so it matters in the finale; she spawns at Race-Vine (from 15th Street she reached City Hall almost untouched).
 Consequences: rules.json `interestRate`, `interestCap`, `repairCostFraction`, `grantEveryWaves`, `grantChoices`, `scoreIntegrityMul`, `saveVersion`; `stationsOpeningNextWave()` in phase.ts; score = bounty + Integrity × 20 + cash; stars per DESIGN §3.2.
 
-
 **D046 · 2026-09-30 · Pass 10a buildings: real 3D shapes from OSM parts, roofs as plane envelopes, procedural windows; the sim keeps its heights.**
 Why: IMPLEMENTATION_PLAN Pass 10 (Stefan, 2026-09-27): setback tiers and roofs from OSM `building:part`, parapets, rooftop boxes, windows, and a real City Hall instead of the stand-in. "Render only: the sim keeps per-tile heights, but roof-pad towers must sit on the drawn roof."
 Consequences:
+
 - map:build downloads parts and building relations into a separate cache (`<city>-osm-parts.json`) so the older downloads, city.json and the level stay identical. A footprint whose area is ≥ 60% covered by parts (`parts.replaceCoverage`) is drawn as its parts instead (478 parts replace 87 footprints in Philadelphia). Parts without a height take their footprint's.
 - Heights follow OSM: `height` is the top of the roof, `roof:height` / `roof:levels` the rise, `min_height` / `building:min_level` the base. `osmTagOverrides` in the city config patches tags by OSM id; City Hall's 30 parts get hand-set heights and roofs there (main block 30 m, pavilions to 72 m, clock tower 137.8 m, cupola 155.8 m, William Penn to 167 m).
 - `buildings.json` v1: solids (outline, eaves, base, roof shape and rise, OSM colours, facade hint), the landmark as its own list (City Hall is drawn by `CityHall.tsx` so it still flashes), and `roofRows`, the drawn roof height at each tile centre. The renderer places towers, pads, labels and picking on `roofRows`; the sim still reads city.json's raster heights for range and pads.
@@ -241,6 +245,7 @@ Consequences: `render/ambient/life.ts` (plain TS, never touches the sim): 120 ca
 **D053 · 2026-09-30 · Rendering budget: chunked buildings with two levels of detail, a depth pre-pass for the see-through cutaway, pre-lit ground (Stefan: 30 fps).**
 Why: Stefan saw 30 fps. Measured with WebGL timer queries: the 30 fps was Chrome's Energy Saver (battery at 14%: every page, even a blank one, capped at 30 fps), not the game. Under that cap the GPU clocks down to fill the frame, so plain timings mislead; the numbers below render each frame 6× so the GPU runs at full clock. The biggest real costs: the see-through `discard` (it stops the GPU's hidden-surface removal, so the expensive facade shader ran on every wall behind every other: ~3 ms at street level), one unculled 400k-vertex building mesh, the backdrop's window shader, and several full-screen lit planes. Triangle count as such mattered little.
 Consequences:
+
 - Buildings (`Buildings.tsx`) are split into 128 m chunks (frustum culled), each built twice: near (within 650 m: windows, parapets, rooftop boxes) and far (plain walls in their windows' average colour, no parapets or boxes).
 - Only chunks the cutaway may reach (a conservative sphere-vs-cone test; all of them while a route is focused) draw in two passes: a depth-only pass that does the dithered discard, then the full material with no discard where its depth matches. The same for the backdrop's near layer. Everything else draws once without discard.
 - The level ground is one unlit plane with a per-tile colour texture (replacing 16.6k block slab boxes and the goal boxes); the backdrop ground is unlit too; both use the colour the lit version produced (`lighting.ts`, `preLit`). Far backdrop layers are plain Lambert boxes in their windows' average colour.
@@ -250,7 +255,19 @@ Consequences:
 **D054 · 2026-09-30 · Branch `down-the-street`: a rail camera on the bugs' route, a threat board to switch tracks, and click-started cutscenes (Stefan: the game felt tedious because of fiddly camera controls).**
 Why: Stefan wants a more cinematic game with no panning: the camera pinned to the path the bugs crawl, switching tracks from a prominent HUD element, and action camera angles, but the camera is never taken away unless the player clicked for it. An experiment on its own branch.
 Consequences:
+
 - Rail camera (`RailCamera.tsx`, `track.ts` tested): the orbit point rides the active track (a station's route, s = 0 at the station). W/↑ glides toward the station, S/↓ toward City Hall; A/D, ←/→ and Q/E turn; the mouse orbits and zooms; nothing pans (OrbitControls with pan off; left or right drag rotates). The camera turns with the street (heading smoothed over ±45 m). Retired: WASD panning (`KeyboardCamera`), grab panning, `CameraBounds`, route-focus framing flights. The active track is `planStore.focus`, which now also says where to land and whether to glide; it no longer clears on Esc. The route cutaway (D049) now always follows the active track. The minimap and `focusTile` snap to the nearest track. City Hall takes part in the see-through cutaway now (routes end at it).
 - Threat board (`ThreatBoard.tsx`, replaces the wave-intel list): one card per station sending bugs this wave: INCOMING, flashing DANGER (hazard stripes, scrolling marquee, pulse) when it starts spawning, magenta BOSS / cyan ELITE when one comes out, ENGAGED / TRACKING, CLEAR; plus next wave's breach telegraph. Click (or 1–9) switches track; if the card has something new, its cutscene plays first. Kept current by `ThreatTracker.tsx`, render side: a new bug on a station tile came out of that station (the sim is untouched). The tower and wall cards moved to the right.
 - Cutscenes (`Director.tsx`, `CinemaOverlay.tsx`, text in `data/cinematics.json` with a schema test): only ever started by a click. Breach: a sweep to an angled view of the station, a burst (shock ring, dust, debris; `StationBursts.tsx`), a push in, letterbox bars, a slammed banner with the bug counts flying in. Boss / elite: a whip to a low shot, the game frozen (speed restored after), a Kirby-and-the-Forgotten-Land-style title card (colour bands sweep across, an epithet over a huge name, a factoid). Click, Esc or Space skips; the camera always ends on that station's track. The OSM credit stays above the letterbox.
 - 60 fps on the rail and during cutscenes (wave 15, four stations).
+
+**D055 · 2026-10-01 · Branch `down-the-street`: one see-through rule. A building that blocks the line of sight from the camera to the active track fades out as a whole, and clicks go through it; nothing else fades (Stefan). Supersedes D030/D040/D041 (the camera → orbit-target cone) and D049 (route focus and its cutaway band).**
+Why: with the camera riding the track, the orbit target is always on the track, so the cone was a weaker copy of a track rule. A band cut through buildings along the projected track (tried first) read badly; Stefan wants whole buildings to go see-through. Clicking a route to focus it is redundant now that the threat board switches tracks.
+Consequences:
+
+- `occluders.ts` (pure, tested): building footprints (each OSM part, City Hall's parts under one id, the near backdrop's boxes) rasterised once into a 4 m grid; a sight line is walked through it cell by cell (DDA) and a building blocks it where the line passes between its base and top. The target's own cell and the last 4 m are ignored, so the walls lining a street don't count.
+- `seeThrough.ts`: every frame, sight lines from the camera to points every 6 m along the on-screen part of `rail.track` (2 m up; centre and ±3 m) find the blockers, about 0.3–0.6 ms of CPU. Each blocker fades to 90% dithered over 0.2 s and holds 0.35 s after it stops blocking. Fades live in a small texture that the shader reads by each vertex's (or instance's) `aOcc` id. A cutscene switches `rail.track` when it starts, so its station is cleared too.
+- Only chunks (and the near backdrop) with a fading building take the depth pre-pass path (D053); everything else draws once with no `discard`.
+- Picking (`pickTile`) skips roofs of buildings more than half faded.
+- Clicking the map with no tool only selects a tower or wall. Removed: screen-space route picking, `focusRouteAt`, the focused-route highlight, `RouteFocus.tsx`. `focusRoute` stays (threat board, cutscenes, minimap, dev hook).
+- Dev hook: `__cd.seeThrough()` (fading count, CPU ms), `__cd.hovered()` (picked tile).

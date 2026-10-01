@@ -67,6 +67,8 @@ export interface SolidsOptions {
    * the colour the windows average to. Same shapes, colours and heights as 'high'.
    */
   detail?: 'high' | 'low';
+  /** See-through occluder id of each solid (seeThrough.ts, D055), written to `aOcc`; 0 if absent. */
+  ids?: readonly number[] | number;
 }
 
 /**
@@ -83,10 +85,11 @@ export function solidsGeometry(
 ): BufferGeometry {
   const out = new GeometryBuilder();
   const clear = opts.keepClear ?? [];
-  for (const s of solids) {
+  solids.forEach((s, i) => {
+    out.id = typeof opts.ids === 'number' ? opts.ids : (opts.ids?.[i] ?? 0);
     const rings = s.rings.map((flat) => worldRing(flat, coordScale, frame));
     const outer = rings[0];
-    if (!outer || outer.length < 3) continue;
+    if (!outer || outer.length < 3) return;
     // Seed from the outline so a building keeps its look when others change.
     const rng = createRng(Math.round(outer[0]![0] * 100) * 7919 + Math.round(outer[0]![1] * 100));
     const look = lookOf(s, rng, !!opts.landmark);
@@ -113,7 +116,7 @@ export function solidsGeometry(
     roof(out, rings, eave, planes, look.roof);
     if (planes.length === 0 && !opts.landmark && !low)
       roofBoxes(out, rings, box, eave, rng, clear, look.wall);
-  }
+  });
   return out.build();
 }
 
@@ -327,6 +330,9 @@ class GeometryBuilder {
   private nrm: number[] = [];
   private col: number[] = [];
   private fac: number[] = [];
+  private occ: number[] = [];
+  /** Occluder id written with every vertex from now on. */
+  id = 0;
 
   /** A triangle, wound so its front face matches the normal `n`. */
   tri(
@@ -362,6 +368,7 @@ class GeometryBuilder {
       this.nrm.push(n[0], n[1], n[2]);
       this.col.push(color.r, color.g, color.b);
       this.fac.push(fv[0], fv[1], fv[2], fv[3]);
+      this.occ.push(this.id);
     }
   }
 
@@ -408,6 +415,7 @@ class GeometryBuilder {
     g.setAttribute('normal', new BufferAttribute(new Float32Array(this.nrm), 3));
     g.setAttribute('color', new BufferAttribute(new Float32Array(this.col), 3));
     g.setAttribute('aFacade', new BufferAttribute(new Float32Array(this.fac), 4));
+    g.setAttribute('aOcc', new BufferAttribute(new Float32Array(this.occ), 1));
     g.computeBoundingSphere();
     return g;
   }
