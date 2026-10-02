@@ -183,6 +183,7 @@ function solidRecord(s: Solid): SolidRecord {
   if (s.color) r.color = s.color;
   if (s.roofColor) r.roofColor = s.roofColor;
   if (s.facade) r.facade = s.facade;
+  if (s.building !== undefined) r.b = s.building;
   return r;
 }
 

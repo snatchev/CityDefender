@@ -55,7 +55,7 @@ export interface DevHook {
   /** Last frame's renderer counters (draw calls, triangles) and GPU resources. */
   renderInfo(): { calls: number; triangles: number; geometries: number; textures: number } | null;
   /** See-through fade (D055): buildings faded or fading, and the last update's CPU time (ms). */
-  seeThrough(): { fading: number; ms: number };
+  seeThrough(): { fading: number; ms: number; ids: number[]; fades: number[] };
   /** The tile under the pointer, as picking sees it (through faded buildings), with its height. */
   hovered(): { tx: number; ty: number; heightM: number } | null;
   /** Advance exactly `n` ticks synchronously (works while paused). */

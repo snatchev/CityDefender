@@ -7,9 +7,8 @@ import { uvToWorld, type TileFrame } from './coords';
 import type { OccluderShape, XZ } from './occluders';
 import { rail } from './RailCamera';
 import {
-  backdropId,
-  buildingId,
   CITY_HALL_ID,
+  occluderIds,
   setCutawayTrack,
   setOccluders,
   setSeeThroughHeightScale,
@@ -46,10 +45,10 @@ export function SeeThroughDriver({
       base: s.base ?? 0,
       top: s.h + (s.rise ?? 0),
     });
-    const n = buildings.solids.length;
+    const ids = occluderIds(buildings.solids);
     const shapes: OccluderShape[] = [
       ...buildings.landmark.map((s) => solid(s, CITY_HALL_ID)),
-      ...buildings.solids.map((s, i) => solid(s, buildingId(i))),
+      ...buildings.solids.map((s, i) => solid(s, ids.ofSolid[i]!)),
     ];
     const near = backdrop?.layers[0];
     const boxes = near ? backdropCells(near) : [];
@@ -63,9 +62,9 @@ export function SeeThroughDriver({
           uvToWorld(frame, u + c, v + c),
           uvToWorld(frame, u, v + c),
         ];
-        shapes.push({ id: backdropId(n, k), rings: [ring], base: 0, top: h });
+        shapes.push({ id: ids.backdrop0 + k, rings: [ring], base: 0, top: h });
       });
-    setOccluders(shapes, backdropId(n, boxes.length));
+    setOccluders(shapes, ids.backdrop0 + boxes.length);
   }, [buildings, backdrop, frame]);
   useEffect(() => setSeeThroughHeightScale(heightScale), [heightScale]);
 

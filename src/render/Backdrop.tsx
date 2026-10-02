@@ -15,7 +15,13 @@ import { uvToWorld, type TileFrame } from './coords';
 import { backdropLook, facadeAverage, withWindows } from './facades';
 import { preLit } from './lighting';
 import { createRng } from '../sim/rng';
-import { afterDepthPass, backdropId, fadingOccluders, seeThroughDepthMaterial } from './seeThrough';
+import {
+  fadingOccluders,
+  GHOST_COLOR_ORDER,
+  GHOST_DEPTH_ORDER,
+  ghostMaterials,
+  hideWhenFaded,
+} from './seeThrough';
 
 /** Ground beyond the level (slightly lighter than street asphalt, so the play area stands out). */
 const GROUND = '#5a5e63';
@@ -40,12 +46,12 @@ export function Backdrop({
   file,
   frame,
   heightScale,
-  nSolids,
+  firstId,
 }: {
   file: BackdropFileV0;
   frame: TileFrame;
-  /** The level's building count: the near backdrop's occluder ids come after them (seeThrough.ts). */
-  nSolids: number;
+  /** The near backdrop's boxes are see-through occluders `firstId`, `firstId + 1`, … (seeThrough.ts). */
+  firstId: number;
   /** Boxes are drawn at this share of their height (tactical view, D050); the ground stays put. */
   heightScale: number;
 }) {
@@ -73,7 +79,7 @@ export function Backdrop({
             frame={frame}
             haze={HAZE_PER_LAYER[k] ?? 0.4}
             detailed={k === 0}
-            nSolids={nSolids}
+            firstId={firstId}
           />
         ))}
       </group>
@@ -86,50 +92,44 @@ function LayerBoxes({
   frame,
   haze,
   detailed,
-  nSolids,
+  firstId,
 }: {
   layer: BackdropLayer;
   frame: TileFrame;
   haze: number;
   /**
-   * The nearest layer gets windows and the see-through cutaway; farther layers are plain boxes in
-   * their windows' average colour (D053): cheap, and at that distance the same picture.
+   * The nearest layer gets windows and turns see-through where it hides the track (D055); farther
+   * layers are plain boxes in their windows' average colour (D053): cheap, and at that distance the
+   * same picture.
    */
   detailed: boolean;
-  nSolids: number;
+  firstId: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
-  const depthRef = useRef<InstancedMesh>(null);
+  const ghostDepthRef = useRef<InstancedMesh>(null);
+  const ghostColorRef = useRef<InstancedMesh>(null);
   const geometry = useMemo(() => new BoxGeometry(), []);
-  // The detailed layer's boxes fade when in the way of the track (seeThrough.ts, D055); while any
-  // does, it draws behind a depth pre-pass that does the discarding (D053).
+  // The detailed layer's boxes turn see-through where they hide the track (seeThrough.ts, D055).
   const material = useMemo(
     () =>
       detailed
-        ? withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), { instancedBoxes: true })
-        : new MeshLambertMaterial(),
-    [detailed],
-  );
-  const afterDepth = useMemo(
-    () =>
-      detailed
-        ? afterDepthPass(
+        ? hideWhenFaded(
             withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), {
               instancedBoxes: true,
             }),
           )
-        : null,
+        : new MeshLambertMaterial(),
     [detailed],
   );
-  const depthMaterial = useMemo(() => (detailed ? seeThroughDepthMaterial() : null), [detailed]);
+  const ghost = useMemo(() => (detailed ? ghostMaterials(false) : null), [detailed]);
   useEffect(
     () => () => {
       material.dispose();
-      afterDepth?.dispose();
-      depthMaterial?.dispose();
+      ghost?.depth.dispose();
+      ghost?.color.dispose();
       geometry.dispose();
     },
-    [material, afterDepth, depthMaterial, geometry],
+    [material, ghost, geometry],
   );
   const cells = useMemo(() => backdropCells(layer), [layer]);
 
@@ -162,41 +162,48 @@ function LayerBoxes({
     mesh.geometry.setAttribute(
       'aOcc',
       new InstancedBufferAttribute(
-        Float32Array.from(cells, (_, k) => (detailed ? backdropId(nSolids, k) : 0)),
+        Float32Array.from(cells, (_, k) => (detailed ? firstId + k : 0)),
         1,
       ),
     );
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
-    const depth = depthRef.current;
-    if (depth) {
-      depth.instanceMatrix = mesh.instanceMatrix; // same boxes, shared buffer
-      depth.computeBoundingSphere();
+    for (const g of [ghostDepthRef.current, ghostColorRef.current]) {
+      if (!g) continue;
+      // Same boxes and colours, shared buffers.
+      g.instanceMatrix = mesh.instanceMatrix;
+      g.instanceColor = mesh.instanceColor;
+      g.computeBoundingSphere();
     }
-  }, [cells, layer, frame, haze, detailed, nSolids]);
+  }, [cells, layer, frame, haze, detailed, firstId]);
 
   useFrame(() => {
-    const mesh = ref.current;
-    const depth = depthRef.current;
-    if (!mesh || !depth || !afterDepth) return;
-    const first = backdropId(nSolids, 0);
+    if (!ghost) return;
     let fading = false;
-    for (const id of fadingOccluders()) if (id >= first) fading = true;
-    depth.visible = fading;
-    mesh.material = fading ? afterDepth : material;
+    for (const id of fadingOccluders()) if (id >= firstId) fading = true;
+    for (const g of [ghostDepthRef.current, ghostColorRef.current]) if (g) g.visible = fading;
   });
 
   if (cells.length === 0) return null;
   return (
     <>
       <instancedMesh ref={ref} args={[geometry, material, cells.length]} />
-      {depthMaterial && (
-        <instancedMesh
-          ref={depthRef}
-          args={[geometry, depthMaterial, cells.length]}
-          renderOrder={-1}
-        />
+      {ghost && (
+        <>
+          <instancedMesh
+            ref={ghostDepthRef}
+            args={[geometry, ghost.depth, cells.length]}
+            renderOrder={GHOST_DEPTH_ORDER}
+            visible={false}
+          />
+          <instancedMesh
+            ref={ghostColorRef}
+            args={[geometry, ghost.color, cells.length]}
+            renderOrder={GHOST_COLOR_ORDER}
+            visible={false}
+          />
+        </>
       )}
     </>
   );

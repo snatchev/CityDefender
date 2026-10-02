@@ -24,6 +24,7 @@ import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
 import { groundHandlers } from './pointer';
+import { occluderIds } from './seeThrough';
 import { SeeThroughDriver } from './SeeThroughDriver';
 import { Shots } from './Shots';
 import { SimDriver } from './SimDriver';
@@ -65,6 +66,11 @@ export function Scene() {
     () => (city && map && buildingsFile ? displayHeights(map, buildingsFile, heightScale) : null),
     [city, map, buildingsFile, heightScale],
   );
+  // The near backdrop's see-through ids follow the level's buildings' (D055).
+  const backdropFirstId = useMemo(
+    () => (buildingsFile ? occluderIds(buildingsFile.solids).backdrop0 : 0),
+    [buildingsFile],
+  );
   const ground = useMemo(
     () => (frame && map && heights ? groundHandlers(frame, map, heights) : null),
     [frame, map, heights],
@@ -98,7 +104,7 @@ export function Scene() {
           file={backdrop}
           frame={frame}
           heightScale={heightScale}
-          nSolids={buildingsFile.solids.length}
+          firstId={backdropFirstId}
         />
       )}
 

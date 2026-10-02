@@ -1,13 +1,20 @@
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useMemo } from 'react';
-import { Color, MeshStandardMaterial } from 'three';
+import { useEffect, useMemo, useRef } from 'react';
+import { Color, MeshStandardMaterial, type Group } from 'three';
 import { game, renderAlpha } from '../game';
 import type { SolidRecord } from '../sim/cityFile';
 import { TICK_DT } from '../sim/constants';
 import { solidsGeometry } from './buildingMesh';
 import type { TileFrame } from './coords';
 import { withWindows } from './facades';
-import { CITY_HALL_ID, withSeeThrough } from './seeThrough';
+import {
+  CITY_HALL_ID,
+  fadingOccluders,
+  GHOST_COLOR_ORDER,
+  GHOST_DEPTH_ORDER,
+  ghostMaterials,
+  hideWhenFaded,
+} from './seeThrough';
 
 /** How long City Hall glows red after a bug reaches it. */
 const FLASH_S = 0.6;
@@ -39,9 +46,9 @@ export function CityHall({
   );
   const material = useMemo(
     () =>
-      // Fades as one building when it's in the way of the track (D055): routes end at City Hall,
-      // so its tower often is. A small mesh, so plain `discard` costs nothing measurable here.
-      withSeeThrough(
+      // See-through as one building when it's in the way of the track (D055): routes end at City
+      // Hall, so its tower often is.
+      hideWhenFaded(
         withWindows(
           new MeshStandardMaterial({
             vertexColors: true,
@@ -53,14 +60,32 @@ export function CityHall({
     [],
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
+  const ghost = useMemo(() => ghostMaterials(true), []);
   useEffect(() => () => material.dispose(), [material]);
+  useEffect(
+    () => () => {
+      ghost.depth.dispose();
+      ghost.color.dispose();
+    },
+    [ghost],
+  );
+  const ghostRef = useRef<Group>(null);
 
   useFrame(() => {
     const world = game.world;
     const last = world.fx.goalHits[world.fx.goalHits.length - 1];
     const age = last ? (world.tick + renderAlpha() - last.tick) * TICK_DT : Infinity;
     material.emissiveIntensity = Math.max(0, 1 - age / FLASH_S) * FLASH_INTENSITY;
+    if (ghostRef.current) ghostRef.current.visible = fadingOccluders().has(CITY_HALL_ID);
   });
 
-  return <mesh name="cityHall" geometry={geometry} material={material} scale-y={heightScale} />;
+  return (
+    <group name="cityHall" scale-y={heightScale}>
+      <mesh geometry={geometry} material={material} />
+      <group ref={ghostRef} visible={false}>
+        <mesh geometry={geometry} material={ghost.depth} renderOrder={GHOST_DEPTH_ORDER} />
+        <mesh geometry={geometry} material={ghost.color} renderOrder={GHOST_COLOR_ORDER} />
+      </group>
+    </group>
+  );
 }

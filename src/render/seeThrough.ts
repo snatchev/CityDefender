@@ -9,6 +9,7 @@ import {
   type PerspectiveCamera,
   type WebGLProgramParametersWithUniforms,
 } from 'three';
+import type { SolidRecord } from '../sim/cityFile';
 import {
   buildOccluderGrid,
   forEachBlocker,
@@ -20,18 +21,27 @@ import { pointAt, type Track } from './track';
 
 /**
  * See-through buildings (D055): a building that stands between the camera and the active track
- * (the route the rail camera rides) fades out as a whole, and clicks go through it. Each frame,
- * sight lines from the camera to points along the visible part of the track are walked through a
- * grid of building footprints (occluders.ts); every building one of them passes through fades out,
- * and fades back in a moment after none does. The fade is dithered ("screen door" transparency:
- * stays opaque to the GPU, so no sorting problems), leaving a faint ghost of the building.
+ * (the route the rail camera rides) turns into a glassy ghost, as a whole, and clicks go through
+ * it. Nothing else does.
  *
- * Every building-ish mesh carries an `aOcc` vertex (or instance) attribute naming its occluder;
- * a small texture holds each occluder's fade, which the shader looks up. Id 0 never fades.
+ * Each frame, sight lines from the camera to points along the on-screen part of the track are
+ * walked through a grid of building footprints (occluders.ts); every building one passes through
+ * fades, and fades back a moment after none does. A building's parts share one id, so they fade
+ * together.
+ *
+ * Drawing: every building mesh carries an `aOcc` vertex (or instance) attribute naming its
+ * building, and a small texture holds each building's fade (0..1). The normal materials
+ * (`hideWhenFaded`) drop a fading building's triangles in the vertex shader, so they stay plain
+ * opaque shaders with no `discard` (the GPU's hidden-surface removal keeps working). A ghost pass
+ * (`ghostMaterials`, drawn only where something is fading) draws just the fading buildings,
+ * translucent: opaque at the start of a fade, a faint glassy shell at the end. It draws only the
+ * nearest ghost surface at each pixel (a depth-only pass first), so overlapping walls and parts
+ * don't stack up into an opaque block. Ghosts draw last, after everything else. Id 0 never fades.
  */
 
-/** Share of pixels removed from a fully faded building (the rest keep a ghost of it). */
-const MAX_FADE = 0.9;
+/** A fully faded building keeps this much opacity, washed this far toward white. */
+const GHOST_ALPHA = 0.16;
+const GHOST_WASH = 0.4;
 /** Fade in and out over 1 / this (s). */
 const FADE_PER_S = 5;
 /** A building stays faded this long after it stops being in the way (s), so edges don't flicker. */
@@ -48,10 +58,27 @@ const SCREEN_MARGIN = 1.15;
 const CELL_M = 4;
 const TEX_W = 256;
 
-/** Occluder ids: City Hall, then the level's buildings, then the near backdrop's boxes. */
+/** City Hall's occluder id (all its parts). */
 export const CITY_HALL_ID = 1;
-export const buildingId = (i: number) => 2 + i;
-export const backdropId = (nSolids: number, k: number) => 2 + nSolids + k;
+
+/**
+ * Occluder ids for the level's solids, one per building (solids sharing `b`), after City Hall;
+ * the near backdrop's boxes are numbered from `backdrop0`.
+ */
+export function occluderIds(solids: readonly SolidRecord[]): {
+  ofSolid: number[];
+  backdrop0: number;
+} {
+  const byBuilding = new Map<number, number>();
+  let next = CITY_HALL_ID + 1;
+  const ofSolid = solids.map((s) => {
+    if (s.b === undefined) return next++;
+    let id = byBuilding.get(s.b);
+    if (id === undefined) byBuilding.set(s.b, (id = next++));
+    return id;
+  });
+  return { ofSolid, backdrop0: next };
+}
 
 const state = {
   grid: null as OccluderGrid | null,
@@ -78,7 +105,7 @@ function makeTexture(data: Uint8Array, rows: number): DataTexture {
   return tex;
 }
 
-/** The buildings that can fade (ids as above, each < `idCount`). Rebuilds the grid. */
+/** The buildings that can fade (each id < `idCount`). Rebuilds the grid. */
 export function setOccluders(shapes: readonly OccluderShape[], idCount: number): void {
   let x0 = Infinity;
   let z0 = Infinity;
@@ -141,6 +168,7 @@ export function updateSeeThrough(camera: PerspectiveCamera, timeS: number, dt: n
   if (!g) return;
   const t0 = performance.now();
   now = timeS;
+
   camera.updateMatrixWorld();
   from[0] = camera.position.x;
   from[1] = camera.position.y;
@@ -167,7 +195,8 @@ export function updateSeeThrough(camera: PerspectiveCamera, timeS: number, dt: n
   for (const id of state.active) {
     const want = now - state.seen[id]! < HOLD_S ? 1 : 0;
     const f = state.fade[id]!;
-    const next = want > f ? Math.min(1, f + step) : Math.max(0, f - step);
+    // Step toward `want` and stop there.
+    const next = want > f ? Math.min(want, f + step) : Math.max(want, f - step);
     if (next !== f) {
       state.fade[id] = next;
       state.data[id] = Math.round(next * 255);
@@ -179,14 +208,20 @@ export function updateSeeThrough(camera: PerspectiveCamera, timeS: number, dt: n
   state.lastMs = performance.now() - t0;
 }
 
-/** For the dev hook: buildings faded or fading, and the last update's CPU time (ms). */
-export function seeThroughStats(): { fading: number; ms: number } {
-  return { fading: state.active.size, ms: state.lastMs };
-}
-
 /** Occluders fading or faded right now (don't modify). */
 export function fadingOccluders(): ReadonlySet<number> {
   return state.active;
+}
+
+/** For the dev hook: buildings faded or fading (ids), and the last update's CPU time (ms). */
+export function seeThroughStats(): {
+  fading: number;
+  ms: number;
+  ids: number[];
+  fades: number[];
+} {
+  const ids = [...state.active];
+  return { fading: ids.length, ms: state.lastMs, ids, fades: ids.map((id) => state.fade[id]!) };
 }
 
 /** How faded the building around this world point is (0..1), so picking can go through it. */
@@ -195,72 +230,111 @@ export function seeThroughFade(p: Vector3): number {
   return g ? maxAt(g, p.x, p.y, p.z, state.heightScale, (id) => state.fade[id]!) : 0;
 }
 
-/**
- * Patch a built-in lit material (standard/basic) so it takes part in the fade. Its geometry needs an
- * `aOcc` attribute (per vertex, or per instance). Chains any earlier patch (e.g. windows).
- */
-export function withSeeThrough<M extends Material>(material: M): M {
+/** Vertex shader: this vertex's building fade, and a way to drop the triangle. */
+const READ_FADE = `attribute float aOcc;
+uniform sampler2D uSeeFade;
+varying float vSeeFade;
+void main() {
+  int seeId = int(aOcc + 0.5);
+  vSeeFade = texelFetch(uSeeFade, ivec2(seeId % ${TEX_W}, seeId / ${TEX_W}), 0).r;`;
+/** Outside the clip volume: every vertex of the triangle goes there, so it isn't drawn. */
+const DROP = 'gl_Position = vec4(0.0, 0.0, -2.0, 1.0);';
+
+function patch<M extends Material>(
+  material: M,
+  key: string,
+  edit: (shader: WebGLProgramParametersWithUniforms) => void,
+): M {
   const prev = material.onBeforeCompile.bind(material);
   const prevKey = material.customProgramCacheKey.bind(material);
-  material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer) => {
+  material.onBeforeCompile = (shader, renderer) => {
     prev(shader, renderer);
     Object.assign(shader.uniforms, uniforms);
-    shader.vertexShader = shader.vertexShader.replace(
-      'void main() {',
-      `attribute float aOcc;
-        uniform sampler2D uSeeFade;
-        varying float vSeeFade;
-        void main() {
-          {
-            int id = int(aOcc + 0.5);
-            vSeeFade = texelFetch(uSeeFade, ivec2(id % ${TEX_W}, id / ${TEX_W}), 0).r;
-          }`,
-    );
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        'void main() {',
-        `varying float vSeeFade;
-        float bayer4(vec2 p) {
-          int x = int(mod(p.x, 4.0));
-          int y = int(mod(p.y, 4.0));
-          int i = x + y * 4;
-          int b[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-          return (float(b[i]) + 0.5) / 16.0;
-        }
-        void main() {`,
-      )
-      .replace(
-        '#include <clipping_planes_fragment>',
-        `#include <clipping_planes_fragment>
-        if (bayer4(gl_FragCoord.xy) < vSeeFade * ${MAX_FADE.toFixed(2)}) discard;`,
-      );
+    shader.vertexShader = shader.vertexShader.replace('void main() {', READ_FADE);
+    edit(shader);
   };
-  material.customProgramCacheKey = () => `${prevKey()}|see-through-v9`;
+  material.customProgramCacheKey = () => `${prevKey()}|${key}`;
   return material;
 }
 
 /**
- * Depth pre-pass for surfaces that may fade (D053). A shader that may `discard` stops the GPU from
- * skipping hidden surfaces, so an expensive material with the fade would shade every wall behind
- * every other one. Instead: draw the geometry first with this depth-only material (it does the
- * dithered discard, and costs next to nothing), then with the full material prepared by
- * `afterDepthPass` (no discard; it only draws where its depth matches the pre-pass).
+ * A building material that leaves out buildings while they fade (their ghost is drawn instead).
+ * Its geometry needs `aOcc` (per vertex or per instance). Chains any earlier patch (e.g. windows).
  */
-export function seeThroughDepthMaterial(): MeshBasicMaterial {
-  return withSeeThrough(
-    new MeshBasicMaterial({
-      colorWrite: false,
-      // Pushed back a hair so the second pass (the same surfaces) always passes its depth test.
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
-    }),
-  );
+export function hideWhenFaded<M extends Material>(material: M): M {
+  return patch(material, 'hide-faded-v1', (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <project_vertex>',
+      `#include <project_vertex>
+      if (vSeeFade > 0.0) ${DROP}`,
+    );
+  });
 }
 
-/** The full-material pass after `seeThroughDepthMaterial`: tests against its depth, writes none. */
-export function afterDepthPass<M extends Material>(material: M): M {
-  material.depthFunc = LessEqualDepth;
-  material.depthWrite = false;
-  return material;
+/** Ghosts draw after everything else: their depth pass, then their colour (see the module doc). */
+export const GHOST_DEPTH_ORDER = 1000;
+export const GHOST_COLOR_ORDER = 1001;
+/** Polygon offsets (factor and units) of the ghost passes: behind solid walls, colour in front of depth. */
+const GHOST_COLOR_OFFSET = 2;
+const GHOST_DEPTH_OFFSET = 4;
+
+/**
+ * The ghost of fading buildings: the same geometry, drawn only where its building is fading. `depth`
+ * (renderOrder `GHOST_DEPTH_ORDER`) marks the nearest ghost surface; `color` (`GHOST_COLOR_ORDER`)
+ * draws it, translucent and washed out. `vertexColors` for merged building meshes; instanced
+ * meshes bring their instance colours. Draw them only while something is fading (they run every
+ * vertex).
+ */
+export function ghostMaterials(vertexColors: boolean): {
+  depth: MeshBasicMaterial;
+  color: MeshBasicMaterial;
+} {
+  const onlyFading = (shader: WebGLProgramParametersWithUniforms) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <project_vertex>',
+      `#include <project_vertex>
+      if (vSeeFade <= 0.0) ${DROP}`,
+    );
+  };
+  // Both passes sit a hair behind the real surface, the depth pass further than the colour pass:
+  // so a ghost wall loses every tie with a solid wall in the same plane (row houses share walls),
+  // and the colour pass always passes its own depth pass (two shader programs need not compute
+  // exactly the same depth). Without this, both flicker.
+  // In the transparent queue (so it keeps its place after everything else), but writes depth only.
+  const depth = patch(
+    new MeshBasicMaterial({
+      colorWrite: false,
+      transparent: true,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: GHOST_DEPTH_OFFSET,
+      polygonOffsetUnits: GHOST_DEPTH_OFFSET,
+    }),
+    'ghost-depth-v1',
+    onlyFading,
+  );
+  const color = patch(
+    new MeshBasicMaterial({
+      vertexColors,
+      transparent: true,
+      depthWrite: false,
+      depthFunc: LessEqualDepth,
+      polygonOffset: true,
+      polygonOffsetFactor: GHOST_COLOR_OFFSET,
+      polygonOffsetUnits: GHOST_COLOR_OFFSET,
+    }),
+    'ghost-color-v1',
+    (shader) => {
+      onlyFading(shader);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('void main() {', 'varying float vSeeFade;\nvoid main() {')
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), ${GHOST_WASH.toFixed(2)} * vSeeFade);
+          diffuseColor.a *= mix(1.0, ${GHOST_ALPHA.toFixed(2)}, vSeeFade);`,
+        );
+    },
+  );
+  return { depth, color };
 }
