@@ -39,9 +39,8 @@ import { pointAt, type Track } from './track';
  * don't stack up into an opaque block. Ghosts draw last, after everything else. Id 0 never fades.
  */
 
-/** A fully faded building keeps this much opacity, washed this far toward white. */
+/** A fully faded building keeps this much opacity. */
 const GHOST_ALPHA = 0.16;
-const GHOST_WASH = 0.4;
 /** Fade in and out over 1 / this (s). */
 const FADE_PER_S = 5;
 /** A building stays faded this long after it stops being in the way (s), so edges don't flicker. */
@@ -279,15 +278,18 @@ const GHOST_COLOR_OFFSET = 2;
 const GHOST_DEPTH_OFFSET = 4;
 
 /**
- * The ghost of fading buildings: the same geometry, drawn only where its building is fading. `depth`
- * (renderOrder `GHOST_DEPTH_ORDER`) marks the nearest ghost surface; `color` (`GHOST_COLOR_ORDER`)
- * draws it, translucent and washed out. `vertexColors` for merged building meshes; instanced
- * meshes bring their instance colours. Draw them only while something is fading (they run every
- * vertex).
+ * The ghost of fading buildings: the same geometry, drawn again after everything else, only where
+ * its building is fading. `depth` (renderOrder `GHOST_DEPTH_ORDER`) marks the nearest ghost surface;
+ * `color` (`GHOST_COLOR_ORDER`) is the building's own material (`look`, a fresh instance: it is
+ * changed here) drawn with its opacity going from 1 to `GHOST_ALPHA` as the building fades, so a
+ * fading building looks exactly like itself, just more see-through. Draw them only while something
+ * is fading (they run every vertex).
  */
-export function ghostMaterials(vertexColors: boolean): {
+export function ghostMaterials<M extends Material>(
+  look: M,
+): {
   depth: MeshBasicMaterial;
-  color: MeshBasicMaterial;
+  color: M;
 } {
   const onlyFading = (shader: WebGLProgramParametersWithUniforms) => {
     shader.vertexShader = shader.vertexShader.replace(
@@ -313,28 +315,21 @@ export function ghostMaterials(vertexColors: boolean): {
     'ghost-depth-v1',
     onlyFading,
   );
-  const color = patch(
-    new MeshBasicMaterial({
-      vertexColors,
-      transparent: true,
-      depthWrite: false,
-      depthFunc: LessEqualDepth,
-      polygonOffset: true,
-      polygonOffsetFactor: GHOST_COLOR_OFFSET,
-      polygonOffsetUnits: GHOST_COLOR_OFFSET,
-    }),
-    'ghost-color-v1',
-    (shader) => {
-      onlyFading(shader);
-      shader.fragmentShader = shader.fragmentShader
-        .replace('void main() {', 'varying float vSeeFade;\nvoid main() {')
-        .replace(
-          '#include <color_fragment>',
-          `#include <color_fragment>
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), ${GHOST_WASH.toFixed(2)} * vSeeFade);
-          diffuseColor.a *= mix(1.0, ${GHOST_ALPHA.toFixed(2)}, vSeeFade);`,
-        );
-    },
-  );
+  look.transparent = true;
+  look.depthWrite = false;
+  look.depthFunc = LessEqualDepth;
+  look.polygonOffset = true;
+  look.polygonOffsetFactor = GHOST_COLOR_OFFSET;
+  look.polygonOffsetUnits = GHOST_COLOR_OFFSET;
+  const color = patch(look, 'ghost-color-v2', (shader) => {
+    onlyFading(shader);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'varying float vSeeFade;\nvoid main() {')
+      .replace(
+        '#include <opaque_fragment>',
+        `#include <opaque_fragment>
+        gl_FragColor.a *= mix(1.0, ${GHOST_ALPHA.toFixed(2)}, vSeeFade);`,
+      );
+  });
   return { depth, color };
 }

@@ -60,7 +60,13 @@ export function CityHall({
     [],
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
-  const ghost = useMemo(() => ghostMaterials(true), []);
+  const ghost = useMemo(
+    () =>
+      ghostMaterials(
+        withWindows(new MeshStandardMaterial({ vertexColors: true, roughness: ROUGHNESS })),
+      ),
+    [],
+  );
   useEffect(() => () => material.dispose(), [material]);
   useEffect(
     () => () => {

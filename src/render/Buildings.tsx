@@ -58,15 +58,18 @@ export function Buildings({
     return {
       near: hideWhenFaded(withWindows(base())),
       far: hideWhenFaded(base()),
-      ghost: ghostMaterials(true),
+      ghostNear: ghostMaterials(withWindows(base())),
+      ghostFar: ghostMaterials(base()),
     };
   }, []);
   useEffect(
     () => () => {
       mats.near.dispose();
       mats.far.dispose();
-      mats.ghost.depth.dispose();
-      mats.ghost.color.dispose();
+      for (const g of [mats.ghostNear, mats.ghostFar]) {
+        g.depth.dispose();
+        g.color.dispose();
+      }
     },
     [mats],
   );
@@ -98,15 +101,15 @@ export function Buildings({
       );
       near.geometry.computeBoundingSphere();
       const sphere = near.geometry.boundingSphere!.clone();
-      const ghostOf = (geometry: Mesh['geometry']) => {
-        const depth = new Mesh(geometry, mats.ghost.depth);
-        const color = new Mesh(geometry, mats.ghost.color);
+      const ghostOf = (geometry: Mesh['geometry'], ghost: typeof mats.ghostNear) => {
+        const depth = new Mesh(geometry, ghost.depth);
+        const color = new Mesh(geometry, ghost.color);
         depth.renderOrder = GHOST_DEPTH_ORDER;
         color.renderOrder = GHOST_COLOR_ORDER;
         return [depth, color];
       };
-      const nearGhost = ghostOf(near.geometry);
-      const farGhost = ghostOf(far.geometry);
+      const nearGhost = ghostOf(near.geometry, mats.ghostNear);
+      const farGhost = ghostOf(far.geometry, mats.ghostFar);
       group.add(near, far, ...nearGhost, ...farGhost);
       const chunk = { near, far, nearGhost, farGhost, sphere, fading: false };
       chunks.push(chunk);

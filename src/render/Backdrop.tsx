@@ -121,7 +121,17 @@ function LayerBoxes({
         : new MeshLambertMaterial(),
     [detailed],
   );
-  const ghost = useMemo(() => (detailed ? ghostMaterials(false) : null), [detailed]);
+  const ghost = useMemo(
+    () =>
+      detailed
+        ? ghostMaterials(
+            withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), {
+              instancedBoxes: true,
+            }),
+          )
+        : null,
+    [detailed],
+  );
   useEffect(
     () => () => {
       material.dispose();
