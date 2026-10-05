@@ -2,22 +2,29 @@ import { create } from 'zustand';
 import type { EliteType, MobType } from '../sim/mobs';
 
 /**
- * Cutscenes (branch down-the-street, D054). Only ever started by the player (a click on the threat
- * board); render/Director.tsx plays them and CinemaOverlay.tsx draws their title cards.
+ * Cutscenes (branch down-the-street, D054, D057): introductions. When a station breaks open with
+ * a boss, an elite group or a kind of bug the run hasn't met yet, the camera cuts to it, the game
+ * freezes and a title card names it. They start on their own (render/ThreatTracker.tsx queues
+ * them) and play one at a time; render/Director.tsx plays them and CinemaOverlay.tsx draws the
+ * card. The burst at the station is separate: it always plays (render/StationBursts.tsx).
  */
-export type Cutscene =
-  | { kind: 'breach'; station: number }
-  | { kind: 'boss'; station: number; mob: MobType }
-  | { kind: 'elite'; station: number; mob: MobType; elite: EliteType };
+export type IntroKind = 'boss' | 'elite' | 'new';
+
+export interface Cutscene {
+  kind: IntroKind;
+  station: number;
+  mob: MobType;
+  /** Elite intros: the affix. */
+  elite?: EliteType;
+}
 
 /** What the overlay shows right now. */
-export type Card =
-  | {
-      kind: 'breach';
-      station: string;
-      lines: { count: number; label: string; tone: 'normal' | 'elite' | 'boss' }[];
-    }
-  | { kind: 'boss' | 'elite'; epithet: string; name: string; factoid: string };
+export interface Card {
+  kind: IntroKind;
+  epithet: string;
+  name: string;
+  factoid: string;
+}
 
 interface CinemaState {
   /** The cutscene playing (with a fresh id per play), or null. */
@@ -30,10 +37,23 @@ interface CinemaState {
 export const useCinema = create<CinemaState>(() => ({ cut: null, card: null, skip: 0 }));
 
 let nextId = 1;
+const waiting: Cutscene[] = [];
 
+/** Play a cutscene now, or after the ones already playing or waiting. */
 export function playCutscene(c: Cutscene): void {
-  if (useCinema.getState().cut) return; // one at a time
-  useCinema.setState({ cut: { ...c, id: nextId++ }, card: null });
+  if (useCinema.getState().cut) waiting.push(c);
+  else useCinema.setState({ cut: { ...c, id: nextId++ }, card: null });
+}
+
+/** The director is done with the current cutscene: on to the next one waiting, if any. */
+export function endCutscene(): void {
+  const next = waiting.shift();
+  useCinema.setState({ cut: next ? { ...next, id: nextId++ } : null, card: null });
+}
+
+/** Drop everything waiting (a new run). */
+export function clearCutscenes(): void {
+  waiting.length = 0;
 }
 
 export function skipCutscene(): void {

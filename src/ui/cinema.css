@@ -176,6 +176,32 @@
   animation: blink 0.45s steps(2, start) infinite;
 }
 
+/* The last seconds before a breach: faster, bigger, shaking. */
+.threat-card.danger.urgent {
+  animation:
+    card-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+    alarm-pulse 0.35s ease-in-out infinite,
+    alarm-shake 0.18s linear infinite;
+  background: linear-gradient(100deg, #8a120d, #3a0807 70%);
+}
+
+.threat-card.danger.urgent .threat-marquee span {
+  animation-duration: 1.6s;
+}
+
+@keyframes alarm-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px) rotate(-0.4deg);
+  }
+  75% {
+    transform: translateX(3px) rotate(0.4deg);
+  }
+}
+
 .threat-marquee {
   position: absolute;
   inset: 0;
@@ -301,98 +327,7 @@ body.cinematic .map-label {
   text-transform: uppercase;
 }
 
-/* Breach: a slammed banner with the incoming bugs flying in. */
-.breach-card {
-  position: absolute;
-  left: 5vw;
-  top: 17vh;
-  color: #fff;
-  font-family: Impact, 'Arial Black', 'Helvetica Neue', sans-serif;
-}
-
-.breach-head {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 10px 34px 12px 22px;
-  background: linear-gradient(100deg, #e5281c, #ff7a1a);
-  clip-path: polygon(0 0, 100% 0, 96% 100%, 0 100%);
-  transform: skewX(-8deg);
-  box-shadow: 0 10px 40px rgb(255 60 30 / 0.5);
-  animation: slam-left 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) both;
-}
-
-.breach-icon {
-  font-size: 54px;
-  line-height: 1;
-  color: #ffd60a;
-  text-shadow: 0 2px 0 #000;
-}
-
-.breach-station {
-  font-size: 64px;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  -webkit-text-stroke: 2px #2a0606;
-}
-
-.breach-word {
-  align-self: flex-end;
-  padding-bottom: 6px;
-  font-size: 30px;
-  text-transform: uppercase;
-  color: #ffd60a;
-}
-
-.breach-lines {
-  margin: 14px 0 0 30px;
-  padding: 0;
-  list-style: none;
-}
-
-.breach-lines li {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  margin-top: 6px;
-  font-size: 30px;
-  text-transform: uppercase;
-  text-shadow:
-    0 2px 0 #000,
-    0 0 18px rgb(0 0 0 / 0.8);
-  animation: fly-right 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
-}
-
-.breach-lines li.elite {
-  color: #7ff0ff;
-}
-
-.breach-lines li.boss {
-  color: #ff7af0;
-}
-
-.breach-count {
-  min-width: 2.6em;
-  color: #ffd60a;
-  font-size: 40px;
-}
-
-@keyframes slam-left {
-  from {
-    opacity: 0;
-    transform: skewX(-8deg) translateX(-120%);
-  }
-}
-
-@keyframes fly-right {
-  from {
-    opacity: 0;
-    transform: translateX(60vw);
-  }
-}
-
-/* Boss / elite title card: a freeze frame, bands sweeping across, epithet over a huge name. */
+/* Introduction title card (boss, elite, new threat): a freeze frame, bands sweeping across, epithet over a huge name. */
 .intro-card {
   --band-a: #ff2bd6;
   --band-b: #ffd60a;
@@ -405,6 +340,11 @@ body.cinematic .map-label {
 .intro-card.elite {
   --band-a: #20e3ff;
   --band-b: #ffffff;
+}
+
+.intro-card.new {
+  --band-a: #8cff3a;
+  --band-b: #ffd60a;
 }
 
 .intro-band {

@@ -319,10 +319,14 @@ export const introSchema = z
   .strict();
 export type IntroDef = z.infer<typeof introSchema>;
 
-/** cinematics.json: title cards for bosses (by mob type) and elites (by affix). */
+/**
+ * cinematics.json: title cards for bosses (by mob type), elites (by affix) and every other mob
+ * type (shown the first time a run meets it).
+ */
 export const cinematicsSchema = z
   .object({
     bosses: z.record(z.string(), introSchema),
     elites: z.record(z.string(), introSchema),
+    mobs: z.record(z.string(), introSchema),
   })
   .strict();

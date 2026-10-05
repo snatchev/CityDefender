@@ -37,6 +37,8 @@ describe('balance tables', () => {
     check(cinematicsSchema, cinematicsData);
     const bosses = Object.entries(mobsData).filter(([, m]) => 'boss' in m && m.boss);
     for (const [type] of bosses) expect(cinematicsData.bosses, type).toHaveProperty(type);
+    for (const [type, m] of Object.entries(mobsData))
+      if (!('boss' in m && m.boss)) expect(cinematicsData.mobs, type).toHaveProperty(type);
     for (const elite of Object.keys(elitesData))
       expect(cinematicsData.elites, elite).toHaveProperty(elite);
   });

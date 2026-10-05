@@ -271,3 +271,16 @@ Consequences:
 - Picking (`pickTile`) skips roofs of buildings more than half faded.
 - Clicking the map with no tool only selects a tower or wall. Removed: screen-space route picking, `focusRouteAt`, the focused-route highlight, `RouteFocus.tsx`. `focusRoute` stays (threat board, cutscenes, minimap, dev hook).
 - Dev hook: `__cd.seeThrough()` (fading ids, CPU ms), `__cd.hovered()` (picked tile).
+
+**D056 · 2026-10-02 · Branch `down-the-street`: the rail camera trails like a balloon on a string (Stefan).**
+Why: turning the camera exactly with the street kept its angle to the street fixed. Stefan wants it pulled round toward the direction of travel, and into corners, gradually.
+Consequences: each frame the orbit point moves along the track and the camera keeps its distance and height, but its bearing swings 35% of the way toward where the string now points (from the new point back to where the camera was). Travelling side-on turns it about 15°/s at first, easing as it lines up behind; standing still, nothing pulls. A/D/Q/E and mouse orbiting are unchanged. Supersedes "the camera turns with the street" in D054.
+
+**D057 · 2026-10-05 · Branch `down-the-street`: breaches are announced and always shown; the burst and the cinematic are separate (Stefan: "if you don't click the button, the mobs spawn and you never see the cinematic").**
+Why: every station started spawning the moment the wave was sent, so the DANGER card and the bugs arrived together, and the breach was only shown if the player clicked in time.
+Consequences:
+
+- Sim: every station's first bugs of a wave come out `breachLeadS` (8 s, rules.json) after the wave is sent (`queueWave` takes `delayS`; tested).
+- Threat board: from the moment the wave is sent, each station's card flashes DANGER with a countdown, harder (faster pulse, shaking) for its last 5 s. Clicking it puts the camera on that track near the station. The clickable breach cutscene and its banner are gone.
+- The burst (StationBursts) always plays, 0.5 s before a station's first bugs come out, wherever the camera is.
+- The cinematic (camera cut, freeze frame, title card) plays only to introduce a boss, an elite group, or a kind of bug no earlier wave had ("New threat", text in cinematics.json `mobs`). It starts on its own, not on a click: this reverses D054's "only ever after a click" for introductions. Introductions arriving together play one after another.

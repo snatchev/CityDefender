@@ -5,7 +5,7 @@
 **Last updated:** 2026-09-30
 **Current pass:** Pass 10a (Buildings and City Hall): **done**, tagged `pass-10a`. Pass 9 playtested by Stefan (2026-09-30): "It was okay", no balance changes asked for.
 **Next up:** Pass 10b (bug and tower models, VFX, postprocessing, day/night), then 10c (audio, performance pass).
-**Branch `down-the-street` (2026-09-30, D054):** an experiment after Stefan found the camera controls tedious: a rail camera that rides the bugs' route (no panning), a threat board of flashing station cards to switch tracks, and click-started cutscenes (station breaches, Kirby-style boss and elite title cards). Not merged into main. See-through is now one rule: a building blocking the camera's view of the active track fades out whole and is click-through (D055); clicking a route no longer does anything.
+**Branch `down-the-street` (2026-09-30, D054):** an experiment after Stefan found the camera controls tedious: a rail camera that rides the bugs' route (no panning), a threat board of flashing station cards to switch tracks, and click-started cutscenes (station breaches, Kirby-style boss and elite title cards). Not merged into main. See-through is now one rule: a building blocking the camera's view of the active track fades out whole and is click-through (D055); clicking a route no longer does anything. Breaches are announced with a countdown and always burst; introductions (new bug types, elites, bosses) play automatically (D057). The rail camera trails like a balloon on a string (D056).
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done

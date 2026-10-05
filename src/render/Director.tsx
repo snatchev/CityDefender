@@ -6,13 +6,12 @@ import cinematicsData from '../data/cinematics.json';
 import { game, renderAlpha, setTimeScale } from '../game';
 import { focusRoute } from '../planning';
 import { ELITES, MOBS } from '../sim/mobs';
-import { useCinema, type Card, type Cutscene } from '../ui/cinema';
+import { endCutscene, useCinema, type Cutscene } from '../ui/cinema';
 import { usePlan } from '../ui/planStore';
-import { mobLabel, threatMemory, useThreats } from '../ui/threats';
+import { mobLabel, threatMemory } from '../ui/threats';
 import { indexToWorld, tileToWorld, type TileFrame } from './coords';
 import { mobWorldXZ } from './Mobs';
 import { rail, TRACK_Y_M } from './RailCamera';
-import { queueBurst } from './StationBursts';
 import { headingAt, makeTrack, nearestS, pointAt, type Track } from './track';
 
 /** Where the camera is and what it looks at. */
@@ -32,19 +31,8 @@ interface Script {
 
 /** The view the rail is handed back with. */
 const LAND = { distM: 220, pitchDeg: 28 };
-/** Breach: establishing shot of the station, then a slow push in. */
-const BREACH = {
-  sweepS: 1.2,
-  holdS: 2.8,
-  returnS: 0.9,
-  wideM: 72,
-  wideUpM: 30,
-  closeM: 46,
-  closeUpM: 15,
-  angleDeg: 35,
-};
 /**
- * Boss and elite: a fast whip to a low shot, a freeze frame with the title card, then back. The
+ * Introductions: a fast whip to a low shot, a freeze frame with the title card, then back. The
  * camera aims below the subject (`dropM`) so it sits in the top half, above the title card.
  */
 const INTRO = { whipS: 0.55, returnS: 0.9, angleDeg: 14 };
@@ -54,16 +42,18 @@ const FRAMING = {
 };
 const BOSS_HOLD_S = 3.3;
 const ELITE_HOLD_S = 2.6;
+const NEW_HOLD_S = 2.6;
 const HEADING_WINDOW_M = 30;
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /**
- * Plays cutscenes (branch down-the-street, D054), and only ever because the player clicked a
- * threat card (ui/threats.ts). While one plays it owns the camera: the orbit controls are off and
- * the rail waits (`cameraBridge.cinematic`). Boss and elite intros freeze the game for their title
- * card and restore the speed afterwards. Click, Esc or Space skips; either way the camera ends on
- * the station's track, where the rail takes over.
+ * Plays introductions (branch down-the-street, D054, D057): a boss, an elite group or a new kind
+ * of bug just out of a station. They start on their own, queued by render/ThreatTracker.tsx. While
+ * one plays it owns the camera: the orbit controls are off and the rail waits
+ * (`cameraBridge.cinematic`). The game freezes for the title card and its speed comes back
+ * afterwards. Click, Esc or Space skips; either way the camera ends on the station's track, where
+ * the rail takes over.
  */
 export function Director({ frame, width }: { frame: TileFrame; width: number }) {
   const camera = useThree((s) => s.camera);
@@ -100,7 +90,7 @@ export function Director({ frame, width }: { frame: TileFrame; width: number }) 
     cameraBridge.cinematic = false;
     if (controls) controls.enabled = true;
     focusRoute(p.script.station, { kind: 's', s: p.script.landS }, false);
-    useCinema.setState({ cut: null, card: null });
+    endCutscene();
   };
 
   // Start a cutscene.
@@ -109,7 +99,7 @@ export function Director({ frame, width }: { frame: TileFrame; width: number }) 
     const track = trackOf(cut.station);
     const script = buildScript(cut, camera, controls.target, track, frame);
     if (!script || !track) {
-      useCinema.setState({ cut: null, card: null });
+      endCutscene();
       return;
     }
     // The cutscene ends on this track: switch the rail now, so the see-through cutaway (which
@@ -185,73 +175,35 @@ function buildScript(
   if (!spawn || !track) return null;
   const [sx, sz] = tileToWorld(frame, spawn[0], spawn[1]);
   const from: Pose = { pos: camera.position.clone(), look: target.clone() };
-  const station = game.city?.spawns[cut.station]?.name ?? '?';
-  const show = (card: Card | null) => () => useCinema.setState({ card });
 
-  if (cut.kind === 'breach') {
-    const look = new Vector3(sx, 3, sz);
-    const h = headingAt(track, 20, HEADING_WINDOW_M);
-    const yaw = h + MathUtils.degToRad(BREACH.angleDeg);
-    const wide = poseAround(look, yaw, BREACH.wideM, BREACH.wideUpM);
-    const close = poseAround(look, yaw - MathUtils.degToRad(10), BREACH.closeM, BREACH.closeUpM);
-    const landS = Math.min(40, track.length);
-    const t1 = BREACH.sweepS;
-    const t2 = t1 + BREACH.holdS;
-    const groups =
-      useThreats.getState().threats.find((x) => x.station === cut.station)?.groups ?? [];
-    return {
-      station: cut.station,
-      landS,
-      keys: [
-        { t: 0, pose: from },
-        { t: t1, pose: wide },
-        { t: t2, pose: close },
-        { t: t2 + BREACH.returnS, pose: railPose(track, landS) },
-      ],
-      events: [
-        { t: t1 - 0.25, run: () => queueBurst(cut.station) },
-        {
-          t: t1,
-          run: show({
-            kind: 'breach',
-            station,
-            lines: groups.map((g) => ({
-              count: g.count,
-              label: mobLabel(g.type, g.elite, g.count),
-              tone: MOBS[g.type].boss ? 'boss' : g.elite ? 'elite' : 'normal',
-            })),
-          }),
-        },
-        { t: t2, run: show(null) },
-      ],
-    };
-  }
-
-  // Boss or elite: find it (the one from this station, if still alive), else look at the station.
+  // Find it (one from this station, if still alive), else look at the station.
   const subject = w.mobs.find(
     (m) =>
       m.type === cut.mob &&
-      (cut.kind === 'boss' || m.elite === cut.elite) &&
+      (cut.kind === 'elite' ? m.elite === cut.elite : cut.kind === 'boss' || !m.elite) &&
       threatMemory.mobStation.get(m.id) === cut.station,
   );
   const [bx, bz] = subject ? mobWorldXZ(subject, frame, renderAlpha()) : [sx, sz];
-  const fr = FRAMING[cut.kind];
+  const fr = FRAMING[cut.kind === 'boss' ? 'boss' : 'elite'];
   const look = new Vector3(bx, 3 - fr.dropM, bz);
   const sAt = nearestS(track, bx, bz);
   // In front of it, on the City Hall side, looking back at it as it comes.
   const yaw = headingAt(track, sAt, HEADING_WINDOW_M) + MathUtils.degToRad(INTRO.angleDeg);
   const close = poseAround(look, yaw, fr.distM, fr.upM + fr.dropM);
-  const hold = cut.kind === 'boss' ? BOSS_HOLD_S : ELITE_HOLD_S;
+  const hold = cut.kind === 'boss' ? BOSS_HOLD_S : cut.kind === 'elite' ? ELITE_HOLD_S : NEW_HOLD_S;
   const t1 = INTRO.whipS;
   const t2 = t1 + hold;
+  type Intro = Record<string, { epithet: string; factoid: string }>;
   const intro =
     cut.kind === 'boss'
-      ? (cinematicsData.bosses as Record<string, { epithet: string; factoid: string }>)[cut.mob]
-      : (cinematicsData.elites as Record<string, { epithet: string; factoid: string }>)[cut.elite];
+      ? (cinematicsData.bosses as Intro)[cut.mob]
+      : cut.kind === 'elite'
+        ? (cinematicsData.elites as Intro)[cut.elite ?? '']
+        : (cinematicsData.mobs as Intro)[cut.mob];
   const name =
-    cut.kind === 'boss'
-      ? MOBS[cut.mob].name
-      : `${ELITES[cut.elite].name} ${mobLabel(cut.mob, null, 2)}`;
+    cut.kind === 'elite' && cut.elite
+      ? `${ELITES[cut.elite].name} ${mobLabel(cut.mob, null, 2)}`
+      : MOBS[cut.mob].name;
   let prevScale = 1;
   return {
     station: cut.station,

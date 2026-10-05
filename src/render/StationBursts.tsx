@@ -14,9 +14,10 @@ import { createRng } from '../sim/rng';
 import { tileToWorld, type TileFrame } from './coords';
 
 /**
- * Bugs bursting out of a station (branch down-the-street, D054): a shock ring along the street, a
- * cloud of dust and chunks of pavement flung into the air. Plays when a station starts spawning,
- * and again when a breach cutscene looks at it. Render only, wall-clock time (plays while paused).
+ * A station breaking open (branch down-the-street, D054, D057): a shock ring along the street, a
+ * cloud of dust and chunks of pavement flung into the air. Always plays, just before a station's
+ * first bugs of the wave come out (render/ThreatTracker.tsx), wherever the camera is. Render only,
+ * wall-clock time (plays while paused).
  */
 
 const BURST_S = 2.4;

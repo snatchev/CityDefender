@@ -12,7 +12,7 @@ const ALARM: Partial<Record<Threat['state'], string>> = {
 
 const LABEL: Record<Threat['state'], string> = {
   incoming: 'Incoming',
-  danger: 'Breach!',
+  danger: 'Breach',
   elite: 'Elite!',
   boss: 'Boss!',
   engaged: 'Engaged',
@@ -20,11 +20,11 @@ const LABEL: Record<Threat['state'], string> = {
 };
 
 /**
- * The threat board (branch down-the-street, D054): every station sending bugs this wave, and the
- * way to switch the camera between their tracks. Cards that need a look flash (DANGER when a
- * station starts spawning, ELITE / BOSS when one comes out); clicking one plays its cutscene, then
- * leaves the camera on that track. 1–9 do the same as clicking the card. The track the camera is
- * on is marked.
+ * The threat board (branch down-the-street, D054, D057): every station sending bugs this wave, and
+ * the way to switch the camera between their tracks. Once the wave is sent, each station's card
+ * flashes DANGER with a countdown to its breach, harder for the last few seconds; ELITE / BOSS
+ * while one from there is out. Clicking a card (or 1–9) puts the camera on that track, near the
+ * station. The track the camera is on is marked.
  */
 export function ThreatBoard() {
   const threats = useThreats((s) => s.threats);
@@ -68,7 +68,7 @@ function ThreatCard({ t, index, tracking }: { t: Threat; index: number; tracking
   return (
     <button
       type="button"
-      className={`threat-card ${t.state}${tracking ? ' tracking' : ''}`}
+      className={`threat-card ${t.state}${t.urgent ? ' urgent' : ''}${tracking ? ' tracking' : ''}`}
       onClick={() => engageThreat(t.station)}
       aria-label={`${t.name}: ${LABEL[t.state]}${headline ? `, ${headline}` : ''}`}
     >
@@ -85,9 +85,11 @@ function ThreatCard({ t, index, tracking }: { t: Threat; index: number; tracking
         <span className="threat-top">
           <span className="threat-name">{t.name}</span>
           <span className="threat-state">
-            {tracking && t.state !== 'boss' && t.state !== 'elite' && t.state !== 'danger'
-              ? 'Tracking'
-              : LABEL[t.state]}
+            {t.state === 'danger'
+              ? `${LABEL.danger} ${t.breachIn ?? 0}`
+              : tracking && t.state !== 'boss' && t.state !== 'elite'
+                ? 'Tracking'
+                : LABEL[t.state]}
           </span>
         </span>
         {headline && <span className="threat-headline">{headline}</span>}
