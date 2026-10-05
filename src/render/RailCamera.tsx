@@ -10,7 +10,7 @@ import { orbitControls } from './view';
 
 /** The point the camera orbits rides this high above the street (m). */
 export const TRACK_Y_M = 2;
-/** The camera turns with the street over this stretch either side (m), so corners turn it gently. */
+/** The street's heading is measured over this stretch either side (m): where cutscenes and landings face. */
 const HEADING_WINDOW_M = 45;
 /** W/S travel speed: this share of the camera distance per second, clamped (m/s). */
 const MOVE_PER_DIST = 0.8;
@@ -18,6 +18,12 @@ const MOVE_MPS = [40, 500] as const;
 /** How quickly the camera catches up with the requested spot on the track (1/s). */
 const SMOOTH_PER_S = 8;
 const ROTATE_RAD_PER_S = 1.6;
+/**
+ * Balloon on a string: how much of the string's swing the camera follows each frame as the point
+ * it orbits moves (1 = a taut string, which turns it about 50°/s when travelling side-on; less is
+ * a lazier pull).
+ */
+const BALLOON_PULL = 0.35;
 /** 'start' lands this far down the track from the station (looking back at it); 'goal' this far short of City Hall. */
 const START_AFTER_STATION_M = 40;
 const START_BEFORE_GOAL_M = 90;
@@ -52,8 +58,6 @@ export const rail = {
   heading: 0,
 };
 
-const UP = new Vector3(0, 1, 0);
-
 function typingInto(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLElement &&
@@ -65,7 +69,8 @@ function typingInto(target: EventTarget | null): boolean {
  * The rail camera (branch down-the-street, D054). The point the camera orbits is pinned to the
  * active track, the route the bugs crawl from one station to City Hall. W/↑ glides toward the
  * station, S/↓ toward City Hall; A/D, ←/→ and Q/E turn the camera around that point; the mouse
- * orbits and zooms; nothing pans. The camera turns with the street, so what's ahead stays ahead.
+ * orbits and zooms; nothing pans. Travelling pulls the camera round behind the direction of travel
+ * like a balloon on a string, so it swings into corners.
  * Switching tracks (the threat board, the minimap) glides the camera across. The
  * rail stands still while a glide or a cutscene drives the camera.
  */
@@ -242,21 +247,26 @@ export function RailCamera({ frame, width }: { frame: TileFrame; width: number }
     rail.sGoal = MathUtils.clamp(rail.sGoal + along * speed * dt, 0, track.length);
     rail.s += (rail.sGoal - rail.s) * (1 - Math.exp(-SMOOTH_PER_S * dt));
 
-    // Ride the track: move the orbit point, and the camera with it.
+    // Ride the track like a balloon on a string: the orbit point moves along the track and drags
+    // the camera after it. The camera keeps its distance and height, but its bearing swings part
+    // of the way toward where the string now points (from the new point back to where the camera
+    // was), so moving along the street slowly turns it to trail behind the direction of travel,
+    // and round a corner it swings into the new street. Standing still, nothing pulls.
     const [x, z] = pointAt(track, rail.s);
-    tmp.v.set(x, TRACK_Y_M, z).sub(controls.target);
-    controls.target.add(tmp.v);
-    camera.position.add(tmp.v);
-
-    // Turn with the street, plus the player's own turning.
-    const h = headingAt(track, rail.s, HEADING_WINDOW_M);
-    const turn = (keys.has('left') ? 1 : 0) - (keys.has('right') ? 1 : 0);
-    const angle = angleDelta(rail.heading, h) + turn * ROTATE_RAD_PER_S * dt;
-    rail.heading = h;
-    if (angle !== 0) {
-      tmp.offset.subVectors(camera.position, controls.target).applyAxisAngle(UP, angle);
-      camera.position.copy(controls.target).add(tmp.offset);
+    tmp.offset.subVectors(camera.position, controls.target);
+    const reach = Math.hypot(tmp.offset.x, tmp.offset.z);
+    let yaw = Math.atan2(tmp.offset.x, tmp.offset.z);
+    controls.target.set(x, TRACK_Y_M, z);
+    if (reach > 1) {
+      const string = Math.atan2(camera.position.x - x, camera.position.z - z);
+      yaw += angleDelta(yaw, string) * BALLOON_PULL;
     }
+    // Plus the player's own turning.
+    const turn = (keys.has('left') ? 1 : 0) - (keys.has('right') ? 1 : 0);
+    yaw += turn * ROTATE_RAD_PER_S * dt;
+    tmp.offset.set(Math.sin(yaw) * reach, tmp.offset.y, Math.cos(yaw) * reach);
+    camera.position.copy(controls.target).add(tmp.offset);
+    rail.heading = headingAt(track, rail.s, HEADING_WINDOW_M);
     controls.update();
     for (const k of released.current) keys.delete(k);
     released.current.clear();
