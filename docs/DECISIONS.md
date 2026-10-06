@@ -99,6 +99,7 @@ Consequences:
 - Routes and ghost routes cover every station active in the current wave, completing Pass 3's "ghost path from each active spawn".
 
 **D023 · 2026-09-26 · Unit visibility and keyboard camera (playtest 1).**
+> Superseded in part: the keyboard pan camera gave way to the rail camera (D054).
 Why: Stefan found mobs and towers hard to see and wanted bugs visible behind buildings, plus WASD/QE camera keys.
 Consequences:
 
@@ -142,6 +143,7 @@ Why: Stefan noticed the tall buildings looked missing: the √ curve drew the 29
 Consequences: buildings, backdrop and tower positions use real metres; `gameHeight()` (√ curve) stays for tower range and minimum range. City Hall stand-in at real proportions (48 m block, statue at 167 m). Footprint height = `max_hgt` when it's within 1.25× of `approx_hgt` (catches spires), else `approx_hgt` (rejects values inflated by taller neighbours).
 
 **D030 · 2026-09-27 · See-through buildings: dithered cutaway cones (Stefan's idea).**
+> Superseded by D055: see-through is now whole buildings between the camera and the active track.
 Why: with real heights, towers hide the streets the player is defending.
 Consequences: `render/seeThrough.ts` patches the building and backdrop materials (`onBeforeCompile`). Two cones: camera → orbit target and camera → hovered tile, wide at the camera (45% of the view distance) and narrow at the focus, stopping just short of it. Surfaces inside are removed with a 4×4 ordered dither (up to 80%), so they stay opaque to the GPU (no sorting issues) and keep a ghost silhouette. Picking uses the same maths on the CPU, so the pointer passes through faded buildings. Dev hook gained `__cd.ghost`.
 
@@ -162,6 +164,7 @@ Why: DESIGN §7–8; tier 3 branches arrive in Pass 9.
 Consequences: a tower tracks everything spent on it, and selling refunds 70% of that (100% during the prep it was built in). Barricade upgrades cost the price difference and add the HP difference, so damage already taken stays taken; the flow field is recomputed. Clicking a sawhorse with the Jersey Barrier tool upgrades it.
 
 **D035 · 2026-09-27 · Tower placement snaps to spots; the cursor's see-through cone follows the mouse (Stefan's feedback).**
+> The cursor cone half is superseded (D040, then D055); placement snapping stands.
 Why: single-tile spots were hard to hit, especially roofs at an angle, and the "not a tower spot" label was annoying.
 Consequences: `nearestTowerSite` (sim/towers.ts, tested) finds the nearest free spot the type can use within `TOWER_SNAP_TILES` (4); the ghost and the click both use it, and a map click with a tower tool builds on the previewed spot (`clickMap`). The cursor's see-through cone (D030) now aims at where the pointer ray meets the street and is updated before picking, instead of at the hovered or snapped tile: that fed back into picking (a pick moved the cone, which changed the next pick) and made the preview hop between roofs. Side effect: the cursor cone is always on while the pointer is over the map, not only when something is hovered.
 
@@ -178,14 +181,17 @@ Why: DESIGN §8 and IDEAS "width-scaled cost": where you block should matter. Sp
 Consequences: `barricades.json` has `kind` (wall, trap) and `costPerTile`; a barricade stores what was spent, and refunds use that. Traps live in `world.traps` (one per block face, never on a wall's tiles), damage crawlers entering their tiles and lose one `hp` per crossing. Walls with `repairsBetweenWaves` go back to full when a prep starts. Upgrade chain Sawhorse → Jersey → Bus Wall → Blast Wall. The T3 wall is "Bus Wall" in the table; a Philadelphia SEPTA skin belongs in city data later (multi-city rule).
 
 **D039 · 2026-09-29 · The cursor's see-through cone is on only while a build tool is picked (Stefan).**
+> Superseded by D040, then D055.
 Why: since D035 the cutaway followed the mouse everywhere, so just moving the pointer dithered whatever it passed over, which looked bad.
 Consequences: `cursorCutaway()` (render/pointer.ts) returns the pointer's street point only when a build tool is selected; otherwise only the camera → orbit-target cone (D030) cuts away. Placement behind tall buildings still works because the cone is on whenever you're placing.
 
 **D040 · 2026-09-29 · The see-through cutaway follows the camera only, never the mouse. Supersedes D039 and the cursor half of D030/D035.**
+> Superseded by D055.
 Why: Stefan: "I don't think it should ever do that, only the camera." Even gated to build mode (D039), a cutaway that moves with the pointer looked bad.
 Consequences: `seeThrough.ts` has one sight line, camera → orbit target (screen centre), in the shader and in the CPU mirror used by picking. The pointer-street tracking and the pre-pick cursor update are gone. Picking still looks through buildings the camera cutaway has faded; since that depends only on the camera, the same mouse position always picks the same tile, so snapping stays stable. Placing behind a tall building means moving the camera, or relying on snapping to a nearby spot.
 
 **D041 · 2026-09-29 · The cutaway eases out instead of cutting off (Stefan: "a sharp cut-off along the bottom", worst at shallow camera angles).**
+> Superseded by D055.
 Why: two hard thresholds drew edges across buildings: surfaces more than 0.15 × the cone radius below the sight line were never faded (at shallow angles that line runs through building faces), and the cutaway stopped dead at 97% of the way to the target.
 Consequences: the fade is now radial × below × nearEnd, each a smoothstep: below the sight line it eases out over 0–0.5 × the local cone radius; toward the target it eases out between 80% and 97% of the way. The CPU mirror used by picking matches the shader.
 
@@ -219,6 +225,7 @@ Consequences:
 - Open question for Stefan: 118 of 838 roof pads are drawn ≥ 3 m away from their sim height (69 by ≥ 10 m), mostly towers on podiums (the sim keeps the tower's height for range). Switching the sim to `roofRows` would make range match the picture but move pads and change balance.
 
 **D047 · 2026-09-30 · No 15th Street spawn; the camera stays over the map (Stefan).**
+> The camera-bounds half is superseded: the camera rides the tracks (D054). No 15th Street spawn stands.
 Why: Stefan: 15th Street station is too close to the goal (132 m from City Hall), and the camera could pan off the map.
 Consequences: `excludeStations` in the city config drops stations by OSM name in map:build (Philadelphia: `15th Street`); 11 spawns remain. Its wave groups (the wave 11–20 grub breach, DESIGN §9) move to **Suburban Station** (16th & JFK, 370 m), the nearest unused station on the same side, with the same counts; the telegraph reads "Tremors under Suburban Station". `CameraBounds.tsx` clamps the orbit target to the level rectangle every frame after the controls move, shifting the camera with it, so mouse, keyboard and minimap panning all stop at the edge with the view angle and distance unchanged. The backdrop past the edge is still visible, since only the point being looked at is clamped.
 
@@ -227,6 +234,7 @@ Why: footprints, OSM parts and duplicate outlines overlapped (537 pairs, 88,000 
 Consequences: map:build (`tools/map/overlaps.ts`, tested) cuts from each shape the area covered by shapes at least as tall that start no higher, with each cover grown by 15 cm so outlines that disagree by centimetres leave no sliver; equal duplicates keep the first; pitched shapes are only dropped when fully covered (cutting would reshape their roof). Leftover: ~8,000 m² of walls (16 small pairs) and ~1,200 m² where pitched roof planes cross. `polygon-clipping` is a dev dependency for this (pipeline only). Parapets are 0.35 m thick with a cap (`buildingMesh.ts`). Cost: +45k triangles (606k), still 60 fps.
 
 **D049 · 2026-09-30 · Route focus: click a route (or its station in the wave intel) to frame it and see through what hides it (Stefan: hard to get a line of sight on the bugs' path).**
+> Superseded by D054 (tracks switched from the threat board) and D055 (see-through).
 Why: with real heights, the street a route runs down is usually hidden by towers from any easy camera angle, and lining the camera up by hand is slow when you need to react.
 Consequences: with no tool picked, a click whose pointer is within 2.5% of the screen height of a route line (in screen space, so it works through buildings) focuses that route; towers and walls under the pointer still win. Station names in the wave intel are buttons that do the same. The camera glides (0.9 s, cancelled by mouse or WASD/QE) to look across the route's long axis at 55°, far enough back to fit it beside the status panel. While focused, a second cutaway removes 95% of the pixels of any building drawn in front of the route on screen (route projected to screen space every frame; `seeThrough.ts`), picking looks through the same pixels, and the route is drawn thicker and brighter. The focus follows reroutes and camera moves; Esc, a click away from any route, or the station going quiet clears it. Costs nothing measurable (60 fps at dpr 2). Dev hook: `__cd.plan`, `__cd.focusRoute(station)`.
 
@@ -243,6 +251,7 @@ Why: the city should feel lived in and react to the invasion.
 Consequences: `render/ambient/life.ts` (plain TS, never touches the sim): 120 cars drive the game's street graph (segments between intersections) on the right-hand lane, queue behind the car ahead, turn at intersections, and turn back at walls. 320 people wander the sidewalk tiles along building fronts. Within 32 m (cars) or 28 m (people) of a bug, cars U-turn and speed off, and people run, then duck into a building after a moment and come back 10–25 s later somewhere at least 110 m from any bug. About 950 trees stand at the kerb along block faces and hide under walls. Bugs are bucketed in 32 m cells for the checks. Drawn as 4 instanced meshes (a car, a body, a head, a tree: a few boxes each, vertex colours, Lambert), frozen while paused, slightly oversized and mildly zoom-compensated so they read. Costs ~0.3 ms CPU and no measurable GPU.
 
 **D053 · 2026-09-30 · Rendering budget: chunked buildings with two levels of detail, a depth pre-pass for the see-through cutaway, pre-lit ground (Stefan: 30 fps).**
+> The depth pre-pass for the cutaway is superseded by D055 (faded buildings are dropped in the vertex shader, no discard); chunks and LOD stand.
 Why: Stefan saw 30 fps. Measured with WebGL timer queries: the 30 fps was Chrome's Energy Saver (battery at 14%: every page, even a blank one, capped at 30 fps), not the game. Under that cap the GPU clocks down to fill the frame, so plain timings mislead; the numbers below render each frame 6× so the GPU runs at full clock. The biggest real costs: the see-through `discard` (it stops the GPU's hidden-surface removal, so the expensive facade shader ran on every wall behind every other: ~3 ms at street level), one unculled 400k-vertex building mesh, the backdrop's window shader, and several full-screen lit planes. Triangle count as such mattered little.
 Consequences:
 
@@ -252,7 +261,8 @@ Consequences:
 - Result at full GPU clock (M4 MacBook, dpr 2, 80 bugs): overview 4.8 → 3.3 ms, low angle 5.1 → 3.4 ms, street 4.3 → 4.0–4.7 ms (with the richer facades, street life and trees added), triangles ~630k → ~470k. 60 fps on power in every view.
 - Dev hook: `__cd.renderer`, `__cd.scene`, `__cd.setPixelRatio(r)`, `__cd.streetLife`; layers named `buildings`, `backdrop`, `cityHall`, `streetLife` for `__cd.setVisible`.
 
-**D054 · 2026-09-30 · Branch `down-the-street`: a rail camera on the bugs' route, a threat board to switch tracks, and click-started cutscenes (Stefan: the game felt tedious because of fiddly camera controls).**
+**D054 · 2026-09-30 · Down the street: a rail camera on the bugs' route, a threat board to switch tracks, and click-started cutscenes (Stefan: the game felt tedious because of fiddly camera controls).**
+> Merged into main 2026-10-05: this is the game's direction. Superseded in part: cutscenes play on their own for introductions only (D057); the camera trails like a balloon (D056).
 Why: Stefan wants a more cinematic game with no panning: the camera pinned to the path the bugs crawl, switching tracks from a prominent HUD element, and action camera angles, but the camera is never taken away unless the player clicked for it. An experiment on its own branch.
 Consequences:
 
@@ -261,7 +271,7 @@ Consequences:
 - Cutscenes (`Director.tsx`, `CinemaOverlay.tsx`, text in `data/cinematics.json` with a schema test): only ever started by a click. Breach: a sweep to an angled view of the station, a burst (shock ring, dust, debris; `StationBursts.tsx`), a push in, letterbox bars, a slammed banner with the bug counts flying in. Boss / elite: a whip to a low shot, the game frozen (speed restored after), a Kirby-and-the-Forgotten-Land-style title card (colour bands sweep across, an epithet over a huge name, a factoid). Click, Esc or Space skips; the camera always ends on that station's track. The OSM credit stays above the letterbox.
 - 60 fps on the rail and during cutscenes (wave 15, four stations).
 
-**D055 · 2026-10-01 · Branch `down-the-street`: one see-through rule. A building that blocks the line of sight from the camera to the active track turns into a glassy ghost as a whole, and clicks go through it; nothing else fades (Stefan). Supersedes D030/D040/D041 (the camera → orbit-target cone), D049 (route focus and its cutaway band) and the depth pre-pass half of D053.**
+**D055 · 2026-10-01 · Down the street: one see-through rule. A building that blocks the line of sight from the camera to the active track turns into a glassy ghost as a whole, and clicks go through it; nothing else fades (Stefan). Supersedes D030/D040/D041 (the camera → orbit-target cone), D049 (route focus and its cutaway band) and the depth pre-pass half of D053.**
 Why: with the camera riding the track, the orbit target is always on the track, so the cone was a weaker copy of a track rule. Two attempts were dropped. A band cut through buildings along the projected track read badly. Dithering whole buildings left a 10% speckle that, over the buildings behind, drew a hard line across them (solid above, speckled below: "parts transparent, parts not"). Separate OSM parts of one building also faded separately. Clicking a route to focus it is redundant now that the threat board switches tracks.
 Consequences:
 
@@ -272,11 +282,11 @@ Consequences:
 - Clicking the map with no tool only selects a tower or wall. Removed: screen-space route picking, `focusRouteAt`, the focused-route highlight, `RouteFocus.tsx`. `focusRoute` stays (threat board, cutscenes, minimap, dev hook).
 - Dev hook: `__cd.seeThrough()` (fading ids, CPU ms), `__cd.hovered()` (picked tile).
 
-**D056 · 2026-10-02 · Branch `down-the-street`: the rail camera trails like a balloon on a string (Stefan).**
+**D056 · 2026-10-02 · Down the street: the rail camera trails like a balloon on a string (Stefan).**
 Why: turning the camera exactly with the street kept its angle to the street fixed. Stefan wants it pulled round toward the direction of travel, and into corners, gradually.
 Consequences: each frame the orbit point moves along the track and the camera keeps its distance and height, but its bearing swings 35% of the way toward where the string now points (from the new point back to where the camera was). Travelling side-on turns it about 15°/s at first, easing as it lines up behind; standing still, nothing pulls. A/D/Q/E and mouse orbiting are unchanged. Supersedes "the camera turns with the street" in D054.
 
-**D057 · 2026-10-05 · Branch `down-the-street`: breaches are announced and always shown; the burst and the cinematic are separate (Stefan: "if you don't click the button, the mobs spawn and you never see the cinematic").**
+**D057 · 2026-10-05 · Down the street: breaches are announced and always shown; the burst and the cinematic are separate (Stefan: "if you don't click the button, the mobs spawn and you never see the cinematic").**
 Why: every station started spawning the moment the wave was sent, so the DANGER card and the bugs arrived together, and the breach was only shown if the player clicked in time.
 Consequences:
 
@@ -285,7 +295,7 @@ Consequences:
 - The burst (StationBursts) always plays, 0.5 s before a station's first bugs come out, wherever the camera is.
 - The cinematic (camera cut, freeze frame, title card) plays only to introduce a boss, an elite group, or a kind of bug no earlier wave had ("New threat", text in cinematics.json `mobs`). It starts on its own, not on a click: this reverses D054's "only ever after a click" for introductions. Introductions arriving together play one after another.
 
-**D058 · 2026-10-05 · Branch `down-the-street`: an action camera, close and in the street canyons (Stefan: "pretty close to the action", "that spiderman city-canyon effect").**
+**D058 · 2026-10-05 · Down the street: an action camera, close and in the street canyons (Stefan: "pretty close to the action", "that spiderman city-canyon effect").**
 Why: the rail camera sat high and far (240 m, 30°), which reads as a map, not a chase through the city.
 Consequences (all in RailCamera.tsx, each a named constant):
 
@@ -294,7 +304,7 @@ Consequences (all in RailCamera.tsx, each a named constant):
 - Speed: the field of view widens by up to 12° at cruising speed (more boosting) and eases back when you stop. Shift while moving boosts ×2.2.
 - Banking: the camera rolls into turns (20° per rad/s of turning, at most 7°). drei's CameraShake rebuilds the camera rotation every frame from the last controls `change`, so the rail camera announces the banked rotation with a `change` event.
 
-**D059 · 2026-10-05 · Branch `down-the-street`: smooth corners, a swing between tracks, combat juice (Stefan).**
+**D059 · 2026-10-05 · Down the street: smooth corners, a swing between tracks, combat juice (Stefan).**
 Why: at sharp 90° bends the rail camera turned in a jerk; and the next action-camera ideas Stefan picked from D058's list.
 Consequences:
 

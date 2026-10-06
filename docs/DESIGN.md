@@ -1,6 +1,6 @@
 # City Defender — Game Design Document
 
-> Status: **v0.1 draft** (2026-09-26). Owner: Stefan. Living document; update it when a design decision changes and log the change in [DECISIONS.md](DECISIONS.md).
+> Status: **v0.2** (2026-10-05: the "down the street" camera and breach flow, D054–D059). Originally v0.1, 2026-09-26. Owner: Stefan. Living document; update it when a design decision changes and log the change in [DECISIONS.md](DECISIONS.md).
 > Build order lives in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md). Unscheduled ideas live in [IDEAS.md](IDEAS.md).
 
 ---
@@ -44,7 +44,7 @@ Use these to settle design arguments. If a feature doesn't serve one of them, it
 ### 3.1 Wave phases
 
 **1. Intel (start of prep, automatic)**
-- "SEPTA dispatch" banner: which **stations are active** this wave, plus mob icons with counts (e.g. `Race–Vine: 20× Skitterling, 2× Beetle`).
+- The **threat board** (top left): one card per **station active** this wave, with its bugs and counts (e.g. `Race–Vine: 20× Skitterlings · 10× Wasp Drones`). Clicking a card (or 1–9) puts the camera on that station's route (§11).
 - **Ghost paths** are drawn from every active spawn to City Hall and update live while the player edits barricades. This is the most important UI in the game.
 - Telegraph for next wave: "Tremors under Suburban Station" means that station opens next wave.
 
@@ -55,7 +55,9 @@ Use these to settle design arguments. If a feature doesn't serve one of them, it
 - A **"Call wave early"** button ends prep immediately and pays a bonus for the time skipped.
 
 **3. Assault**
-- Mobs leave stations in bursts. Towers fire automatically. Speed controls: pause, 1×, 2×, 3×.
+- **Breach.** Each station breaks open 8 s after the wave is sent (`breachLeadS`, D057). Its card flashes DANGER with a countdown, harder for the last 5 s, then the station bursts open (shock ring, dust, flung pavement), always, wherever the camera is. Then its bugs come out in bursts.
+- **Introductions.** A boss, an elite group, or a kind of bug the run hasn't met yet gets a short cutscene on its own: the camera whips to it, the game freezes, and a title card names it with an epithet and a factoid (Kirby and the Forgotten Land style). Several queue up; any key or click skips.
+- Towers fire automatically. Speed controls: pause, 1×, 2×, 3×.
 - **Towers** can be built during the assault (classic tower defense feel). **Barricades can't be placed during the assault**, only repaired for cash. This keeps the maze a prep‑time puzzle and prevents "juggling" exploits.
 - Later pass: 1–2 active abilities on cooldown (see IDEAS).
 
@@ -206,7 +208,9 @@ The full list is in [IDEAS.md](IDEAS.md). These are the ones that are part of th
 
 - **Stylized low‑poly.** Warm stone buildings, dark asphalt streets with lane lines, and City Hall in off‑white with a gold Penn statue.
 - Bugs are bright, readable silhouettes (acid green / magenta) against a muted city. Towers use a defense‑blue accent.
-- **Camera:** isometric‑ish perspective, orbit + pan + zoom clamped to the level bounds. Double‑click to focus.
+- **Camera: down the street** (D054–D059). No map panning. The camera rides the active **track**, the route the bugs take from one station to City Hall, like a camera on a rail: W/S glide toward the station or City Hall (Shift boosts), A/D turn, the mouse orbits and zooms. It sits at street level by default, so the buildings either side are canyon walls, and it trails behind the direction of travel like a balloon on a string, swinging into corners. Speed widens the view and the camera banks into turns; switching tracks (threat board, minimap) swings it over the rooftops into the next street. Tactical view (T) squashes the city and looks straight down for planning.
+- **See-through:** a building between the camera and the track turns into a glassy ghost of itself, and clicks go through it (D055). Nothing else fades.
+- **Combat feel:** heavy fire near the camera kicks it; a boss or elite dying jolts it and slows time for a moment (D059).
 - Day/night per wave is a later pass. Night waves turn on streetlights and bug glow.
 
 ## 12. Non‑goals (for now)

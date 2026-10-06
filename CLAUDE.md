@@ -7,7 +7,7 @@ Owner: **Stefan**, an experienced software engineer who is new to React/three.js
 ## Get caught up (read in this order)
 1. [docs/STATUS.md](docs/STATUS.md): where we are, what's next, open questions.
 2. [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md): the pass you're working on (read its section fully).
-3. [docs/DESIGN.md](docs/DESIGN.md): game rules. Sections §3 (round loop) and §5 (pathfinding/siege rule) matter most.
+3. [docs/DESIGN.md](docs/DESIGN.md): game rules. Sections §3 (round loop), §5 (pathfinding/siege rule) and §11 (the "down the street" camera) matter most.
 4. [docs/DECISIONS.md](docs/DECISIONS.md): what's settled and why. Don't relitigate without a new entry.
 5. [docs/TOOLING.md](docs/TOOLING.md): skills per pass, MCP, verification routine.
 6. As needed: [docs/IDEAS.md](docs/IDEAS.md) (backlog), [docs/research/map-sources.md](docs/research/map-sources.md).
@@ -20,9 +20,10 @@ Owner: **Stefan**, an experienced software engineer who is new to React/three.js
   - `src/render/` is R3F. Read sim state in `useFrame` via refs, **never setState per frame**, and use InstancedMesh for crowds.
   - `src/ui/` is a React DOM overlay with a zustand store updated at event rate.
   - `src/data/*.json` holds all balance numbers. No magic numbers in code.
-  - `src/game.ts` holds the single game instance (world, stepper, city) and run control; `src/planning.ts` is the glue from input to the sim (build, sell, select, hover previews, routes, `restartRun`).
+  - `src/game.ts` holds the single game instance (world, stepper, city) and run control; `src/planning.ts` is the glue from input to the sim (build, sell, select, hover previews, routes, `switchTrack`, `restartRun`).
+  - Camera and presentation (D054–D059): `render/RailCamera.tsx` rides the active track (`render/track.ts`); `render/ThreatTracker.tsx` + `ui/ThreatBoard.tsx` stage breaches; `render/Director.tsx` + `ui/CinemaOverlay.tsx` play introductions; `render/seeThrough.ts` + `render/occluders.ts` turn buildings in the way into ghosts. The camera only moves without a player's input for an introduction.
   - `tools/map/` is the offline map pipeline (Node + tsx): `build.ts` orchestrates `level.ts` → streets/goal → `stations.ts` → `labels.ts` → `heights.ts`. Output goes to `public/cities/<city>/`.
-- **Dev debug hook:** `window.__cd` exposes world state and commands (spawnWave, setSeed, placeBarricade…) for inspection via Chrome DevTools MCP.
+- **Dev debug hook:** `window.__cd` exposes world state and commands (spawnWave, setSeed, build, switchTrack, rail, seeThrough…) for inspection via Chrome DevTools MCP; the usage list is at the top of `src/debug/devHook.ts`.
 - **Attribution:** keep "© OpenStreetMap contributors" visible in‑game.
 - TypeScript strict. Small modules. Prefer pure functions in `sim/`.
 - **Testing policy (Stefan):** write the *occasional* unit test for logic that is important or tricky (pathfinding, siege costs, the fixed-step timer, damage math). Don't write tests for every change. The codebase will churn a lot. Never fake or simulate a test run: run the real tools. Simulation code and ASCII fixtures are fine *inside unit tests*, but develop and verify features in the real local dev environment (`npm run dev`, real Chrome) with the real city data, not stand-ins (D017).

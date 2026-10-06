@@ -1,6 +1,6 @@
 # City Defender — Implementation Plan
 
-> Status: **v0.1** (2026-09-26). Design source of truth: [DESIGN.md](DESIGN.md). Progress: [STATUS.md](STATUS.md).
+> Status: **v0.2** (2026-10-05: "Down the street" inserted after Pass 10a). Originally v0.1, 2026-09-26. Design source of truth: [DESIGN.md](DESIGN.md). Progress: [STATUS.md](STATUS.md).
 
 ## How to use this plan (agents, read this)
 
@@ -148,12 +148,21 @@ At the end of Pass 5 we have a small but real game: Philly streets, one mob, bar
 - Save/resume a run (localStorage, versioned).
 **Accept:** a full run takes 20–30 minutes with a clear difficulty curve. Stefan finishes one run and loses one.
 
+## Direction change: "Down the street" · ✅ merged 2026-10-05 (D054–D059)
+Stefan found the map camera fiddly and the game tedious, tried a different approach on a branch, and adopted it. What changed (details in STATUS.md and DESIGN §3.1, §11):
+- A **rail camera** on the bugs' route at street level (no panning), trailing like a balloon, with a swing over the rooftops between tracks and action-camera touches (look-ahead, speed kick, banking).
+- A **threat board** of station cards that switches tracks; breaches **8 s after the wave is sent**, announced with a countdown and always shown with a burst.
+- **Introductions** for new bugs, elites and bosses (automatic cutscene + freeze-frame title card).
+- **See-through** as one rule: buildings blocking the view of the track become glass ghosts.
+- **Combat juice**: kicks from nearby heavy fire, slow motion on boss and elite deaths.
+Later passes build on this: models, VFX and audio should read well at street level and inside the cutscenes.
+
 ## Milestone D: Juice & replayability (Passes 10–11+)
 
 ### Pass 10: Presentation · timebox 3+ days (split: 10a buildings ✅ 2026-09-30, see D046; 10b models, VFX, postprocessing; 10c audio + performance)
 - Low‑poly glTF models for mobs and towers (animated walk, idle, attack). City Hall and hero landmark models.
-- VFX: muzzle flashes, splash rings, frost, lightning, acid, bug splat decals that fade.
-- Audio: bus/mixer, weapon sounds, siren on breach, radio chatter lines with Philly flavor.
+- VFX: muzzle flashes, splash rings, frost, lightning, acid, bug splat decals that fade. Now seen up close from street level and in the introductions, so they carry more weight than before.
+- Audio: bus/mixer, weapon sounds, a siren and rumble with the breach countdown and burst, stingers for the introductions, radio chatter lines with Philly flavor.
 - Postprocessing: subtle bloom, SSAO, outline on selection. Day/night per wave.
 - Buildings (Stefan, 2026-09-27): real 3D shapes from OSM `building:part` (643 parts in the level: setback tiers, plus ~80 gabled/hipped/pyramidal/dome/cone roofs) with generated roof meshes; parapets and rooftop mechanical boxes on flat roofs; procedural window textures. Render only: the sim keeps per-tile heights, but roof-pad towers must sit on the drawn roof. City LiDAR (PASDA) stays in reserve.
 - Performance pass: 500 mobs plus effects at 60 fps on the target machine (profile with DevTools MCP traces).
