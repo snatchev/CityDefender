@@ -9,7 +9,7 @@ import { seeThroughFade } from './seeThrough';
 const STEP_M = 1;
 /** Pointer movement (px) above which a click counts as a camera drag, not a build. */
 const CLICK_SLOP_PX = 5;
-/** Roofs faded more than this by the see-through cutaway don't catch the pointer. */
+/** Roofs faded more than this by the see-through (D055) don't catch the pointer. */
 const PICK_THROUGH_FADE = 0.5;
 
 const probe = new Vector3();
@@ -72,7 +72,7 @@ export function pickTile(
     if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) continue;
     const top = heights[ty * map.width + tx]!;
     if (y > top) continue;
-    // A building faded out by the cutaway lets the pointer through to what's behind it.
+    // A building faded out by the see-through lets the pointer through to what's behind it.
     if (top > 0 && seeThroughFade(probe.set(o.x + d.x * t, y, o.z + d.z * t)) > PICK_THROUGH_FADE) {
       continue;
     }

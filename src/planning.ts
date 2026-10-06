@@ -219,7 +219,7 @@ export function refreshPlanning(force = false): void {
 export function restartRun(seed?: number): void {
   restart(seed);
   hovered = null;
-  usePlan.setState({ ghost: null, selected: null, selectedWall: null, focus: null });
+  usePlan.setState({ ghost: null, selected: null, selectedWall: null, track: null });
   useHud.getState().setNotice(null);
   refreshPlanning(true);
 }
@@ -290,7 +290,7 @@ export function buildAt(
 
 /**
  * A left click on the map. With a tower tool the tower goes exactly where its preview is showing
- * (hover and click pick tiles separately, and the see-through cutaway can shift between them, so
+ * (hover and click pick tiles separately, and the see-through fade can shift between them, so
  * re-picking could land on a different roof). Everything else goes through `buildAt`.
  */
 export function clickMap(tile: [number, number] | null): string | null {
@@ -309,18 +309,19 @@ export function clickMap(tile: [number, number] | null): string | null {
 }
 
 /**
- * Put the camera on a station's track (render/RailCamera.tsx, D054), at `at`, gliding there unless
- * `fly` is false. Asking again for the same track moves the camera again. Returns the station, or
- * null if that station has no route this wave.
+ * Put the camera on a station's track (render/RailCamera.tsx, D054), at `at`: a swing over the
+ * rooftops to another track, a glide along the same one, or a cut if `fly` is false. Asking again
+ * for the same track moves the camera again. Returns the station, or null if that station has no
+ * route this wave.
  */
-export function focusRoute(
+export function switchTrack(
   station: number,
   at: TrackAt = { kind: 'start' },
   fly = true,
 ): number | null {
-  const { routes, focus } = usePlan.getState();
+  const { routes, track } = usePlan.getState();
   if (!routes.some((r) => r.station === station)) return null;
-  usePlan.setState({ focus: { station, seq: (focus?.seq ?? 0) + 1, at, fly } });
+  usePlan.setState({ track: { station, seq: (track?.seq ?? 0) + 1, at, fly } });
   return station;
 }
 

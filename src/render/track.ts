@@ -1,5 +1,5 @@
 /**
- * A camera track (branch down-the-street, D054): the route from one station to City Hall as a
+ * A camera track (D054): the route from one station to City Hall as a
  * polyline on the ground, measured from the station (s = 0) to the goal (s = length). The rail
  * camera rides it; cutscenes and track switches place the camera on it. Pure maths, world x/z metres.
  */

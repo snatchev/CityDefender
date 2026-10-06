@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { TICK_HZ } from '../sim/constants';
-import type { EliteType, MobType } from '../sim/mobs';
-import { stationsOpeningNextWave, type Phase } from '../sim/phase';
+import type { Phase } from '../sim/phase';
 import { runScore } from '../sim/economy';
 import { simTimeSeconds, type World } from '../sim/world';
 
@@ -29,8 +28,6 @@ interface HudState {
   waveCount: number;
   /** Seconds left in the prep/debrief countdown. */
   phaseSeconds: number;
-  /** Stations opening next wave for the first time (breach telegraph, DESIGN §3.1). */
-  breaches: number[];
   /** Council Grants on offer (grant phase), or null. */
   grantOffer: { id: string; name: string; text: string }[] | null;
   /** Interest paid at the last debrief. */
@@ -40,14 +37,6 @@ interface HudState {
   stars: number;
   barricadesLost: number;
   interestTotal: number;
-  /** The current wave's composition (wave intel, DESIGN §3.1). */
-  waveIntel: {
-    spawnIndex: number;
-    type: MobType;
-    count: number;
-    hpMul: number;
-    elite: EliteType | null;
-  }[];
   /** Set once the WebGL renderer is up (Canvas onCreated). */
   renderer: string | null;
   /** Set once the city file has loaded; the scene renders the map from `game.city` after that. */
@@ -80,8 +69,6 @@ export const useHud = create<HudState>()((set, get) => ({
   wave: 0,
   waveCount: 0,
   phaseSeconds: 0,
-  waveIntel: [],
-  breaches: [],
   grantOffer: null,
   lastInterest: 0,
   score: 0,
@@ -113,8 +100,6 @@ export const useHud = create<HudState>()((set, get) => ({
       wave: world.wave + 1,
       waveCount: world.waves.length,
       phaseSeconds: Math.ceil(world.phaseTicks / TICK_HZ),
-      waveIntel: sameIntel(get().waveIntel, world),
-      breaches: same(get().breaches, stationsOpeningNextWave(world)),
       grantOffer: same(
         get().grantOffer,
         world.grantOffer?.map((id) => {
@@ -131,18 +116,5 @@ export const useHud = create<HudState>()((set, get) => ({
 
 /** Keep the previous value when it hasn't changed, so subscribers don't re-render at 4 Hz. */
 function same<T>(prev: T, next: T): T {
-  return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
-}
-
-/** Keep the previous array when the wave hasn't changed, so the intel panel doesn't re-render at 4 Hz. */
-function sameIntel(prev: HudState['waveIntel'], world: World): HudState['waveIntel'] {
-  const groups = world.waves[world.wave]?.groups ?? [];
-  const next = groups.map((g) => ({
-    spawnIndex: g.spawnIndex,
-    type: g.type,
-    count: g.count,
-    hpMul: g.hpMul,
-    elite: g.elite ?? null,
-  }));
   return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
 }

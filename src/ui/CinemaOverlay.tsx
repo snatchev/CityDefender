@@ -4,7 +4,7 @@ import { skipCutscene, useCinema, type IntroKind } from './cinema';
 const TAG: Record<IntroKind, string> = { boss: 'Boss', elite: 'Elite', new: 'New threat' };
 
 /**
- * What an introduction shows on screen (branch down-the-street, D054, D057): letterbox bars and
+ * What an introduction shows on screen (D054, D057): letterbox bars and
  * the title card (Kirby and the Forgotten Land style: colour bands sweep across a freeze frame, an
  * epithet over a huge name, a factoid underneath). Click anywhere, Esc or Space skips.
  */

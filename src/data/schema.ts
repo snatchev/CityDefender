@@ -313,7 +313,7 @@ export function wavesSchema(mobTypes: string[], eliteTypes: string[] = []) {
   return z.record(z.string(), z.array(z.object({ groups: z.array(group).min(1) }).strict()).min(1));
 }
 
-/** A boss or elite title card (branch down-the-street, D054): epithet above the name, a factoid below. */
+/** A boss or elite title card (D054): epithet above the name, a factoid below. */
 export const introSchema = z
   .object({ epithet: z.string().min(1), factoid: z.string().min(1) })
   .strict();

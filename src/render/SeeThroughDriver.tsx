@@ -9,7 +9,7 @@ import { rail } from './RailCamera';
 import {
   CITY_HALL_ID,
   occluderIds,
-  setCutawayTrack,
+  setSeeThroughTrack,
   setOccluders,
   setSeeThroughHeightScale,
   updateSeeThrough,
@@ -69,11 +69,11 @@ export function SeeThroughDriver({
   useEffect(() => setSeeThroughHeightScale(heightScale), [heightScale]);
 
   const last = useRef<Track | null>(null);
-  useEffect(() => () => setCutawayTrack(null), []);
+  useEffect(() => () => setSeeThroughTrack(null), []);
   useFrame(({ camera, clock }, delta) => {
     if (rail.track !== last.current) {
       last.current = rail.track;
-      setCutawayTrack(rail.track);
+      setSeeThroughTrack(rail.track);
     }
     updateSeeThrough(camera as PerspectiveCamera, clock.elapsedTime, delta);
   });

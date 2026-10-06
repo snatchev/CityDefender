@@ -4,14 +4,14 @@ import { MathUtils, Vector3, type Camera } from 'three';
 import { cameraBridge } from '../cameraBridge';
 import cinematicsData from '../data/cinematics.json';
 import { game, renderAlpha, setTimeScale } from '../game';
-import { focusRoute } from '../planning';
+import { switchTrack } from '../planning';
 import { ELITES, MOBS } from '../sim/mobs';
-import { endCutscene, useCinema, type Cutscene } from '../ui/cinema';
+import { endCutscene, useCinema, type Cutscene, type IntroKind } from '../ui/cinema';
 import { usePlan } from '../ui/planStore';
 import { mobLabel, threatMemory } from '../ui/threats';
 import { indexToWorld, tileToWorld, type TileFrame } from './coords';
 import { mobWorldXZ } from './Mobs';
-import { rail, TRACK_Y_M } from './RailCamera';
+import { rail, RAIL_HEADING_WINDOW_M, TRACK_Y_M } from './RailCamera';
 import { headingAt, makeTrack, nearestS, pointAt, type Track } from './track';
 
 /** Where the camera is and what it looks at. */
@@ -36,24 +36,23 @@ const LAND = { distM: 100, pitchDeg: 14 };
  * camera aims below the subject (`dropM`) so it sits in the top half, above the title card.
  */
 const INTRO = { whipS: 0.55, returnS: 0.9, angleDeg: 14 };
-const FRAMING = {
-  boss: { distM: 48, upM: 9, dropM: 9 },
-  elite: { distM: 42, upM: 16, dropM: 5 },
+/** Per kind of introduction: how far out and up the camera sits, how far below it aims, how long the card holds. */
+const FRAMING: Record<IntroKind, { distM: number; upM: number; dropM: number; holdS: number }> = {
+  boss: { distM: 48, upM: 9, dropM: 9, holdS: 3.3 },
+  elite: { distM: 42, upM: 16, dropM: 5, holdS: 2.6 },
+  new: { distM: 42, upM: 16, dropM: 5, holdS: 2.6 },
 };
-const BOSS_HOLD_S = 3.3;
-const ELITE_HOLD_S = 2.6;
-const NEW_HOLD_S = 2.6;
+/** The subject's heading along the track is measured over this stretch either side (m). */
 const HEADING_WINDOW_M = 30;
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /**
- * Plays introductions (branch down-the-street, D054, D057): a boss, an elite group or a new kind
- * of bug just out of a station. They start on their own, queued by render/ThreatTracker.tsx. While
- * one plays it owns the camera: the orbit controls are off and the rail waits
- * (`cameraBridge.cinematic`). The game freezes for the title card and its speed comes back
- * afterwards. Click, Esc or Space skips; either way the camera ends on the station's track, where
- * the rail takes over.
+ * Plays introductions (D054, D057): a boss, an elite group or a new kind of bug just out of a
+ * station. They start on their own, queued by render/ThreatTracker.tsx. While one plays it owns
+ * the camera: the orbit controls are off and the rail waits (`cameraBridge.cinematic`). The game
+ * freezes for the title card and its speed comes back afterwards. Click, Esc or Space skips; either
+ * way the camera ends on the station's track, where the rail takes over.
  */
 export function Director({ frame, width }: { frame: TileFrame; width: number }) {
   const camera = useThree((s) => s.camera);
@@ -89,7 +88,7 @@ export function Director({ frame, width }: { frame: TileFrame; width: number }) 
     play.current = null;
     cameraBridge.cinematic = false;
     if (controls) controls.enabled = true;
-    focusRoute(p.script.station, { kind: 's', s: p.script.landS }, false);
+    switchTrack(p.script.station, { kind: 's', s: p.script.landS }, false);
     endCutscene();
   };
 
@@ -102,7 +101,7 @@ export function Director({ frame, width }: { frame: TileFrame; width: number }) 
       endCutscene();
       return;
     }
-    // The cutscene ends on this track: switch the rail now, so the see-through cutaway (which
+    // The cutscene ends on this track: switch the rail now, so the see-through (which
     // follows it) already clears the view of the station and its street.
     rail.track = track;
     rail.s = rail.sGoal = script.landS;
@@ -158,7 +157,7 @@ function poseAround(look: Vector3, yaw: number, distM: number, upM: number): Pos
 function railPose(track: Track, s: number): Pose {
   const [x, z] = pointAt(track, s);
   const look = new Vector3(x, TRACK_Y_M, z);
-  const yaw = headingAt(track, s, 45);
+  const yaw = headingAt(track, s, RAIL_HEADING_WINDOW_M);
   const pitch = MathUtils.degToRad(LAND.pitchDeg);
   return poseAround(look, yaw, LAND.distM * Math.cos(pitch), LAND.distM * Math.sin(pitch));
 }
@@ -184,15 +183,14 @@ function buildScript(
       threatMemory.mobStation.get(m.id) === cut.station,
   );
   const [bx, bz] = subject ? mobWorldXZ(subject, frame, renderAlpha()) : [sx, sz];
-  const fr = FRAMING[cut.kind === 'boss' ? 'boss' : 'elite'];
+  const fr = FRAMING[cut.kind];
   const look = new Vector3(bx, 3 - fr.dropM, bz);
   const sAt = nearestS(track, bx, bz);
   // In front of it, on the City Hall side, looking back at it as it comes.
   const yaw = headingAt(track, sAt, HEADING_WINDOW_M) + MathUtils.degToRad(INTRO.angleDeg);
   const close = poseAround(look, yaw, fr.distM, fr.upM + fr.dropM);
-  const hold = cut.kind === 'boss' ? BOSS_HOLD_S : cut.kind === 'elite' ? ELITE_HOLD_S : NEW_HOLD_S;
   const t1 = INTRO.whipS;
-  const t2 = t1 + hold;
+  const t2 = t1 + fr.holdS;
   type Intro = Record<string, { epithet: string; factoid: string }>;
   const intro =
     cut.kind === 'boss'

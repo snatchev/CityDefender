@@ -16,8 +16,8 @@ const BURST_LEAD_S = 0.5;
 const URGENT_S = 5;
 
 /**
- * Keeps the threat board (ui/threats.ts) current, and stages each breach (branch down-the-street,
- * D054, D057). Never touches the sim; it reads it:
+ * Keeps the threat board (ui/threats.ts) current, and stages each breach (D054, D057). Never
+ * touches the sim; it reads it:
  *
  * - The stations' schedule: once a wave is sent, each station breaks open `breachLeadS` later.
  *   Until then its card counts down (DANGER, flashing harder near the end).

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { EliteType, MobType } from '../sim/mobs';
 
 /**
- * Cutscenes (branch down-the-street, D054, D057): introductions. When a station breaks open with
+ * Cutscenes (D054, D057): introductions. When a station breaks open with
  * a boss, an elite group or a kind of bug the run hasn't met yet, the camera cuts to it, the game
  * freezes and a title card names it. They start on their own (render/ThreatTracker.tsx queues
  * them) and play one at a time; render/Director.tsx plays them and CinemaOverlay.tsx draws the

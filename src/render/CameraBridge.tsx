@@ -5,7 +5,7 @@ import { cameraBridge } from '../cameraBridge';
 import { worldToTile, type TileFrame } from './coords';
 import { BASE_FOV_DEG, orbitControls } from './view';
 
-/** Camera keys (KeyboardCamera) that take over from a flight. */
+/** Rail camera keys (RailCamera.tsx) that take over from a flight. */
 const CAMERA_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE']);
 
 interface Flight {

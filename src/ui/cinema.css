@@ -1,4 +1,4 @@
-/* ---- Threat board (branch down-the-street, D054) ---- */
+/* ---- Threat board (D054) ---- */
 
 .hud-left {
   position: absolute;
@@ -276,7 +276,6 @@ body.cinematic .hud-left,
 body.cinematic .hud-top-right,
 body.cinematic .build-bar,
 body.cinematic .tower-card,
-body.cinematic .wall-card,
 body.cinematic .gear,
 body.cinematic .map-label {
   opacity: 0;

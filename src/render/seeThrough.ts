@@ -133,7 +133,7 @@ export function setSeeThroughHeightScale(s: number): void {
 }
 
 /** Fade whatever hides this track, or nothing (null). */
-export function setCutawayTrack(track: Track | null): void {
+export function setSeeThroughTrack(track: Track | null): void {
   if (!track || track.length === 0) {
     state.samples = new Float32Array(0);
     return;

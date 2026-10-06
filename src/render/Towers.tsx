@@ -60,11 +60,6 @@ export function towerGeometry(type: TowerType): BufferGeometry {
   return LOOKS[type].geometry();
 }
 
-/** Tower model scale for a tier (tier 2 is drawn bigger). */
-export function towerTierScale(tier: number): number {
-  return TIER_SCALE[tier] ?? 1;
-}
-
 /** Where a tower's shots start, in world coordinates. */
 export function towerMuzzle(
   frame: TileFrame,

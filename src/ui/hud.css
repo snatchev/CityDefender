@@ -146,37 +146,6 @@
   filter: brightness(1.08);
 }
 
-.wave-intel {
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-}
-
-.wave-intel li {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 3px;
-}
-
-.station-chip {
-  padding: 0 6px;
-  border: 0;
-  border-radius: 4px;
-  background: var(--hud-orange);
-  color: #1f1206;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.station-chip:hover,
-.station-chip.focused {
-  background: #ffc36b;
-  box-shadow: 0 0 0 2px #ffc36b66;
-}
-
 .status-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -479,10 +448,6 @@
   font: inherit;
 }
 
-.intel-mob.beetle {
-  color: #ffc93a;
-}
-
 /* ---- Toasts ---- */
 .toast {
   position: absolute;
@@ -613,17 +578,7 @@
   }
 }
 
-/* ---- Pass 9: breaches, bosses, tier-3 branches, grants, resume, stars ---- */
-.wave-intel .breach {
-  color: #ff8a5c;
-  font-weight: 700;
-}
-
-.intel-mob.boss {
-  color: #ff5fa2;
-  font-weight: 800;
-}
-
+/* ---- Pass 9: tier-3 branches, grants, resume, stars ---- */
 .branch-choices {
   display: grid;
   gap: 6px;

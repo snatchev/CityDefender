@@ -79,11 +79,11 @@ interface PlanState {
   debugMap: boolean;
   tool: BuildTool | null;
   /**
-   * The camera's track (branch down-the-street, D054): the station whose route the rail camera
+   * The camera's track (D054): the station whose route the rail camera
    * rides, where to put the camera on it, whether to glide there, and a counter that goes up on
    * every request so asking for the same track again moves the camera again.
    */
-  focus: { station: number; seq: number; at: TrackAt; fly: boolean } | null;
+  track: { station: number; seq: number; at: TrackAt; fly: boolean } | null;
   /** Tactical view (D050): buildings squashed, camera near top-down. Toggled with T or the button. */
   tactical: boolean;
 }
@@ -131,6 +131,6 @@ export const usePlan = create<PlanState>()(() => ({
   selected: null,
   debugMap: false,
   tool: null,
-  focus: null,
+  track: null,
   tactical: false,
 }));

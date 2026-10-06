@@ -20,7 +20,7 @@ const LABEL: Record<Threat['state'], string> = {
 };
 
 /**
- * The threat board (branch down-the-street, D054, D057): every station sending bugs this wave, and
+ * The threat board (D054, D057): every station sending bugs this wave, and
  * the way to switch the camera between their tracks. Once the wave is sent, each station's card
  * flashes DANGER with a countdown to its breach, harder for the last few seconds; ELITE / BOSS
  * while one from there is out. Clicking a card (or 1–9) puts the camera on that track, near the
@@ -29,7 +29,7 @@ const LABEL: Record<Threat['state'], string> = {
 export function ThreatBoard() {
   const threats = useThreats((s) => s.threats);
   const next = useThreats((s) => s.nextBreaches);
-  const track = usePlan((p) => p.focus?.station);
+  const track = usePlan((p) => p.track?.station);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

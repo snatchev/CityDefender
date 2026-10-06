@@ -1,6 +1,6 @@
 import { cameraBridge, type CameraView } from '../cameraBridge';
 import { callWave, game, publish, setTimeScale } from '../game';
-import { buildAt, focusRoute, hoveredTile, restartRun, sellAt } from '../planning';
+import { buildAt, hoveredTile, restartRun, sellAt, switchTrack } from '../planning';
 import type { CityFileV0 } from '../sim/cityFile';
 import type { BarricadeType } from '../sim/barricades';
 import { queueWave, type MobType } from '../sim/mobs';
@@ -12,9 +12,11 @@ import { rail } from '../render/RailCamera';
 import { seeThroughStats } from '../render/seeThrough';
 
 /**
- * Dev-only console API so agents (via Chrome DevTools MCP) and humans can inspect and drive the sim:
- *   __cd.world.tick, __cd.world.map, __cd.city.spawns, __cd.step(20), __cd.setSeed(7), __cd.setTimeScale(0)
- * Later passes add: placeTower, snapshot().
+ * Dev-only console API so agents (via Chrome DevTools MCP) and humans can inspect and drive the game:
+ *   sim:    __cd.world, __cd.step(20), __cd.setSeed(7), __cd.setTimeScale(0), __cd.jumpToWave(5),
+ *           __cd.spawnWave(3, 0, 'beetle'), __cd.build(tx, ty, type), __cd.callWave()
+ *   camera: __cd.switchTrack('Race-Vine'), __cd.focusTile(tx, ty, view), __cd.rail, __cd.camera
+ *   render: __cd.seeThrough(), __cd.renderInfo(), __cd.setVisible(layer, on), __cd.hovered()
  */
 export interface DevHook {
   readonly world: World;
@@ -52,9 +54,9 @@ export interface DevHook {
   /** Render at this pixel ratio (to tell fill-rate cost from everything else); returns the old one. */
   setPixelRatio(ratio: number): number;
   /** This wave's routes and the camera's track (station index), as the planning UI sees them. */
-  readonly plan: { routes: Route[]; focus: number | null };
+  readonly plan: { routes: Route[]; track: number | null };
   /** Put the camera on a station's track by name or index, as its threat card would (no cutscene). */
-  focusRoute(station: string | number): number | null;
+  switchTrack(station: string | number): number | null;
   /** Last frame's renderer counters (draw calls, triangles) and GPU resources. */
   renderInfo(): { calls: number; triangles: number; geometries: number; textures: number } | null;
   /** See-through fade (D055): buildings faded or fading, and the last update's CPU time (ms). */
@@ -149,14 +151,14 @@ export function installDevHook(): void {
     },
     get plan() {
       const p = usePlan.getState();
-      return { routes: p.routes, focus: p.focus?.station ?? null };
+      return { routes: p.routes, track: p.track?.station ?? null };
     },
-    focusRoute(station) {
+    switchTrack(station) {
       const index =
         typeof station === 'string'
           ? (game.city?.spawns.findIndex((s) => s.name === station) ?? -1)
           : station;
-      return focusRoute(index);
+      return switchTrack(index);
     },
     restart: restartRun,
     setSeed: restartRun,

@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { focusRoute } from '../planning';
+import { switchTrack } from '../planning';
 import { ELITES, MOBS, type EliteType, type MobType } from '../sim/mobs';
 
 /**
- * The threat board (branch down-the-street, D054, D057): one card per station sending bugs this
+ * The threat board (D054, D057): one card per station sending bugs this
  * wave. Kept up to date by render/ThreatTracker.tsx, which reads the stations' schedule and
  * watches new bugs come out of them (render side: the sim doesn't know about any of this).
  *
@@ -64,7 +64,7 @@ export const threatMemory = {
 
 /** A click on a station's card: put the camera on its track, near the station. */
 export function engageThreat(station: number): void {
-  focusRoute(station, { kind: 'start' });
+  switchTrack(station, { kind: 'start' });
 }
 
 /** Display name of a mob type, plural when `count` isn't 1, with its elite affix. */
