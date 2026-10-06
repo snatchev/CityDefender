@@ -4,7 +4,12 @@ import type { Camera, Vector3 } from 'three';
 export interface OrbitControlsLike {
   target: Vector3;
   update(): void;
+  /** `change` tells listeners (e.g. drei CameraShake) the camera moved. */
+  dispatchEvent(event: { type: 'change' }): void;
 }
+
+/** The camera's field of view at rest (degrees); speed effects widen it for a moment (D058). */
+export const BASE_FOV_DEG = 45;
 
 /** R3F types `state.controls` loosely; this names the shape the render code relies on. */
 export function orbitControls(controls: unknown): OrbitControlsLike | null {

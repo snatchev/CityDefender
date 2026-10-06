@@ -11,6 +11,7 @@ import { Barricades } from './Barricades';
 import { CityHall } from './CityHall';
 import { CityMap } from './CityMap';
 import { tileFrame } from './coords';
+import { BASE_FOV_DEG } from './view';
 import { Director } from './Director';
 import { RailCamera } from './RailCamera';
 import { StationBursts } from './StationBursts';
@@ -43,7 +44,7 @@ const SKY_RADIUS_M = 12000;
 const SKY_ZENITH = '#5b8fcc';
 /**
  * Depth precision scales with near / far: keep near as large as the closest zoom allows (minDistance
- * is 80 m) so distant, nearly coplanar surfaces don't z-fight.
+ * is 35 m) so distant, nearly coplanar surfaces don't z-fight.
  */
 const CAMERA_NEAR_M = 4;
 const CAMERA_FAR_M = 16000;
@@ -83,7 +84,12 @@ export function Scene() {
       aria-label="City map"
       tabIndex={0}
       dpr={[1, 2]}
-      camera={{ position: [120, 720, 820], fov: 45, near: CAMERA_NEAR_M, far: CAMERA_FAR_M }}
+      camera={{
+        position: [120, 720, 820],
+        fov: BASE_FOV_DEG,
+        near: CAMERA_NEAR_M,
+        far: CAMERA_FAR_M,
+      }}
       onCreated={({ gl, scene, camera }) => {
         const ctx = gl.getContext();
         const kind =
@@ -158,9 +164,10 @@ export function Scene() {
         enableDamping
         // Nothing pans: the rail camera (RailCamera) moves the orbit point along the active track.
         enablePan={false}
-        minDistance={80}
+        minDistance={35}
         maxDistance={MAX_ZOOM_OUT_M}
-        maxPolarAngle={Math.PI * 0.42}
+        // Down to ~5° above the street: street level, between the buildings (D058).
+        maxPolarAngle={Math.PI * 0.47}
         mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
       />
       <SimDriver />

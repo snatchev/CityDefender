@@ -2,17 +2,19 @@ import { useFrame } from '@react-three/fiber';
 import { game, publish } from '../game';
 import { refreshPlanning, refreshSelection } from '../planning';
 import { tickWorld } from '../sim/world';
+import { slowMotionFactor } from './slowMotion';
 
 /** HUD refresh interval in ticks (4 Hz): event rate, never per frame. */
 const PUBLISH_EVERY_TICKS = 5;
 
 /**
- * Bridges the render loop to the fixed-step simulation. Renders nothing.
+ * Bridges the render loop to the fixed-step simulation (slowed during slow motion, slowMotion.ts).
+ * Renders nothing.
  * Rule: no React state updates here except the throttled `publish()`.
  */
 export function SimDriver() {
   useFrame((_, delta) => {
-    const steps = game.stepper.advance(delta);
+    const steps = game.stepper.advance(delta * slowMotionFactor());
     let due = false;
     for (let i = 0; i < steps; i++) {
       tickWorld(game.world);

@@ -284,3 +284,20 @@ Consequences:
 - Threat board: from the moment the wave is sent, each station's card flashes DANGER with a countdown, harder (faster pulse, shaking) for its last 5 s. Clicking it puts the camera on that track near the station. The clickable breach cutscene and its banner are gone.
 - The burst (StationBursts) always plays, 0.5 s before a station's first bugs come out, wherever the camera is.
 - The cinematic (camera cut, freeze frame, title card) plays only to introduce a boss, an elite group, or a kind of bug no earlier wave had ("New threat", text in cinematics.json `mobs`). It starts on its own, not on a click: this reverses D054's "only ever after a click" for introductions. Introductions arriving together play one after another.
+
+**D058 · 2026-10-05 · Branch `down-the-street`: an action camera, close and in the street canyons (Stefan: "pretty close to the action", "that spiderman city-canyon effect").**
+Why: the rail camera sat high and far (240 m, 30°), which reads as a map, not a chase through the city.
+Consequences (all in RailCamera.tsx, each a named constant):
+
+- Street level by default: the first landing is 90 m out at 12° (cutscenes hand back at 100 m, 14°). Zoom goes in to 35 m and down to about 5° above the street. Looking along a street that low, the buildings either side are the canyon walls; anything hiding the track still turns to glass (D055).
+- Look-ahead: while moving, the point the camera orbits runs up to 30 m ahead along the track.
+- Speed: the field of view widens by up to 12° at cruising speed (more boosting) and eases back when you stop. Shift while moving boosts ×2.2.
+- Banking: the camera rolls into turns (20° per rad/s of turning, at most 7°). drei's CameraShake rebuilds the camera rotation every frame from the last controls `change`, so the rail camera announces the banked rotation with a `change` event.
+
+**D059 · 2026-10-05 · Branch `down-the-street`: smooth corners, a swing between tracks, combat juice (Stefan).**
+Why: at sharp 90° bends the rail camera turned in a jerk; and the next action-camera ideas Stefan picked from D058's list.
+Consequences:
+
+- Smooth corners (RailCamera): the point the camera orbits glides toward its spot on the track (rate 3/s), so moving through a bend it rounds it into a curve (at most about 3° of turn per frame through a 90° bend, was 90° in one frame); standing still it settles exactly on the track. It snaps after a landing, a glide or a cutscene.
+- Swing between tracks: switching tracks (threat board, minimap) arcs the camera up over the rooftops (0.35 m per m travelled, 60–220 m) and down into the new street over 1.3 s, with the field of view widening by up to 14° at the top (CameraBridge `flyTo(…, arcM)`). Plain glides on the same track stay as they were. The resting field of view is `BASE_FOV_DEG` (view.ts).
+- Combat juice (Effects.tsx): a camera kick when a Railgun or Mortar fires, a Mortar or Flak shell bursts or a Seismic Pulse goes off near the camera (full within 40 m, nothing past 220 m). A boss or elite dying jolts the camera and slows the sim for a moment (boss 1.2 s at 0.2×, elite 0.8 s at 0.3×, easing back), not during a cutscene or while paused. Slow motion is its own multiplier on the sim's frame time (slowMotion.ts, SimDriver), so the speed button and the cutscene freeze are untouched. The sim's kill events now say `big: 'boss' | 'elite'`.

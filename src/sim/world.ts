@@ -89,8 +89,13 @@ export interface SplashFx extends FxEvent {
   source: string;
 }
 
+/** A bug died; `big` when it was a boss or an elite (effects make a moment of it). */
+export interface KillFx extends FxEvent {
+  big?: 'boss' | 'elite';
+}
+
 export interface WorldFx {
-  kills: FxEvent[];
+  kills: KillFx[];
   /** A shell (Mortar, Flak) burst. */
   splashes: SplashFx[];
   /** A Seismic Pulse went off. */

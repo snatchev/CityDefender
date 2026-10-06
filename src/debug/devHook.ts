@@ -8,6 +8,7 @@ import { TOWERS, upgradeTower, type TowerType } from '../sim/towers';
 import type { Camera, Scene, WebGLRenderer } from 'three';
 import { usePlan, type Ghost, type Route } from '../ui/planStore';
 import { tickWorld, type World } from '../sim/world';
+import { rail } from '../render/RailCamera';
 import { seeThroughStats } from '../render/seeThrough';
 
 /**
@@ -44,6 +45,8 @@ export interface DevHook {
   readonly streetLife: unknown;
   /** The three.js renderer and scene (profiling in the browser). */
   readonly renderer: WebGLRenderer | null;
+  /** The rail camera: track, position along it (m), look-ahead (m) and bank (radians). */
+  readonly rail: { station: number | null; s: number; lead: number; bank: number };
   readonly scene: Scene | null;
   readonly camera: Camera | null;
   /** Render at this pixel ratio (to tell fill-rate cost from everything else); returns the old one. */
@@ -95,6 +98,9 @@ export function installDevHook(): void {
       return game.city;
     },
     seeThrough: seeThroughStats,
+    get rail() {
+      return { station: rail.track?.station ?? null, s: rail.s, lead: rail.lead, bank: rail.bank };
+    },
     hovered() {
       const t = hoveredTile();
       const m = game.world.map;

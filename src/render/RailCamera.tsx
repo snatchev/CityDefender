@@ -6,7 +6,7 @@ import { focusRoute } from '../planning';
 import { usePlan, type TrackAt } from '../ui/planStore';
 import { indexToWorld, tileToWorld, type TileFrame } from './coords';
 import { angleDelta, headingAt, makeTrack, nearestS, pointAt, type Track } from './track';
-import { orbitControls } from './view';
+import { BASE_FOV_DEG, orbitControls } from './view';
 
 /** The point the camera orbits rides this high above the street (m). */
 export const TRACK_Y_M = 2;
@@ -28,12 +28,35 @@ const BALLOON_PULL = 0.35;
 const START_AFTER_STATION_M = 40;
 const START_BEFORE_GOAL_M = 90;
 /** Camera distance and pitch kept within these when landing on a track. */
-const DIST_M = [120, 600] as const;
-const PITCH_DEG = [15, 70] as const;
-const DEFAULT_VIEW = { distM: 240, pitchDeg: 30 };
+const DIST_M = [50, 600] as const;
+const PITCH_DEG = [6, 70] as const;
+/** Street level: close and low, so the buildings either side rise like canyon walls (D058). */
+const DEFAULT_VIEW = { distM: 90, pitchDeg: 12 };
+/** Shift while moving: this much faster. */
+const BOOST = 2.2;
+/** While moving, the point the camera looks at runs this far ahead along the track (m). */
+const LOOK_AHEAD_M = 30;
+const LOOK_AHEAD_PER_S = 2.5;
+/** Field of view widens by up to this at full speed (degrees; more with boost), settling at this rate. */
+const FOV_KICK_DEG = 12;
+const FOV_PER_S = 4;
+/** The camera rolls into turns: this much per rad/s of turning, at most this much (degrees). */
+const BANK_DEG_PER_RAD_S = 20;
+const MAX_BANK_DEG = 7;
+const BANK_PER_S = 5;
+/**
+ * The point the camera orbits glides toward its spot on the track at this rate (1/s), rather
+ * than sitting on it: moving, it rounds sharp bends into a curve (radius about speed / rate);
+ * standing, it settles exactly on the track.
+ */
+const CORNER_SMOOTH_PER_S = 3;
+/** Switching tracks swings over the rooftops (D059): this long, and up this high per m travelled, within limits. */
+const SWING_S = 1.3;
+const SWING_ARC_PER_M = 0.35;
+const SWING_ARC_M = [60, 220] as const;
 const FLY_S = 0.9;
 
-type Action = 'toStation' | 'toGoal' | 'left' | 'right';
+type Action = 'toStation' | 'toGoal' | 'left' | 'right' | 'boost';
 /** By physical key (`KeyboardEvent.code`), so it works on any keyboard layout. */
 const KEYS: Record<string, Action> = {
   KeyW: 'toStation',
@@ -46,6 +69,8 @@ const KEYS: Record<string, Action> = {
   KeyD: 'right',
   ArrowRight: 'right',
   KeyE: 'right',
+  ShiftLeft: 'boost',
+  ShiftRight: 'boost',
 };
 
 /** The rail's state, readable by cutscenes (Director.tsx) to hand the camera back. */
@@ -56,6 +81,10 @@ export const rail = {
   sGoal: 0,
   /** The track heading the camera's yaw was last turned to follow (radians). */
   heading: 0,
+  /** How far ahead of `s` the camera looks right now (m, signed along the track). */
+  lead: 0,
+  /** The camera's roll into the current turn (radians). */
+  bank: 0,
 };
 
 function typingInto(target: EventTarget | null): boolean {
@@ -70,7 +99,10 @@ function typingInto(target: EventTarget | null): boolean {
  * active track, the route the bugs crawl from one station to City Hall. W/↑ glides toward the
  * station, S/↓ toward City Hall; A/D, ←/→ and Q/E turn the camera around that point; the mouse
  * orbits and zooms; nothing pans. Travelling pulls the camera round behind the direction of travel
- * like a balloon on a string, so it swings into corners.
+ * like a balloon on a string, so it swings into corners. For an action feel (D058) it sits at
+ * street level by default, looks ahead while moving, widens its field of view with speed (Shift
+ * boosts) and banks into turns. Sharp bends are rounded off, and switching tracks swings over the
+ * rooftops (D059).
  * Switching tracks (the threat board, the minimap) glides the camera across. The
  * rail stands still while a glide or a cutscene drives the camera.
  */
@@ -81,6 +113,8 @@ export function RailCamera({ frame, width }: { frame: TileFrame; width: number }
   const focus = usePlan((p) => p.focus);
   const held = useRef(new Set<Action>());
   const released = useRef(new Set<Action>());
+  /** Speed effects and the rounded-off orbit target (see the frame loop). */
+  const feel = useRef({ roll: 0, snap: true, target: new Vector3() });
 
   const tracks = useMemo(() => {
     const m = new Map<number, Track>();
@@ -127,6 +161,7 @@ export function RailCamera({ frame, width }: { frame: TileFrame; width: number }
     if (!controls) return;
     // The very first landing ignores the scene's start-up camera and uses the default view.
     const first = rail.track === null;
+    const switching = !first && rail.track?.station !== track.station;
     rail.track = track;
     rail.s = rail.sGoal = s;
     rail.heading = headingAt(track, s, HEADING_WINDOW_M);
@@ -146,8 +181,16 @@ export function RailCamera({ frame, width }: { frame: TileFrame; width: number }
       // Yaw = the track heading: the camera sits on the City Hall side, looking up the street.
       yawDeg: view?.yawDeg ?? MathUtils.radToDeg(rail.heading),
     };
+    feel.current.snap = true; // the rounded-off target starts where the camera lands
     if (fly) {
-      cameraBridge.flyTo?.([x, TRACK_Y_M, z], v, FLY_S);
+      const arc = switching
+        ? MathUtils.clamp(
+            Math.hypot(x - controls.target.x, z - controls.target.z) * SWING_ARC_PER_M,
+            SWING_ARC_M[0],
+            SWING_ARC_M[1],
+          )
+        : 0;
+      cameraBridge.flyTo?.([x, TRACK_Y_M, z], v, switching ? SWING_S : FLY_S, arc);
       return;
     }
     controls.target.set(x, TRACK_Y_M, z);
@@ -233,27 +276,47 @@ export function RailCamera({ frame, width }: { frame: TileFrame; width: number }
   const tmp = useMemo(() => ({ v: new Vector3(), offset: new Vector3() }), []);
   useFrame((_, delta) => {
     const track = rail.track;
-    if (!controls || !track) return;
+    if (!controls || !track || !('fov' in camera)) return;
+    const f = feel.current;
     if (cameraBridge.flying || cameraBridge.cinematic) {
-      // Something else is driving; follow its heading so we don't snap when it hands back.
+      // Something else is driving; follow its heading so we don't snap when it hands back, and
+      // drop the speed effects (a flight sets its own field of view).
       rail.heading = headingAt(track, rail.s, HEADING_WINDOW_M);
+      rail.lead = f.roll = 0;
+      f.snap = true;
+      if (cameraBridge.cinematic && camera.fov !== BASE_FOV_DEG) {
+        camera.fov = BASE_FOV_DEG;
+        camera.updateProjectionMatrix();
+      }
       return;
     }
     const dt = Math.min(delta, 0.1);
     const keys = held.current;
     const dist = camera.position.distanceTo(controls.target);
-    const speed = MathUtils.clamp(dist * MOVE_PER_DIST, MOVE_MPS[0], MOVE_MPS[1]);
+    const cruise = MathUtils.clamp(dist * MOVE_PER_DIST, MOVE_MPS[0], MOVE_MPS[1]);
+    const boosting = keys.has('boost');
+    const speed = cruise * (boosting ? BOOST : 1);
     const along = (keys.has('toGoal') ? 1 : 0) - (keys.has('toStation') ? 1 : 0);
     rail.sGoal = MathUtils.clamp(rail.sGoal + along * speed * dt, 0, track.length);
+    const prevS = rail.s;
     rail.s += (rail.sGoal - rail.s) * (1 - Math.exp(-SMOOTH_PER_S * dt));
+    const moving = Math.min(1, Math.abs(rail.s - prevS) / dt / cruise); // 1 at cruising speed
+    // Look ahead in the direction of travel.
+    rail.lead += (along * LOOK_AHEAD_M - rail.lead) * (1 - Math.exp(-LOOK_AHEAD_PER_S * dt));
 
     // Ride the track like a balloon on a string: the orbit point moves along the track and drags
     // the camera after it. The camera keeps its distance and height, but its bearing swings part
     // of the way toward where the string now points (from the new point back to where the camera
     // was), so moving along the street slowly turns it to trail behind the direction of travel,
     // and round a corner it swings into the new street. Standing still, nothing pulls.
-    const [x, z] = pointAt(track, rail.s);
+    const [px, pz] = pointAt(track, MathUtils.clamp(rail.s + rail.lead, 0, track.length));
+    if (f.snap) {
+      f.target.set(px, TRACK_Y_M, pz);
+      f.snap = false;
+    } else f.target.lerp(tmp.v.set(px, TRACK_Y_M, pz), 1 - Math.exp(-CORNER_SMOOTH_PER_S * dt));
+    const { x, z } = f.target;
     tmp.offset.subVectors(camera.position, controls.target);
+    const yaw0 = Math.atan2(tmp.offset.x, tmp.offset.z);
     const reach = Math.hypot(tmp.offset.x, tmp.offset.z);
     let yaw = Math.atan2(tmp.offset.x, tmp.offset.z);
     controls.target.set(x, TRACK_Y_M, z);
@@ -268,6 +331,26 @@ export function RailCamera({ frame, width }: { frame: TileFrame; width: number }
     camera.position.copy(controls.target).add(tmp.offset);
     rail.heading = headingAt(track, rail.s, HEADING_WINDOW_M);
     controls.update();
+
+    // Sense of speed: a wider view while moving (wider still boosting), and a roll into turns.
+    const fovGoal = BASE_FOV_DEG + FOV_KICK_DEG * moving * (boosting ? 1.6 : 1);
+    const fov = camera.fov + (fovGoal - camera.fov) * (1 - Math.exp(-FOV_PER_S * dt));
+    if (Math.abs(fov - camera.fov) > 1e-3) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+    const yawRate = angleDelta(yaw0, yaw) / dt;
+    const bankGoal = MathUtils.degToRad(
+      MathUtils.clamp(yawRate * BANK_DEG_PER_RAD_S, -MAX_BANK_DEG, MAX_BANK_DEG),
+    );
+    f.roll += (bankGoal - f.roll) * (1 - Math.exp(-BANK_PER_S * dt));
+    if (Math.abs(f.roll) > 1e-4) {
+      camera.rotateZ(f.roll);
+      // Screen shake (drei CameraShake) rebuilds the rotation every frame from the one it saw at
+      // the controls' last change: announce the banked one, or the roll is lost.
+      controls.dispatchEvent({ type: 'change' });
+    }
+    rail.bank = f.roll;
     for (const k of released.current) keys.delete(k);
     released.current.clear();
   });

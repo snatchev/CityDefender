@@ -14,10 +14,16 @@ export const cameraBridge = {
   focusTile: null as ((tx: number, ty: number, view?: CameraView) => void) | null,
   /**
    * Glide to look at a world point (x, y, z) from a view, over `seconds`; mouse or keyboard camera
-   * input takes over at once (null until the scene is up).
+   * input takes over at once (null until the scene is up). `arcM` > 0 swings up that high over the
+   * rooftops on the way (a track switch, D059).
    */
   flyTo: null as
-    | ((target: [number, number, number], view: Required<CameraView>, seconds: number) => void)
+    | ((
+        target: [number, number, number],
+        view: Required<CameraView>,
+        seconds: number,
+        arcM?: number,
+      ) => void)
     | null,
   /** A glide (`flyTo`) is moving the camera this frame; the rail waits. */
   flying: false,

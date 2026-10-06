@@ -30,7 +30,7 @@ interface Script {
 }
 
 /** The view the rail is handed back with. */
-const LAND = { distM: 220, pitchDeg: 28 };
+const LAND = { distM: 100, pitchDeg: 14 };
 /**
  * Introductions: a fast whip to a low shot, a freeze frame with the title card, then back. The
  * camera aims below the subject (`dropM`) so it sits in the top half, above the title card.

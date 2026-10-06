@@ -598,7 +598,8 @@ export function sweepDead(world: World): void {
       world.stats.bounty += bounty;
       world.stats.kills++;
       const [x, y] = mobPos(m);
-      world.fx.kills.push({ tick: world.tick, x, y });
+      const big = MOBS[m.type].boss ? 'boss' : m.elite ? 'elite' : undefined;
+      world.fx.kills.push(big ? { tick: world.tick, x, y, big } : { tick: world.tick, x, y });
     }
   }
   world.mobs = alive;
