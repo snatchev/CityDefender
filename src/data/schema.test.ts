@@ -3,8 +3,10 @@ import barricadesData from './barricades.json';
 import mobsData from './mobs.json';
 import elitesData from './elites.json';
 import grantsData from './grants.json';
+import cinematicsData from './cinematics.json';
 import {
   barricadesSchema,
+  cinematicsSchema,
   eliteSchema,
   grantSchema,
   mobSchema,
@@ -31,6 +33,15 @@ describe('balance tables', () => {
   it('waves use known mob types and elites', () =>
     check(wavesSchema(Object.keys(mobsData), Object.keys(elitesData)), wavesData));
   it.each(Object.entries(elitesData))('elite %s is valid', (_, e) => check(eliteSchema, e));
+  it('every boss and elite has a title card', () => {
+    check(cinematicsSchema, cinematicsData);
+    const bosses = Object.entries(mobsData).filter(([, m]) => 'boss' in m && m.boss);
+    for (const [type] of bosses) expect(cinematicsData.bosses, type).toHaveProperty(type);
+    for (const [type, m] of Object.entries(mobsData))
+      if (!('boss' in m && m.boss)) expect(cinematicsData.mobs, type).toHaveProperty(type);
+    for (const elite of Object.keys(elitesData))
+      expect(cinematicsData.elites, elite).toHaveProperty(elite);
+  });
   it('grants are valid, with unique ids per city', () => {
     for (const [city, grants] of Object.entries(grantsData)) {
       for (const g of grants) check(grantSchema, g);

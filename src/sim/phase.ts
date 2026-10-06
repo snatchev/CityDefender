@@ -48,7 +48,10 @@ export function startWave(world: World): void {
   const bonus = Math.floor((world.phaseTicks / TICK_HZ) * rulesData.earlyCallBonusPerS);
   world.cash += bonus;
   world.stats.earlyBonus += bonus;
-  for (const g of world.waves[world.wave]!.groups) queueWave(world, g);
+  // The stations break open `breachLeadS` after the wave is sent: the warning the threat board
+  // flashes before the first bugs come out (D057).
+  for (const g of world.waves[world.wave]!.groups)
+    queueWave(world, { ...g, delayS: rulesData.breachLeadS });
   world.phase = 'assault';
   world.phaseTicks = 0;
 }

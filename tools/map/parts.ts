@@ -36,6 +36,8 @@ export interface Solid {
   color?: string;
   roofColor?: string;
   facade?: FacadeHint;
+  /** Which building it belongs to: a footprint and the parts drawn for it share one (D055). */
+  building?: number;
 }
 
 /** An OSM way or relation with building tags, projected to tile units. */
@@ -285,8 +287,8 @@ export function resolveSolids(
 
   const partIndex = new ShapeIndex<OsmShape & Indexed>();
   for (const p of levelParts) partIndex.add(p);
-  const fpIndex = new ShapeIndex<Footprint & Indexed>();
-  const drawnB = drawn.map(bounds);
+  const fpIndex = new ShapeIndex<Footprint & Indexed & { building: number }>();
+  const drawnB = drawn.map((f, i) => ({ ...bounds(f), building: i }));
   for (const f of drawnB) fpIndex.add(f);
 
   // Footprints mostly covered by parts are drawn as the parts.
@@ -306,7 +308,8 @@ export function resolveSolids(
       replaced++;
       continue;
     }
-    solids.push(f.tags ? solidFromTags(f.tags, f.rings, cfg, f.heightM) : flatSolid(f));
+    const solid = f.tags ? solidFromTags(f.tags, f.rings, cfg, f.heightM) : flatSolid(f);
+    solids.push({ ...solid, building: f.building });
   }
 
   // Parts without heights take their building's: the drawn footprint around their centre.
@@ -315,7 +318,19 @@ export function resolveSolids(
     const hs = parents.at(c.u, c.v).map((p) => p.heightM);
     return hs.length > 0 ? Math.max(...hs) : cfg.buildings.defaultHeightM;
   };
-  for (const p of levelParts) solids.push(solidFromTags(p.tags, p.rings, cfg, parentM(p, fpIndex)));
+  // Parts belong to the footprint around their centre; parts outside any footprint, to the first
+  // such part around their centre (parts stacked into one tower), else to a building of their own.
+  const orphans = new ShapeIndex<Indexed & { building: number }>();
+  let nextBuilding = drawn.length;
+  for (const p of levelParts) {
+    const c = centroid(p.rings[0]!);
+    let building = (fpIndex.at(c.u, c.v)[0] ?? orphans.at(c.u, c.v)[0])?.building;
+    if (building === undefined) {
+      building = nextBuilding++;
+      orphans.add({ ...p, building });
+    }
+    solids.push({ ...solidFromTags(p.tags, p.rings, cfg, parentM(p, fpIndex)), building });
+  }
 
   // The landmark: its building relation(s) and parts, parts falling back to the relation's height.
   const landmark = goalRelations.map((r) =>

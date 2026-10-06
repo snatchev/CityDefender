@@ -1,0 +1,456 @@
+/* ---- Threat board (branch down-the-street, D054) ---- */
+
+.hud-left {
+  position: absolute;
+  top: var(--hud-gap);
+  left: var(--hud-gap);
+  width: 290px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud-left .hud-panel {
+  position: static;
+  width: auto;
+}
+
+.threat-board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.threat-card {
+  --tone: 255 177 74;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 9px 12px 9px 18px;
+  border: 2px solid rgb(var(--tone) / 0.5);
+  border-radius: 10px;
+  background: var(--hud-bg-strong);
+  box-shadow: var(--hud-glow);
+  color: var(--hud-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease-out;
+  animation: card-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.threat-card:hover {
+  transform: translateX(5px);
+}
+
+.threat-card.tracking {
+  box-shadow:
+    0 0 0 2px var(--hud-accent),
+    0 0 18px rgb(95 208 255 / 0.45);
+}
+
+.threat-card.tracking::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: var(--hud-accent);
+}
+
+.threat-key {
+  font: 900 20px/1 var(--hud-font);
+  opacity: 0.45;
+  width: 14px;
+}
+
+.threat-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.threat-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.threat-name {
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.threat-state {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(var(--tone));
+}
+
+.threat-headline {
+  font:
+    italic 900 19px/1.05 Impact,
+    'Arial Black',
+    'Helvetica Neue',
+    sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 10px rgb(var(--tone) / 0.9);
+}
+
+.threat-mobs {
+  font-size: 12px;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.threat-card.incoming {
+  --tone: 255 177 74;
+}
+
+.threat-card.engaged {
+  --tone: 95 208 255;
+}
+
+.threat-card.clear {
+  --tone: 140 150 160;
+  opacity: 0.5;
+}
+
+/* Cards that want a look: hazard stripes, a scrolling marquee, a pulse. */
+.threat-card.danger,
+.threat-card.elite,
+.threat-card.boss {
+  border-width: 3px;
+  border-color: rgb(var(--tone));
+  animation:
+    card-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+    alarm-pulse 0.9s ease-in-out infinite;
+}
+
+.threat-card.danger {
+  --tone: 255 59 48;
+  background: linear-gradient(100deg, #4d0c0a, #230707 70%);
+}
+
+.threat-card.elite {
+  --tone: 32 227 255;
+  background: linear-gradient(100deg, #07384a, #061b26 70%);
+}
+
+.threat-card.boss {
+  --tone: 255 43 214;
+  min-height: 70px;
+  background: linear-gradient(100deg, #4d0743, #1d0420 70%);
+}
+
+.threat-card.danger::before,
+.threat-card.elite::before,
+.threat-card.boss::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 10px;
+  background: repeating-linear-gradient(-45deg, #111 0 6px, #ffd60a 6px 12px);
+  background-size: 34px 34px;
+  animation: stripes 0.5s linear infinite;
+}
+
+.threat-card.danger .threat-state,
+.threat-card.elite .threat-state,
+.threat-card.boss .threat-state {
+  animation: blink 0.45s steps(2, start) infinite;
+}
+
+/* The last seconds before a breach: faster, bigger, shaking. */
+.threat-card.danger.urgent {
+  animation:
+    card-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+    alarm-pulse 0.35s ease-in-out infinite,
+    alarm-shake 0.18s linear infinite;
+  background: linear-gradient(100deg, #8a120d, #3a0807 70%);
+}
+
+.threat-card.danger.urgent .threat-marquee span {
+  animation-duration: 1.6s;
+}
+
+@keyframes alarm-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px) rotate(-0.4deg);
+  }
+  75% {
+    transform: translateX(3px) rotate(0.4deg);
+  }
+}
+
+.threat-marquee {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  font:
+    italic 900 36px/1 Impact,
+    'Arial Black',
+    sans-serif;
+  color: rgb(var(--tone) / 0.2);
+  pointer-events: none;
+}
+
+.threat-marquee span {
+  flex: none;
+  padding-right: 0.3em;
+  animation: marquee 4s linear infinite;
+}
+
+.threat-next {
+  padding: 8px 12px;
+  border: 1px dashed rgb(255 177 74 / 0.45);
+  border-radius: 10px;
+  background: var(--hud-bg);
+  color: #ffb14a;
+  font-size: 13px;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateX(-40px) scale(0.96);
+  }
+}
+
+@keyframes alarm-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgb(var(--tone) / 0.65),
+      0 0 16px rgb(var(--tone) / 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px rgb(var(--tone) / 0),
+      0 0 34px rgb(var(--tone) / 0.95);
+  }
+}
+
+@keyframes stripes {
+  to {
+    background-position: 34px 0;
+  }
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* ---- Cutscenes ---- */
+
+body.cinematic .hud-left,
+body.cinematic .hud-top-right,
+body.cinematic .build-bar,
+body.cinematic .tower-card,
+body.cinematic .wall-card,
+body.cinematic .gear,
+body.cinematic .map-label {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+.cinema {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.cinema-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 11vh;
+  background: #000;
+  animation: bar-in 0.35s ease-out both;
+}
+
+.cinema-bar.top {
+  top: 0;
+  --from: -100%;
+}
+
+.cinema-bar.bottom {
+  bottom: 0;
+  --from: 100%;
+}
+
+@keyframes bar-in {
+  from {
+    transform: translateY(var(--from));
+  }
+}
+
+.cinema-skip {
+  position: absolute;
+  right: 3vw;
+  bottom: 3.5vh;
+  color: rgb(255 255 255 / 0.55);
+  font: 600 13px/1 var(--hud-font);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Introduction title card (boss, elite, new threat): a freeze frame, bands sweeping across, epithet over a huge name. */
+.intro-card {
+  --band-a: #ff2bd6;
+  --band-b: #ffd60a;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 55% 45%, transparent 35%, rgb(0 0 0 / 0.55));
+  animation: flash 0.35s ease-out both;
+}
+
+.intro-card.elite {
+  --band-a: #20e3ff;
+  --band-b: #ffffff;
+}
+
+.intro-card.new {
+  --band-a: #8cff3a;
+  --band-b: #ffd60a;
+}
+
+.intro-band {
+  position: absolute;
+  left: -20vw;
+  right: -20vw;
+  height: 22vh;
+  transform: rotate(-9deg);
+}
+
+.intro-band.one {
+  top: 52vh;
+  background: var(--band-a);
+  opacity: 0.88;
+  animation: band-left 0.45s cubic-bezier(0.2, 1, 0.3, 1) both;
+}
+
+.intro-band.two {
+  top: 71vh;
+  height: 5vh;
+  background: var(--band-b);
+  animation: band-right 0.5s 0.08s cubic-bezier(0.2, 1, 0.3, 1) both;
+}
+
+.intro-text {
+  position: absolute;
+  left: 7vw;
+  top: 50vh;
+  max-width: 80vw;
+  color: #fff;
+  transform: rotate(-9deg);
+  transform-origin: left center;
+}
+
+.intro-tag {
+  display: inline-block;
+  padding: 3px 12px;
+  background: #111;
+  color: var(--band-b);
+  font: 900 16px/1.2 var(--hud-font);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  animation: fade-up 0.3s 0.25s both;
+}
+
+.intro-epithet {
+  margin-top: 8px;
+  font: italic 800 26px/1.1 var(--hud-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 rgb(0 0 0 / 0.6);
+  animation: fade-up 0.3s 0.3s both;
+}
+
+.intro-name {
+  font:
+    900 min(12vw, 120px) / 0.95 Impact,
+    'Arial Black',
+    'Helvetica Neue',
+    sans-serif;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  -webkit-text-stroke: 3px #111;
+  text-shadow:
+    6px 6px 0 #111,
+    0 0 40px rgb(0 0 0 / 0.5);
+  animation: slam 0.45s 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.intro-fact {
+  margin-top: 14px;
+  max-width: 46em;
+  padding: 8px 14px;
+  background: rgb(0 0 0 / 0.72);
+  font: 600 18px/1.35 var(--hud-font);
+  animation: fade-up 0.35s 0.6s both;
+}
+
+@keyframes flash {
+  from {
+    background-color: rgb(255 255 255 / 0.85);
+  }
+}
+
+@keyframes band-left {
+  from {
+    transform: rotate(-9deg) translateX(-110%);
+  }
+}
+
+@keyframes band-right {
+  from {
+    transform: rotate(-9deg) translateX(110%);
+  }
+}
+
+@keyframes slam {
+  from {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}

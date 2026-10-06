@@ -1,3 +1,4 @@
+import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   BoxGeometry,
@@ -14,7 +15,13 @@ import { uvToWorld, type TileFrame } from './coords';
 import { backdropLook, facadeAverage, withWindows } from './facades';
 import { preLit } from './lighting';
 import { createRng } from '../sim/rng';
-import { afterDepthPass, seeThroughDepthMaterial } from './seeThrough';
+import {
+  fadingOccluders,
+  GHOST_COLOR_ORDER,
+  GHOST_DEPTH_ORDER,
+  ghostMaterials,
+  hideWhenFaded,
+} from './seeThrough';
 
 /** Ground beyond the level (slightly lighter than street asphalt, so the play area stands out). */
 const GROUND = '#5a5e63';
@@ -39,9 +46,12 @@ export function Backdrop({
   file,
   frame,
   heightScale,
+  firstId,
 }: {
   file: BackdropFileV0;
   frame: TileFrame;
+  /** The near backdrop's boxes are see-through occluders `firstId`, `firstId + 1`, … (seeThrough.ts). */
+  firstId: number;
   /** Boxes are drawn at this share of their height (tactical view, D050); the ground stays put. */
   heightScale: number;
 }) {
@@ -69,6 +79,7 @@ export function Backdrop({
             frame={frame}
             haze={HAZE_PER_LAYER[k] ?? 0.4}
             detailed={k === 0}
+            firstId={firstId}
           />
         ))}
       </group>
@@ -81,24 +92,28 @@ function LayerBoxes({
   frame,
   haze,
   detailed,
+  firstId,
 }: {
   layer: BackdropLayer;
   frame: TileFrame;
   haze: number;
   /**
-   * The nearest layer gets windows and the see-through cutaway; farther layers are plain boxes in
-   * their windows' average colour (D053): cheap, and at that distance the same picture.
+   * The nearest layer gets windows and turns see-through where it hides the track (D055); farther
+   * layers are plain boxes in their windows' average colour (D053): cheap, and at that distance the
+   * same picture.
    */
   detailed: boolean;
+  firstId: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
-  const depthRef = useRef<InstancedMesh>(null);
+  const ghostDepthRef = useRef<InstancedMesh>(null);
+  const ghostColorRef = useRef<InstancedMesh>(null);
   const geometry = useMemo(() => new BoxGeometry(), []);
-  // The detailed layer draws behind a depth pre-pass that does the cutaway (seeThrough.ts, D053).
+  // The detailed layer's boxes turn see-through where they hide the track (seeThrough.ts, D055).
   const material = useMemo(
     () =>
       detailed
-        ? afterDepthPass(
+        ? hideWhenFaded(
             withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), {
               instancedBoxes: true,
             }),
@@ -106,25 +121,27 @@ function LayerBoxes({
         : new MeshLambertMaterial(),
     [detailed],
   );
-  const depthMaterial = useMemo(() => (detailed ? seeThroughDepthMaterial() : null), [detailed]);
+  const ghost = useMemo(
+    () =>
+      detailed
+        ? ghostMaterials(
+            withWindows(new MeshStandardMaterial({ roughness: ROUGHNESS }), {
+              instancedBoxes: true,
+            }),
+          )
+        : null,
+    [detailed],
+  );
   useEffect(
     () => () => {
       material.dispose();
-      depthMaterial?.dispose();
+      ghost?.depth.dispose();
+      ghost?.color.dispose();
       geometry.dispose();
     },
-    [material, depthMaterial, geometry],
+    [material, ghost, geometry],
   );
-  const cells = useMemo(() => {
-    const out: { cx: number; cy: number; h: number }[] = [];
-    layer.rows.forEach((row, cy) => {
-      row.split(',').forEach((v, cx) => {
-        const h = Number(v); // real metres (D029)
-        if (h > 0) out.push({ cx, cy, h });
-      });
-    });
-    return out;
-  }, [layer]);
+  const cells = useMemo(() => backdropCells(layer), [layer]);
 
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -152,27 +169,64 @@ function LayerBoxes({
       mesh.setColorAt(i, look.wall.lerp(HAZE, haze));
     });
     mesh.geometry.setAttribute('aStyle', new InstancedBufferAttribute(styles, 1));
+    mesh.geometry.setAttribute(
+      'aOcc',
+      new InstancedBufferAttribute(
+        Float32Array.from(cells, (_, k) => (detailed ? firstId + k : 0)),
+        1,
+      ),
+    );
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
-    const depth = depthRef.current;
-    if (depth) {
-      depth.instanceMatrix = mesh.instanceMatrix; // same boxes, shared buffer
-      depth.computeBoundingSphere();
+    for (const g of [ghostDepthRef.current, ghostColorRef.current]) {
+      if (!g) continue;
+      // Same boxes and colours, shared buffers.
+      g.instanceMatrix = mesh.instanceMatrix;
+      g.instanceColor = mesh.instanceColor;
+      g.computeBoundingSphere();
     }
-  }, [cells, layer, frame, haze, detailed]);
+  }, [cells, layer, frame, haze, detailed, firstId]);
+
+  useFrame(() => {
+    if (!ghost) return;
+    let fading = false;
+    for (const id of fadingOccluders()) if (id >= firstId) fading = true;
+    for (const g of [ghostDepthRef.current, ghostColorRef.current]) if (g) g.visible = fading;
+  });
 
   if (cells.length === 0) return null;
   return (
     <>
       <instancedMesh ref={ref} args={[geometry, material, cells.length]} />
-      {depthMaterial && (
-        <instancedMesh
-          ref={depthRef}
-          args={[geometry, depthMaterial, cells.length]}
-          renderOrder={-1}
-        />
+      {ghost && (
+        <>
+          <instancedMesh
+            ref={ghostDepthRef}
+            args={[geometry, ghost.depth, cells.length]}
+            renderOrder={GHOST_DEPTH_ORDER}
+            visible={false}
+          />
+          <instancedMesh
+            ref={ghostColorRef}
+            args={[geometry, ghost.color, cells.length]}
+            renderOrder={GHOST_COLOR_ORDER}
+            visible={false}
+          />
+        </>
       )}
     </>
   );
+}
+
+/** A backdrop layer's buildings: grid cell and height (real metres, D029), in drawing order. */
+export function backdropCells(layer: BackdropLayer): { cx: number; cy: number; h: number }[] {
+  const out: { cx: number; cy: number; h: number }[] = [];
+  layer.rows.forEach((row, cy) => {
+    row.split(',').forEach((v, cx) => {
+      const h = Number(v);
+      if (h > 0) out.push({ cx, cy, h });
+    });
+  });
+  return out;
 }

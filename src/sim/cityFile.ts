@@ -73,6 +73,8 @@ export interface SolidRecord {
   roofColor?: string;
   /** Facade hint from OSM tags (`building:material`, parking garages). */
   facade?: FacadeHint;
+  /** Building number: solids with the same one are parts of one building (they fade together, D055). */
+  b?: number;
 }
 
 export type FacadeHint = 'glass' | 'brick' | 'stone' | 'concrete' | 'parking';

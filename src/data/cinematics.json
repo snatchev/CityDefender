@@ -1,0 +1,48 @@
+{
+  "bosses": {
+    "matriarch": {
+      "epithet": "Armored Queen of the Broad Street Line",
+      "factoid": "Armor 8: machine-gun rounds bounce off her. Railguns and AP Rounds go straight through."
+    },
+    "broodMother": {
+      "epithet": "Mother of the Undercity",
+      "factoid": "Every quarter of her health she loses births six skitterlings. Sawhorses crumple under her."
+    }
+  },
+  "elites": {
+    "armored": {
+      "epithet": "Plated in Scrap Steel",
+      "factoid": "+4 armor and 20% more health: chip damage barely scratches them."
+    },
+    "hasted": {
+      "epithet": "Late for Their Train",
+      "factoid": "40% faster than usual: walls buy you less time."
+    },
+    "regenerating": {
+      "epithet": "Knit Back Together",
+      "factoid": "Heal 4% of their health every second: burst them down fast."
+    }
+  },
+  "mobs": {
+    "skitterling": {
+      "epithet": "First Out of the Tunnels",
+      "factoid": "Fast and flimsy, and there are always more. Anything kills one; nothing kills enough of them."
+    },
+    "beetle": {
+      "epithet": "Rush Hour Rolling Stock",
+      "factoid": "Armor 6: light rounds barely scratch the shell. Hit it hard, or hit it with something that pierces."
+    },
+    "wasp": {
+      "epithet": "Flies Over Every Wall",
+      "factoid": "Airborne: barricades don't stop it and ground-only towers can't touch it. Bring Flak."
+    },
+    "grub": {
+      "epithet": "Rides the Sewer Lines",
+      "factoid": "Digs under the streets and your walls, and surfaces near City Hall. Guard the last blocks."
+    },
+    "spitter": {
+      "epithet": "Corrosive Commuter",
+      "factoid": "Spits acid at towers within 48 m as it walks. Kill it before it gets in range."
+    }
+  }
+}

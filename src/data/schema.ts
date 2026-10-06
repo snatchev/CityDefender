@@ -312,3 +312,21 @@ export function wavesSchema(mobTypes: string[], eliteTypes: string[] = []) {
     .strict();
   return z.record(z.string(), z.array(z.object({ groups: z.array(group).min(1) }).strict()).min(1));
 }
+
+/** A boss or elite title card (branch down-the-street, D054): epithet above the name, a factoid below. */
+export const introSchema = z
+  .object({ epithet: z.string().min(1), factoid: z.string().min(1) })
+  .strict();
+export type IntroDef = z.infer<typeof introSchema>;
+
+/**
+ * cinematics.json: title cards for bosses (by mob type), elites (by affix) and every other mob
+ * type (shown the first time a run meets it).
+ */
+export const cinematicsSchema = z
+  .object({
+    bosses: z.record(z.string(), introSchema),
+    elites: z.record(z.string(), introSchema),
+    mobs: z.record(z.string(), introSchema),
+  })
+  .strict();

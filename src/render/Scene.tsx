@@ -1,4 +1,4 @@
-import { MapControls, Stats } from '@react-three/drei';
+import { OrbitControls, Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { MOUSE } from 'three';
 import { useMemo } from 'react';
@@ -11,19 +11,21 @@ import { Barricades } from './Barricades';
 import { CityHall } from './CityHall';
 import { CityMap } from './CityMap';
 import { tileFrame } from './coords';
-import { CameraBounds } from './CameraBounds';
+import { BASE_FOV_DEG } from './view';
+import { Director } from './Director';
+import { RailCamera } from './RailCamera';
+import { StationBursts } from './StationBursts';
+import { ThreatTracker } from './ThreatTracker';
 import { CameraBridge } from './CameraBridge';
 import { Effects } from './Effects';
 import { displayHeights, TACTICAL_HEIGHT_SCALE } from './heights';
 import { HpBars } from './HpBars';
-import { KeyboardCamera } from './KeyboardCamera';
 import { HEMI_GROUND, HEMI_INTENSITY, HEMI_SKY, SUN_INTENSITY, SUN_POSITION } from './lighting';
 import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
-import { RouteFocus } from './RouteFocus';
-import { GrabPan } from './GrabPan';
 import { groundHandlers } from './pointer';
+import { occluderIds } from './seeThrough';
 import { SeeThroughDriver } from './SeeThroughDriver';
 import { Shots } from './Shots';
 import { SimDriver } from './SimDriver';
@@ -42,13 +44,11 @@ const SKY_RADIUS_M = 12000;
 const SKY_ZENITH = '#5b8fcc';
 /**
  * Depth precision scales with near / far: keep near as large as the closest zoom allows (minDistance
- * is 80 m) so distant, nearly coplanar surfaces don't z-fight.
+ * is 35 m) so distant, nearly coplanar surfaces don't z-fight.
  */
 const CAMERA_NEAR_M = 4;
 const CAMERA_FAR_M = 16000;
 const MAX_ZOOM_OUT_M = 3000;
-/** OrbitControls ignores a mouse button mapped to -1 (three has no named constant for it). */
-const NO_BUTTON = -1 as MOUSE;
 
 export function Scene() {
   // Re-render once when the city arrives; the map data itself is read from `game`, not the store.
@@ -67,6 +67,11 @@ export function Scene() {
     () => (city && map && buildingsFile ? displayHeights(map, buildingsFile, heightScale) : null),
     [city, map, buildingsFile, heightScale],
   );
+  // The near backdrop's see-through ids follow the level's buildings' (D055).
+  const backdropFirstId = useMemo(
+    () => (buildingsFile ? occluderIds(buildingsFile.solids).backdrop0 : 0),
+    [buildingsFile],
+  );
   const ground = useMemo(
     () => (frame && map && heights ? groundHandlers(frame, map, heights) : null),
     [frame, map, heights],
@@ -79,7 +84,12 @@ export function Scene() {
       aria-label="City map"
       tabIndex={0}
       dpr={[1, 2]}
-      camera={{ position: [120, 720, 820], fov: 45, near: CAMERA_NEAR_M, far: CAMERA_FAR_M }}
+      camera={{
+        position: [120, 720, 820],
+        fov: BASE_FOV_DEG,
+        near: CAMERA_NEAR_M,
+        far: CAMERA_FAR_M,
+      }}
       onCreated={({ gl, scene, camera }) => {
         const ctx = gl.getContext();
         const kind =
@@ -95,12 +105,19 @@ export function Scene() {
       <SkyDome zenith={SKY_ZENITH} horizon={HAZE} radius={SKY_RADIUS_M} />
       <hemisphereLight args={[HEMI_SKY, HEMI_GROUND, HEMI_INTENSITY]} />
       <directionalLight position={SUN_POSITION} intensity={SUN_INTENSITY} />
-      {backdrop && frame && <Backdrop file={backdrop} frame={frame} heightScale={heightScale} />}
+      {backdrop && frame && buildingsFile && (
+        <Backdrop
+          file={backdrop}
+          frame={frame}
+          heightScale={heightScale}
+          firstId={backdropFirstId}
+        />
+      )}
 
       {city && buildingsFile && map && frame && heights && ground && (
         <>
-          {/* First in the frame after the controls, so everything below sees the clamped view. */}
-          <CameraBounds frame={frame} width={map.width} height={map.height} />
+          {/* First in the frame after the controls, so everything below sees where the rail put the camera. */}
+          <RailCamera frame={frame} width={map.width} />
           <CityMap
             city={city}
             buildingsFile={buildingsFile}
@@ -127,26 +144,32 @@ export function Scene() {
           <HpBars frame={frame} />
           <Effects frame={frame} />
           <PlanOverlay frame={frame} heights={heights} />
-          <RouteFocus frame={frame} width={map.width} />
+          <ThreatTracker />
+          <StationBursts frame={frame} />
+          <Director frame={frame} width={map.width} />
           <TacticalView />
-          <SeeThroughDriver />
-          <CameraBridge frame={frame} heights={heights} width={map.width} />
+          <SeeThroughDriver
+            buildings={buildingsFile}
+            backdrop={backdrop}
+            frame={frame}
+            heightScale={heightScale}
+          />
+          <CameraBridge frame={frame} />
         </>
       )}
 
-      <MapControls
+      <OrbitControls
         makeDefault
         target={[120, 0, 60]}
         enableDamping
-        minDistance={80}
+        // Nothing pans: the rail camera (RailCamera) moves the orbit point along the active track.
+        enablePan={false}
+        minDistance={35}
         maxDistance={MAX_ZOOM_OUT_M}
-        maxPolarAngle={Math.PI * 0.42}
-        // Left drag is grab panning (GrabPan; with Ctrl/Cmd/Shift it's MapControls' rotate); the
-        // wheel zooms, right drag rotates.
-        mouseButtons={{ LEFT: NO_BUTTON, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
+        // Down to ~5° above the street: street level, between the buildings (D058).
+        maxPolarAngle={Math.PI * 0.47}
+        mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
       />
-      <GrabPan />
-      <KeyboardCamera />
       <SimDriver />
       {showFps && <Stats className="fps-meter" />}
     </Canvas>

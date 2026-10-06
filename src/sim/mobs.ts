@@ -119,7 +119,10 @@ export interface SpawnGroup {
   elite?: EliteType | null;
 }
 
-/** Queue a spawn group. Only `count` is required; the rest default to one plain group at spawn 0. */
+/**
+ * Queue a spawn group. Only `count` is required; the rest default to one plain group at spawn 0,
+ * starting now (`delayS` holds the first one back).
+ */
 export function queueWave(
   world: World,
   {
@@ -129,7 +132,8 @@ export function queueWave(
     hpMul = 1,
     intervalS = rulesData.spawnIntervalS,
     elite = null,
-  }: Partial<SpawnGroup> & { count: number },
+    delayS = 0,
+  }: Partial<SpawnGroup> & { count: number; delayS?: number },
 ): void {
   if (!world.map) throw new Error('queueWave: no map loaded');
   if (!world.map.spawns[spawnIndex]) throw new Error(`queueWave: no spawn ${spawnIndex}`);
@@ -140,7 +144,7 @@ export function queueWave(
     hpMul,
     elite,
     intervalTicks: Math.max(1, Math.round(intervalS * TICK_HZ)),
-    nextTick: world.tick,
+    nextTick: world.tick + Math.round(delayS * TICK_HZ),
   });
 }
 

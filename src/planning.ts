@@ -32,7 +32,7 @@ import {
   upgradeTower,
   type TowerType,
 } from './sim/towers';
-import { usePlan, type BuildTool, type Route } from './ui/planStore';
+import { usePlan, type BuildTool, type Route, type TrackAt } from './ui/planStore';
 import { useHud } from './ui/store';
 
 /**
@@ -210,11 +210,8 @@ export function refreshPlanning(force = false): void {
   const key = `${w.fieldVersion}/${w.wave}/${w.phase}`;
   if (!force && key === routesKey) return;
   routesKey = key;
-  const routes = routesFrom(w.field, w.extraCost);
-  const focus = usePlan.getState().focus;
-  // A focused route stays live (walls reroute it) until its station stops sending bugs.
-  const keepFocus = focus && routes.some((r) => r.station === focus.station);
-  usePlan.setState({ routes, focus: keepFocus ? focus : null });
+  // The camera's track stays put when its station goes quiet (the rail keeps the old line).
+  usePlan.setState({ routes: routesFrom(w.field, w.extraCost) });
   refreshGhost();
 }
 
@@ -239,6 +236,11 @@ export function refreshSelection(): void {
   }
 }
 
+/** The tile under the pointer (render/pointer.ts picks it), or null. */
+export function hoveredTile(): readonly [number, number] | null {
+  return hovered;
+}
+
 export function hoverTile(tile: [number, number] | null): void {
   if (tile && hovered && tile[0] === hovered[0] && tile[1] === hovered[1]) return;
   if (!tile && !hovered) return;
@@ -261,21 +263,14 @@ export function buildAt(
   tx: number,
   ty: number,
   tool: BuildTool | null = usePlan.getState().tool,
-  /** With no tool: the route the pointer was over on screen (render/pointer.ts), if known. */
-  routeStation?: number | null,
 ): string | null {
   const w = game.world;
   if (!w.map) return 'no map';
   const i = ty * w.map.width + tx;
   if (!tool) {
-    // No tool: a click selects the tower (or failing that the wall) on this tile, and failing
-    // both, focuses the route through it (or clears the focus off a route).
+    // No tool: a click selects the tower (or failing that the wall) on this tile.
     selectTower(w.towerAt[i] ? w.towerAt[i]! : null);
     selectWall(!w.towerAt[i] && w.barricadeAt[i] ? w.barricadeAt[i]! : null);
-    if (!w.towerAt[i] && !w.barricadeAt[i]) {
-      if (routeStation !== undefined) focusRoute(routeStation);
-      else focusRouteAt(tx, ty);
-    }
     return null;
   }
   const existing = w.barricades.find((b) => b.id === w.barricadeAt[i]);
@@ -298,10 +293,7 @@ export function buildAt(
  * (hover and click pick tiles separately, and the see-through cutaway can shift between them, so
  * re-picking could land on a different roof). Everything else goes through `buildAt`.
  */
-export function clickMap(
-  tile: [number, number] | null,
-  routeStation?: number | null,
-): string | null {
+export function clickMap(tile: [number, number] | null): string | null {
   const tool = usePlan.getState().tool;
   const ghost = usePlan.getState().ghost;
   if (
@@ -313,45 +305,23 @@ export function clickMap(
     const result = placeTower(game.world, ghost.tx, ghost.ty, tool.type);
     return afterEdit(typeof result === 'string' ? `Can't build here: ${result}` : null);
   }
-  return tile ? buildAt(tile[0], tile[1], tool, routeStation) : null;
-}
-
-/** A click this many tiles from a route line still counts as on it (streets are wider than the line). */
-const ROUTE_CLICK_TILES = 1;
-
-/**
- * Focus the route through (or next to) a tile: the camera frames it and buildings in front of it
- * fade (render/RouteFocus.tsx, D049). A tile on no route clears the focus. Where routes overlap, the
- * focused one keeps priority, then the one listed first. Returns the station, or null.
- */
-export function focusRouteAt(tx: number, ty: number): number | null {
-  const map = game.world.map;
-  if (!map) return null;
-  const { routes, focus } = usePlan.getState();
-  const near = (r: Route) =>
-    r.tiles.some((i) => {
-      const x = i % map.width;
-      const y = (i - x) / map.width;
-      return Math.abs(x - tx) <= ROUTE_CLICK_TILES && Math.abs(y - ty) <= ROUTE_CLICK_TILES;
-    });
-  const hits = routes.filter(near);
-  const hit = hits.find((r) => r.station === focus?.station) ?? hits[0];
-  return focusRoute(hit?.station ?? null);
+  return tile ? buildAt(tile[0], tile[1], tool) : null;
 }
 
 /**
- * Focus a station's route (the camera frames it again even if it's already focused), or clear the
- * focus with null or a station that sends no bugs this wave. Returns the focused station.
+ * Put the camera on a station's track (render/RailCamera.tsx, D054), at `at`, gliding there unless
+ * `fly` is false. Asking again for the same track moves the camera again. Returns the station, or
+ * null if that station has no route this wave.
  */
-export function focusRoute(station: number | null): number | null {
+export function focusRoute(
+  station: number,
+  at: TrackAt = { kind: 'start' },
+  fly = true,
+): number | null {
   const { routes, focus } = usePlan.getState();
-  const ok = station !== null && routes.some((r) => r.station === station);
-  usePlan.setState({ focus: ok ? { station, seq: (focus?.seq ?? 0) + 1 } : null });
-  return ok ? station : null;
-}
-
-export function clearRouteFocus(): void {
-  usePlan.setState({ focus: null });
+  if (!routes.some((r) => r.station === station)) return null;
+  usePlan.setState({ focus: { station, seq: (focus?.seq ?? 0) + 1, at, fly } });
+  return station;
 }
 
 /** Tactical view on/off (D050; render/TacticalView.tsx does the camera, Scene the squash). */

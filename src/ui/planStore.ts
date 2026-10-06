@@ -7,6 +7,13 @@ import type { TowerType, UpgradeOption } from '../sim/towers';
 export type BuildTool =
   { kind: 'tower'; type: TowerType } | { kind: 'barricade'; type: BarricadeType };
 
+/** Where on a track to put the camera: near the station, near City Hall, by a tile, or exactly. */
+export type TrackAt =
+  | { kind: 'start' }
+  | { kind: 'goal' }
+  | { kind: 'tile'; tx: number; ty: number }
+  | { kind: 's'; s: number };
+
 /** A route from a station to City Hall, as tile indices. */
 export interface Route {
   station: number;
@@ -72,10 +79,11 @@ interface PlanState {
   debugMap: boolean;
   tool: BuildTool | null;
   /**
-   * The route being looked at (click a route with no tool, D049): its station, and a counter that
-   * goes up on every click so clicking the same route again re-frames the camera.
+   * The camera's track (branch down-the-street, D054): the station whose route the rail camera
+   * rides, where to put the camera on it, whether to glide there, and a counter that goes up on
+   * every request so asking for the same track again moves the camera again.
    */
-  focus: { station: number; seq: number } | null;
+  focus: { station: number; seq: number; at: TrackAt; fly: boolean } | null;
   /** Tactical view (D050): buildings squashed, camera near top-down. Toggled with T or the button. */
   tactical: boolean;
 }

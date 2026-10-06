@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GRID } from './__fixtures__/maps';
 import { parseAsciiMap } from './asciiMap';
+import rulesData from '../data/rules.json';
 import { TICK_HZ } from './constants';
 import { startRun, startWave, type Phase, type WaveDef } from './phase';
 import { placeTower } from './towers';
@@ -62,5 +63,16 @@ describe('a run', () => {
     for (let i = 0; i < 300 * TICK_HZ && w.phase !== 'lost' && w.phase !== 'won'; i++) tickWorld(w);
     expect(w.phase).toBe('lost');
     expect(w.integrity).toBe(0);
+  });
+
+  it('stations break open breachLeadS after the wave is sent, not before', () => {
+    const w = createWorld(1, parseAsciiMap(GRID));
+    startRun(w, WAVES);
+    startWave(w);
+    const lead = Math.round(rulesData.breachLeadS * TICK_HZ);
+    for (let i = 0; i < lead; i++) tickWorld(w);
+    expect(w.mobs).toHaveLength(0);
+    tickWorld(w);
+    expect(w.mobs).toHaveLength(1);
   });
 });

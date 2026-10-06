@@ -2,8 +2,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import { MathUtils, Spherical, Vector3, type EventDispatcher } from 'three';
 import { cameraBridge } from '../cameraBridge';
-import { tileToWorld, worldToTile, type TileFrame } from './coords';
-import { orbitControls } from './view';
+import { worldToTile, type TileFrame } from './coords';
+import { BASE_FOV_DEG, orbitControls } from './view';
 
 /** Camera keys (KeyboardCamera) that take over from a flight. */
 const CAMERA_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE']);
@@ -15,25 +15,23 @@ interface Flight {
   to: Spherical;
   startS: number;
   seconds: number;
+  /** Swing this high (m) over the rooftops at the middle of the flight; 0 for a plain glide. */
+  arcM: number;
+  fromFov: number;
 }
+
+/** A swing widens the field of view by this much at its top (degrees). */
+const SWING_FOV_KICK_DEG = 14;
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /**
- * Connects the camera to code outside the Canvas (minimap, dev hook, route focus) through
- * `cameraBridge`: installs `focusTile` (centre the view on a tile's top surface, optionally with a
- * new distance, pitch and yaw) and `flyTo` (glide there instead), and publishes the current view
- * (focus tile, yaw, distance) every frame.
+ * Connects the camera to code outside the Canvas (minimap, dev hook, rail, cutscenes) through
+ * `cameraBridge`: installs `flyTo` (glide to a view of a point, or swing there over the rooftops,
+ * D059) and publishes the current view
+ * (focus tile, yaw, distance) every frame. `focusTile` belongs to the rail (RailCamera.tsx).
  */
-export function CameraBridge({
-  frame,
-  heights,
-  width,
-}: {
-  frame: TileFrame;
-  heights: Float32Array;
-  width: number;
-}) {
+export function CameraBridge({ frame }: { frame: TileFrame }) {
   const camera = useThree((s) => s.camera);
   const controls = orbitControls(useThree((s) => s.controls));
   const clock = useThree((s) => s.clock);
@@ -49,7 +47,7 @@ export function CameraBridge({
     const dispatcher = controls as unknown as EventDispatcher<{ start: object }>;
     dispatcher.addEventListener('start', stop);
     window.addEventListener('keydown', onKey);
-    cameraBridge.flyTo = (target, view, seconds) => {
+    cameraBridge.flyTo = (target, view, seconds, arcM = 0) => {
       const to = new Spherical(
         view.distM,
         MathUtils.degToRad(90 - view.pitchDeg),
@@ -68,6 +66,8 @@ export function CameraBridge({
         to,
         startS: clock.elapsedTime,
         seconds,
+        arcM,
+        fromFov: 'fov' in camera ? camera.fov : BASE_FOV_DEG,
       };
     };
     return () => {
@@ -76,30 +76,6 @@ export function CameraBridge({
       cameraBridge.flyTo = null;
     };
   }, [camera, controls, clock]);
-
-  useEffect(() => {
-    if (!controls) return;
-    cameraBridge.focusTile = (tx, ty, view) => {
-      const [x, z] = tileToWorld(frame, tx, ty);
-      const y = heights[ty * width + tx] ?? 0; // aim at the roof, so a centre click picks this tile
-      const offset = camera.position.clone().sub(controls.target);
-      if (view) {
-        // Spherical placement: yaw 0 = camera south of the target looking north.
-        const s = new Spherical().setFromVector3(offset);
-        if (view.distM !== undefined) s.radius = view.distM;
-        if (view.pitchDeg !== undefined) s.phi = MathUtils.degToRad(90 - view.pitchDeg);
-        if (view.yawDeg !== undefined) s.theta = MathUtils.degToRad(view.yawDeg);
-        offset.setFromSpherical(s);
-      }
-      flight.current = null;
-      controls.target.set(x, y, z);
-      camera.position.set(x, y, z).add(offset);
-      controls.update();
-    };
-    return () => {
-      cameraBridge.focusTile = null;
-    };
-  }, [camera, controls, frame, heights, width]);
 
   useFrame(() => {
     if (!controls) return;
@@ -113,9 +89,18 @@ export function CameraBridge({
       );
       controls.target.lerpVectors(f.fromTarget, f.toTarget, k);
       camera.position.setFromSpherical(s).add(controls.target);
+      // A swing: up over the rooftops and down into the new street, wide-eyed at the top.
+      const lift = Math.sin(Math.PI * k);
+      camera.position.y += f.arcM * lift;
       controls.update();
+      if ('fov' in camera) {
+        camera.fov =
+          MathUtils.lerp(f.fromFov, BASE_FOV_DEG, k) + (f.arcM > 0 ? SWING_FOV_KICK_DEG * lift : 0);
+        camera.updateProjectionMatrix();
+      }
       if (k >= 1) flight.current = null;
     }
+    cameraBridge.flying = flight.current !== null;
     const t = controls.target;
     const [tx, ty] = worldToTile(frame, t.x, t.z);
     const v = cameraBridge.view;

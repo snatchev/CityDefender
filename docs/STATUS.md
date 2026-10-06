@@ -4,10 +4,12 @@
 
 **Last updated:** 2026-09-30
 **Current pass:** Pass 10a (Buildings and City Hall): **done**, tagged `pass-10a`. Pass 9 playtested by Stefan (2026-09-30): "It was okay", no balance changes asked for.
-**Next up:** Pass 10b (bug and tower models, VFX, postprocessing, day/night), then 10c (audio, performance pass). 
+**Next up:** Pass 10b (bug and tower models, VFX, postprocessing, day/night), then 10c (audio, performance pass).
+**Branch `down-the-street` (2026-09-30, D054):** an experiment after Stefan found the camera controls tedious: a rail camera that rides the bugs' route (no panning), a threat board of flashing station cards to switch tracks, and click-started cutscenes (station breaches, Kirby-style boss and elite title cards). Not merged into main. See-through is now one rule: a building blocking the camera's view of the active track fades out whole and is click-through (D055); clicking a route no longer does anything. Breaches are announced with a countdown and always burst; introductions (new bug types, elites, bosses) play automatically (D057). The rail camera trails like a balloon on a string (D056).
 **Live preview:** https://claude.ai/artifact/6AoAPfL6V4FJSgBgNwA5d7 (private; republished at the end of each pass)
 
 ## Done
+
 - Livelier city (Stefan, 2026-09-30): varied facades from 37 style presets (D051); cars, pedestrians and street trees that flee from bugs (D052); rendering budget work after Stefan saw 30 fps (D053: that was Chrome's Energy Saver on a 14% battery; the game itself now costs 3.3–4.7 ms GPU per frame at full clock, down from 4.3–5.1 before these changes). Checked in Chrome via DevTools MCP.
 - Tactical view (Stefan, 2026-09-30, D050): T or the grid button next to the speed button squashes all buildings to 12% height and glides the camera to near top-down; towers and markers stay on the squashed roofs. T again goes back. Checked in Chrome via DevTools MCP: whole-level board view, a tower on a 118 m roof follows the squash both ways.
 - Route focus (Stefan, 2026-09-30, D049): click a route line (it works even when buildings hide it) or a station name in the wave intel; the camera glides to frame the whole route and buildings in front of it fade almost completely. Esc lets go. Checked in Chrome via DevTools MCP with real clicks: the hidden Suburban Station route along JFK, the Race-Vine route; 60 fps at dpr 2.
@@ -62,11 +64,13 @@
 - 28 agent skills installed in `.agents/skills` (symlinked into `.claude/skills`). All kept (D018); see [TOOLING.md](TOOLING.md).
 
 ## In progress
+
 - Pass 5. Playtest 1 (Stefan, 2026-09-26): "a little easy, adjust later"; mobs and towers need to be more prominent (bigger, glow); mobs should stay visible behind buildings; wants WASD pan + Q/E rotate.
   - Done: bigger, self-lit mobs (acid green) with an additive halo, and an x-ray silhouette where a building hides them (D023). Mobs scale up with camera distance so they stay readable zoomed out; towers get half that. Towers bigger and self-lit with a glowing roof ring. WASD pans relative to the view, Q/E orbit (D023).
   - Done: sell (70%) with free undo of this prep's builds; click a tower to select it (range disc, kills, Sell, Esc); hover shows range and sell value; right-click sells. HP bars on damaged bugs, death pops, screen shake on barricade breaks. Wave intel panel. 10 waves over 3 stations (Race-Vine; 11th Street from wave 4; Walnut-Locust from wave 6), tuned harder (see Known issues).
 
 ## How Claude builds and checks things (Claude Code on the Mac, since 2026-09-26)
+
 - 2026-09-30: this checkout was freshly cloned, and the Chrome DevTools MCP wasn't configured here; Stefan added it (`claude mcp add chrome-devtools --scope user -- npx chrome-devtools-mcp@latest`) and it works. The Blender MCP (local scope) is `uvx mcp-for-blender` with the "MCP for Blender" add-on; Blender Lab's own "MCP" extension also uses port 9876 and must stay disabled or the server hangs on connect. Pass 10a was checked in real Chrome driven headlessly by a throwaway puppeteer-core script (installed in the session scratch folder, not the project) against `npm run dev`, with Metal/ANGLE: screenshots, console, `window.__cd`, frame times.
 - 2026-09-30: `tools/map/cache/` was missing on this Mac (it's gitignored); `map:build` re-downloaded everything and produced byte-identical city/buildings/backdrop files apart from the OSM timestamp.
 - Development moved from Cowork to **Claude Code running directly on Stefan's Mac** (see D010). npm, vitest, eslint and the dev server run natively in the project folder. The Cowork workarounds (a scratch copy of the project for Linux builds, checking the game through a published artifact) are no longer needed.
@@ -76,9 +80,11 @@
 - Git: one commit per pass, tagged `pass-NN` (see D011).
 
 ## Open questions for Stefan
+
 - None right now. (Sim heights vs drawn roofs is parked for the end of the project: IMPLEMENTATION_PLAN, "Final polish & playtest".)
 
 ## Deferred from Pass 1 (planned for Pass 6 unless noted)
+
 - Footprint meshes (heights are per tile for now), street widths from lanes, alleys, slots, street graph.
 - The goal block is ~180 m square (City Hall plus Dilworth Park), because the west side of Penn Square has no mapped road. Pass 6 can use the real City Hall footprint.
 - Diagonal streets (the Parkway) rasterize as stair-steps and a bit fat.
@@ -86,49 +92,59 @@
 - Street labels are dense when zoomed out; no label culling or level-of-detail yet.
 
 ## Deferred from Pass 10a
+
 - Shadows and lit night windows (IDEAS, Pass 10b). Hand-modelled landmarks beyond City Hall: the OSM parts already give Liberty Place, the Comcast towers and others real shapes; revisit if one needs more.
 - Parts hidden inside footprints they cover < 60% of, skybridges, pitched roofs over courtyards (drawn flat). See IDEAS.
 - City Hall's real details (clock faces, dormers, statue shape): the parts give the massing only.
 
 ## Deferred from Pass 9
+
 - Splitting and Shielded elites (DESIGN §6); only Armored, Hasted and Regenerating so far.
 - "Rooftop Access Permits: +1 pad on every tower building" (DESIGN §10.6) became +10% roof range: adding pads at runtime changes the slot layout.
 - A debrief summary panel (kills, leaks, damage taken); the phase chip shows interest only.
 - Barricade skins per city (SEPTA bus) and grant names per city are data-ready; only Philadelphia content exists.
 
 ## Deferred from Pass 8
+
 - Acid Spitters damaging corner towers (DESIGN §6 "beats corner towers"): towers have no HP yet.
 - Diggers surfacing through the underground concourse network, sewer-burst events (IDEAS).
 - City skins for barricades (DESIGN calls T3 the "SEPTA Bus Wall"; the table says "Bus Wall" and the SEPTA look belongs in Philadelphia's city data, see the multi-city note).
 - Wasp and grub animations (wing flap, burrowing dirt), real models (Pass 10).
 
 ## Deferred from Pass 7
+
 - Tier 3 branching upgrades (Pass 9). Cryo "wet" + Tesla synergy (Pass 8). Width-scaled barricade cost (Pass 8).
 - Mortar craters that slow (a DESIGN §7 upgrade idea); mortar shells don't lead moving targets (they land where the target was, on purpose).
 - Walk animation and real models for bugs and towers (Pass 10). Swarms still render as a single file along the tile centre line.
 - `balance-data` project skill (TOOLING.md): write it once the tables settle after Pass 8.
 
 ## Deferred from Pass 6
+
 - Sidewalk tiles (DESIGN §4 tile types): corners are street-level spots at intersection corners instead.
 - Rivers and backdrop streets (IDEAS, Pass 10). Landmark models (Pass 10).
 - Overture fallback for heights: OSM covered the gaps we found.
 - Very short stub streets (runs under ~7 tiles) merge into the segment they join, so they share its one-barricade limit.
 
 ## Deferred from Pass 5
+
 - Tracers are still 1-px lines (WebGL line width); thicker tracers need mesh lines or bloom (Pass 10).
 - Next-wave breach telegraph ("Tremors under 15th St") and interest/debrief summary: Pass 9.
 
 ## Deferred from Pass 4
+
 - Tower height range bonus and roof pads: Pass 6.
 
 ## Deferred from Pass 3
+
 - Mobs that are mid-step onto a tile when a barricade lands there finish the step and walk out of it.
 
 ## Deferred from Pass 2
+
 - Losing at Integrity 0 (Pass 4). Integrity just stops at 0.
 - Mobs pass through each other (no crowding or separation).
 
 ## Known issues / tech debt
+
 - Fixed 2026-09-30: panning felt like half speed on the trackpad (Stefan). The stock MapControls pan moves a fixed distance per pixel at the orbit target, so on a tilted view the ground slid slower than the pointer (by the sine of the pitch). Left-drag is now grab panning (`GrabPan.tsx`): the street point under the pointer stays under it at any tilt and zoom (checked in Chrome: 0 m error at 35°, 40° and 60°, also with 20 moves per frame). MapControls keeps zoom and rotate: right drag, or left drag with Ctrl, Cmd or Shift (Ctrl-click is how a Mac trackpad rotates; checked in Chrome).
 - Perf measuring caveat (2026-09-30, D053): on battery, Chrome's Energy Saver caps every page at 30 fps (a blank page too), and Apple GPUs then clock down to fill the frame, so frame and GPU times stop meaning anything. Check `pmset -g batt` first; to compare GPU cost, render each frame several times inside one timer query (see D053). The dev machine is now an M4 MacBook (Chrome, ANGLE Metal).
 - Fixed 2026-09-30: flickering windows and rooftops (Stefan). Overlapping shapes drew two roofs and two facades in the same plane (z-fighting), and parapets shared a plane with neighbours' walls. map:build now cuts covered areas out of lower shapes and parapets have thickness (D048).
@@ -157,20 +173,21 @@
 - Fixed in Pass 0 check: the FPS meter overlapped the HUD (moved bottom-right), and eslint was linting build output and scripts without node globals.
 
 ## Pass log
-| Pass | Date | Result | Screenshot | Notes |
-|---|---|---|---|---|
-| 0 | 2026-09-26 | ✅ typecheck, lint, 14/14 tests, build. Renders at 60 fps in Chrome (Vega 56). Controls, pause, step and restart verified | [pass-00.png](screenshots/pass-00.png) | drei Stats instead of r3f-perf; leva deferred to Pass 5 |
-| 1 | 2026-09-26 | ✅ typecheck, lint, 19/19 tests. `map:build` reproducible from cache (identical hash). 60 fps in Chrome, no errors. Single-file preview checked | [pass-01.png](screenshots/pass-01.png) | Replaced 114 drei `<Html>` labels (26 fps, React root warnings) with one DOM label layer |
-| 1b | 2026-09-26 | ✅ real building heights; 60 fps, no errors | [pass-01b-heights.png](screenshots/pass-01b-heights.png) | Stefan asked for it before Pass 2 (D019) |
-| 2 | 2026-09-26 | ✅ typecheck, lint, 21/21 tests (mob arrival tick count + seeded determinism on fixtures). 400 mobs at 3× speed: 60 fps, worst frame 22 ms. All 12 stations reach City Hall | [pass-02.png](screenshots/pass-02.png) | The arrival test caught an off-by-one tick; fixed |
-| 3 | 2026-09-26 | ✅ typecheck, lint, 25/25 tests (span, detour, siege at the cheapest barricade, no oscillation). Real clicks in Chrome: +376 m preview matched the placed route (416 → 792 m), swarm rerouted, sealed station → siege on the cheaper sawhorse. Recompute ≈3.4 ms. 60 fps | [pass-03.png](screenshots/pass-03.png) | Tests caught a float-dust bug (band 0 with 1e-13 HP) |
-| 4 | 2026-09-26 | ✅ typecheck, lint, 27/27 tests (scripted run: phase sequence + seeded replay; a run can be lost). Real clicks: rooftop MG Nest placed and paid for, "Start wave" button, wave 1 cleared 12/12 with cash reconciling exactly. Headless balance on the real map (see Known issues). 60 fps | [pass-04.png](screenshots/pass-04.png) | First playable |
-| 5 | 2026-09-26 | ✅ typecheck, lint, 28/28 tests (+ free undo vs 70% sell). Real clicks: select tower → panel → Sell ($100 during the same prep; $70 after). WASD/QE via real key presses. Shake starts and settles with no camera drift. Intel panel lists wave 6's three stations. 60 fps | [pass-05.png](screenshots/pass-05.png) | Playtest 1 feedback applied; a shake bug (restart detection by tick order) found and fixed in the browser |
-| 5b | 2026-09-27 | ✅ review/refactor (D025): 31 files, −189 lines net. typecheck, lint, 28/28 tests. `map:build` output byte-identical. Real clicks: build, select, Restart (now also clears the selection panel). Scripted wave 1 cleared, cash reconciles, 61 fps | – | Structure only, no gameplay change |
-| 5c | 2026-09-27 | ✅ City Hall hit feedback: red flash, shake that grows as Integrity drops, HUD Integrity pulses on each hit and turns red under 25. Checked in Chrome by stepping to a hit (flash visible, shake measured) | – | Playtest 2 request |
-| 6 | 2026-09-27 | ✅ typecheck, lint, 33/33 tests (+ street graph, pads, one barricade per block, height range). map:build 1.3 s incl. backdrop. Real clicks: tower on a corner (street level) and on a pad (range 82 m / min 9 m on a 19 m roof), M debug view. Backdrop + sky at 60 fps; live wave 60 fps. Headless re-balance | [pass-06.png](screenshots/pass-06.png), [backdrop](screenshots/pass-06-backdrop.png) | Includes City Hall hit feedback and Stefan's backdrop/sky request |
-| 6b | 2026-09-27 | ✅ typecheck, lint, 33/33 tests. UI checked with real hover/clicks. Perf at 1440×900 (dpr 2): dev build idle 60 fps, 26 draw calls, 507k tris, 65 MB heap; 400 bugs + 10 towers at 3× 60 fps, 929k tris, 72 MB. Production build: idle 60 fps / 23 calls / 42 MB heap; heavy 60 fps apart from one stall that coincided with macOS CPU throttling. Main-thread JS per frame ~1.3 ms (dev) | [ui-pass.png](screenshots/ui-pass.png) | Minimap: static layer cached, overlay at 20 Hz. Dev hook: `renderInfo()`, `setVisible(name, on)`, `build` picks a tool |
-| 7 | 2026-09-27 | ✅ typecheck, lint, 50/50 tests (+ damage formula, table schemas, matchups: Mortar vs swarm, Railgun vs beetles). Real clicks: select a Railgun, Upgrade $200 → tier 2 (172 m), targeting dropdown, Cryo refused on a roof pad. Sawhorse → Jersey upgrade keeps damage (60/100 → 360/400). Wave 3 with beetles played in Chrome. 400 bugs (80 beetles) + 12 mixed towers at 3×: 60 fps, p95 17.6 ms, 37 draw calls | [pass-07.png](screenshots/pass-07.png) | Headless re-balance with beetles |
-| 8 | 2026-09-27 | ✅ typecheck, lint, 62/62 tests (+ per-bug matchups, width cost, spike wear, Blast Wall repair). Chrome: all seven towers placed, a mixed wave of wasps, grubs and spitters played; Jersey Barrier on Broad rerouted the route via 15th, spike strip beside it. 420 bugs of five types + 14 towers of seven types at 3×: 60 fps, p95 17.4 ms, 52 draw calls | [pass-08.png](screenshots/pass-08.png) | Headless re-balance with the new bugs |
-| 9 | 2026-09-29 | ✅ typecheck, lint, 74/74 tests (+ grant phase, interest cap, save/resume replays exactly, Brood Mother thresholds, tier-3 branch + Penetrator line). Chrome: resume prompt (paused) → Continue restored wave 10; breach telegraph and Matriarch in intel; Penetrator chosen by real click; Incendiary fire under the Matriarch; wall Repair $53; Federal Grant picked by real click; end screen ★★ with score. Wave 20 finale at 3×: 60 fps, p95 17.9 ms | [pass-09.png](screenshots/pass-09.png) | Headless re-balance of the 20-wave script |
-| 10a | 2026-09-30 | ✅ typecheck, lint, 82/82 tests (+ roof shapes: gable/hip/mansard/dome heights, gable wall breaks, facets tile a concave footprint). map:build 0.9 s from cache; city.json unchanged. Chrome (headless, Metal): no errors; towers built on setback pads stand on the drawn podium/roof; single-file preview runs. dpr 2: idle 60 fps, 286 bugs at 3× 60 fps (p95 16.8 ms), 20–24 draw calls, 560k tris; building mesh ~60 ms at load | [pass-10a.png](screenshots/pass-10a.png) | Pass 9 playtest: "It was okay" |
+
+| Pass | Date       | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Screenshot                                                                           | Notes                                                                                                                  |
+| ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| 0    | 2026-09-26 | ✅ typecheck, lint, 14/14 tests, build. Renders at 60 fps in Chrome (Vega 56). Controls, pause, step and restart verified                                                                                                                                                                                                                                                                                                                                 | [pass-00.png](screenshots/pass-00.png)                                               | drei Stats instead of r3f-perf; leva deferred to Pass 5                                                                |
+| 1    | 2026-09-26 | ✅ typecheck, lint, 19/19 tests. `map:build` reproducible from cache (identical hash). 60 fps in Chrome, no errors. Single-file preview checked                                                                                                                                                                                                                                                                                                           | [pass-01.png](screenshots/pass-01.png)                                               | Replaced 114 drei `<Html>` labels (26 fps, React root warnings) with one DOM label layer                               |
+| 1b   | 2026-09-26 | ✅ real building heights; 60 fps, no errors                                                                                                                                                                                                                                                                                                                                                                                                               | [pass-01b-heights.png](screenshots/pass-01b-heights.png)                             | Stefan asked for it before Pass 2 (D019)                                                                               |
+| 2    | 2026-09-26 | ✅ typecheck, lint, 21/21 tests (mob arrival tick count + seeded determinism on fixtures). 400 mobs at 3× speed: 60 fps, worst frame 22 ms. All 12 stations reach City Hall                                                                                                                                                                                                                                                                               | [pass-02.png](screenshots/pass-02.png)                                               | The arrival test caught an off-by-one tick; fixed                                                                      |
+| 3    | 2026-09-26 | ✅ typecheck, lint, 25/25 tests (span, detour, siege at the cheapest barricade, no oscillation). Real clicks in Chrome: +376 m preview matched the placed route (416 → 792 m), swarm rerouted, sealed station → siege on the cheaper sawhorse. Recompute ≈3.4 ms. 60 fps                                                                                                                                                                                  | [pass-03.png](screenshots/pass-03.png)                                               | Tests caught a float-dust bug (band 0 with 1e-13 HP)                                                                   |
+| 4    | 2026-09-26 | ✅ typecheck, lint, 27/27 tests (scripted run: phase sequence + seeded replay; a run can be lost). Real clicks: rooftop MG Nest placed and paid for, "Start wave" button, wave 1 cleared 12/12 with cash reconciling exactly. Headless balance on the real map (see Known issues). 60 fps                                                                                                                                                                 | [pass-04.png](screenshots/pass-04.png)                                               | First playable                                                                                                         |
+| 5    | 2026-09-26 | ✅ typecheck, lint, 28/28 tests (+ free undo vs 70% sell). Real clicks: select tower → panel → Sell ($100 during the same prep; $70 after). WASD/QE via real key presses. Shake starts and settles with no camera drift. Intel panel lists wave 6's three stations. 60 fps                                                                                                                                                                                | [pass-05.png](screenshots/pass-05.png)                                               | Playtest 1 feedback applied; a shake bug (restart detection by tick order) found and fixed in the browser              |
+| 5b   | 2026-09-27 | ✅ review/refactor (D025): 31 files, −189 lines net. typecheck, lint, 28/28 tests. `map:build` output byte-identical. Real clicks: build, select, Restart (now also clears the selection panel). Scripted wave 1 cleared, cash reconciles, 61 fps                                                                                                                                                                                                         | –                                                                                    | Structure only, no gameplay change                                                                                     |
+| 5c   | 2026-09-27 | ✅ City Hall hit feedback: red flash, shake that grows as Integrity drops, HUD Integrity pulses on each hit and turns red under 25. Checked in Chrome by stepping to a hit (flash visible, shake measured)                                                                                                                                                                                                                                                | –                                                                                    | Playtest 2 request                                                                                                     |
+| 6    | 2026-09-27 | ✅ typecheck, lint, 33/33 tests (+ street graph, pads, one barricade per block, height range). map:build 1.3 s incl. backdrop. Real clicks: tower on a corner (street level) and on a pad (range 82 m / min 9 m on a 19 m roof), M debug view. Backdrop + sky at 60 fps; live wave 60 fps. Headless re-balance                                                                                                                                            | [pass-06.png](screenshots/pass-06.png), [backdrop](screenshots/pass-06-backdrop.png) | Includes City Hall hit feedback and Stefan's backdrop/sky request                                                      |
+| 6b   | 2026-09-27 | ✅ typecheck, lint, 33/33 tests. UI checked with real hover/clicks. Perf at 1440×900 (dpr 2): dev build idle 60 fps, 26 draw calls, 507k tris, 65 MB heap; 400 bugs + 10 towers at 3× 60 fps, 929k tris, 72 MB. Production build: idle 60 fps / 23 calls / 42 MB heap; heavy 60 fps apart from one stall that coincided with macOS CPU throttling. Main-thread JS per frame ~1.3 ms (dev)                                                                 | [ui-pass.png](screenshots/ui-pass.png)                                               | Minimap: static layer cached, overlay at 20 Hz. Dev hook: `renderInfo()`, `setVisible(name, on)`, `build` picks a tool |
+| 7    | 2026-09-27 | ✅ typecheck, lint, 50/50 tests (+ damage formula, table schemas, matchups: Mortar vs swarm, Railgun vs beetles). Real clicks: select a Railgun, Upgrade $200 → tier 2 (172 m), targeting dropdown, Cryo refused on a roof pad. Sawhorse → Jersey upgrade keeps damage (60/100 → 360/400). Wave 3 with beetles played in Chrome. 400 bugs (80 beetles) + 12 mixed towers at 3×: 60 fps, p95 17.6 ms, 37 draw calls                                        | [pass-07.png](screenshots/pass-07.png)                                               | Headless re-balance with beetles                                                                                       |
+| 8    | 2026-09-27 | ✅ typecheck, lint, 62/62 tests (+ per-bug matchups, width cost, spike wear, Blast Wall repair). Chrome: all seven towers placed, a mixed wave of wasps, grubs and spitters played; Jersey Barrier on Broad rerouted the route via 15th, spike strip beside it. 420 bugs of five types + 14 towers of seven types at 3×: 60 fps, p95 17.4 ms, 52 draw calls                                                                                               | [pass-08.png](screenshots/pass-08.png)                                               | Headless re-balance with the new bugs                                                                                  |
+| 9    | 2026-09-29 | ✅ typecheck, lint, 74/74 tests (+ grant phase, interest cap, save/resume replays exactly, Brood Mother thresholds, tier-3 branch + Penetrator line). Chrome: resume prompt (paused) → Continue restored wave 10; breach telegraph and Matriarch in intel; Penetrator chosen by real click; Incendiary fire under the Matriarch; wall Repair $53; Federal Grant picked by real click; end screen ★★ with score. Wave 20 finale at 3×: 60 fps, p95 17.9 ms | [pass-09.png](screenshots/pass-09.png)                                               | Headless re-balance of the 20-wave script                                                                              |
+| 10a  | 2026-09-30 | ✅ typecheck, lint, 82/82 tests (+ roof shapes: gable/hip/mansard/dome heights, gable wall breaks, facets tile a concave footprint). map:build 0.9 s from cache; city.json unchanged. Chrome (headless, Metal): no errors; towers built on setback pads stand on the drawn podium/roof; single-file preview runs. dpr 2: idle 60 fps, 286 bugs at 3× 60 fps (p95 16.8 ms), 20–24 draw calls, 560k tris; building mesh ~60 ms at load                      | [pass-10a.png](screenshots/pass-10a.png)                                             | Pass 9 playtest: "It was okay"                                                                                         |
