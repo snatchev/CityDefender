@@ -4,9 +4,11 @@ import mobsData from './mobs.json';
 import elitesData from './elites.json';
 import grantsData from './grants.json';
 import cinematicsData from './cinematics.json';
+import daylightData from './daylight.json';
 import {
   barricadesSchema,
   cinematicsSchema,
+  daylightSchema,
   eliteSchema,
   grantSchema,
   mobSchema,
@@ -52,6 +54,14 @@ describe('balance tables', () => {
     for (const m of Object.values(mobsData) as { broodType?: string }[]) {
       if (m.broodType) expect(Object.keys(mobsData)).toContain(m.broodType);
     }
+  });
+
+  it('time of day is valid, with an hour for every wave', () => {
+    check(daylightSchema, daylightData);
+    for (const city of Object.keys(wavesData))
+      expect(daylightData.waveHours, city).toHaveProperty(city, expect.any(Array));
+    for (const [city, hours] of Object.entries(daylightData.waveHours))
+      expect(hours.length, city).toBe((wavesData as Record<string, unknown[]>)[city]?.length);
   });
 
   it('rejects a mortar tier without a splash radius', () => {

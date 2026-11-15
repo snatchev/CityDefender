@@ -1,5 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
+  Color,
   DataTexture,
   LinearMipmapLinearFilter,
   LineDashedMaterial,
@@ -14,6 +16,7 @@ import { TILE_M } from '../sim/constants';
 import { Tile, type TileMap } from '../sim/map';
 import { indexToWorld, tileToWorld, type TileFrame } from './coords';
 import { Buildings } from './Buildings';
+import { daylightVersion } from './daylight';
 import { preLit } from './lighting';
 import { LabelLayer, type MapLabel } from './LabelLayer';
 import type { GroundHandlers } from './pointer';
@@ -77,6 +80,14 @@ export function CityMap({
       new LineDashedMaterial({ color: COLORS.lane, dashSize: 4, gapSize: 5 }),
     );
   }, [buildingsFile, frame]);
+  // Lane lines are unlit: give them the colour the lights would at this time of day.
+  const seen = useRef(-1);
+  useFrame(() => {
+    const v = daylightVersion();
+    if (v === seen.current) return;
+    seen.current = v;
+    preLit(COLORS.lane, undefined, (lanes.material as LineDashedMaterial).color);
+  });
   useLayoutEffect(() => {
     lanes.computeLineDistances();
     return () => {
@@ -90,9 +101,10 @@ export function CityMap({
 
   return (
     <group>
-      <mesh rotation-x={-Math.PI / 2} position={[gx, 0, gz]} {...ground}>
+      {/* Lambert, for the sun's shadows (Pass 10b); still one plane and one texture lookup (D053). */}
+      <mesh rotation-x={-Math.PI / 2} position={[gx, 0, gz]} {...ground} receiveShadow>
         <planeGeometry args={[map.width * TILE_M, map.height * TILE_M]} />
-        <meshBasicMaterial map={groundTexture} />
+        <meshLambertMaterial map={groundTexture} />
       </mesh>
       <primitive object={lanes} position-y={LANE_Y} />
 
@@ -125,14 +137,15 @@ export function CityMap({
 
 /**
  * The ground as a texture with one texel per tile (D053): asphalt streets, the block ground under
- * buildings, the plaza around the landmark. Pre-lit and unlit: one full-screen pass instead of a lit
- * plane plus thousands of thin slab boxes. Row 0 of the map (north) is the top of the texture.
+ * buildings, the plaza around the landmark. One plane instead of thousands of thin slab boxes; lit
+ * (Lambert) since Pass 10b so it takes the time of day and the sun's shadows.
+ * Row 0 of the map (north) is the top of the texture.
  */
 function tileTexture(map: TileMap): DataTexture {
   const colors = {
-    street: preLit(COLORS.asphalt),
-    block: preLit(COLORS.block),
-    goal: preLit(COLORS.goal),
+    street: new Color(COLORS.asphalt),
+    block: new Color(COLORS.block),
+    goal: new Color(COLORS.goal),
   };
   const bytes = Object.fromEntries(
     Object.entries(colors).map(([k, c]) => {

@@ -20,7 +20,7 @@ import { CameraBridge } from './CameraBridge';
 import { Effects } from './Effects';
 import { displayHeights, TACTICAL_HEIGHT_SCALE } from './heights';
 import { HpBars } from './HpBars';
-import { HEMI_GROUND, HEMI_INTENSITY, HEMI_SKY, SUN_INTENSITY, SUN_POSITION } from './lighting';
+import { Daylight } from './Daylight';
 import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
@@ -35,13 +35,8 @@ import { SlotMarkers } from './SlotMarkers';
 import { TacticalView } from './TacticalView';
 import { Towers } from './Towers';
 
-/** Horizon haze: fog and background share it so the backdrop city fades into the sky. */
-const HAZE = '#c9d3db';
-const FOG_NEAR_M = 1600;
-const FOG_FAR_M = 6500;
 /** Sky dome around the camera; inside the far plane. */
 const SKY_RADIUS_M = 12000;
-const SKY_ZENITH = '#5b8fcc';
 /**
  * Depth precision scales with near / far: keep near as large as the closest zoom allows (minDistance
  * is 35 m) so distant, nearly coplanar surfaces don't z-fight.
@@ -84,6 +79,8 @@ export function Scene() {
       aria-label="City map"
       tabIndex={0}
       dpr={[1, 2]}
+      // One sun shadow map, redrawn only when the sun or the buildings change (Daylight.tsx).
+      shadows="percentage"
       camera={{
         position: [120, 720, 820],
         fov: BASE_FOV_DEG,
@@ -100,11 +97,9 @@ export function Scene() {
         if (import.meta.env.DEV) registerRenderer(gl, scene, camera);
       }}
     >
-      <color attach="background" args={[HAZE]} />
-      <fog attach="fog" args={[HAZE, FOG_NEAR_M, FOG_FAR_M]} />
-      <SkyDome zenith={SKY_ZENITH} horizon={HAZE} radius={SKY_RADIUS_M} />
-      <hemisphereLight args={[HEMI_SKY, HEMI_GROUND, HEMI_INTENSITY]} />
-      <directionalLight position={SUN_POSITION} intensity={SUN_INTENSITY} />
+      {/* Time of day: lights, fog, background (daylight.ts); the sky dome follows it too. */}
+      <Daylight heightScale={heightScale} />
+      <SkyDome radius={SKY_RADIUS_M} />
       {backdrop && frame && buildingsFile && (
         <Backdrop
           file={backdrop}

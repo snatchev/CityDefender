@@ -330,3 +330,106 @@ export const cinematicsSchema = z
     mobs: z.record(z.string(), introSchema),
   })
   .strict();
+
+const hexColor = z.string().regex(/^#[0-9a-f]{6}$/i, 'a #rrggbb colour');
+const share = z.number().min(0).max(1);
+
+/**
+ * One time-of-day keyframe (daylight.json, Pass 10b). The "sun" is the one directional light: the
+ * moon at night. Colours are sRGB hex; intensities follow three's physically based lights.
+ */
+export const daylightKeySchema = z
+  .object({
+    /** Hour of day, 0 ≤ hour < 24. */
+    hour: z.number().min(0).lt(24),
+    /** The key light's direction: above the horizon, compass bearing (0 north, 90 east). */
+    sunElevationDeg: z.number().min(5).max(90),
+    sunAzimuthDeg: z.number().min(0).lt(360),
+    sunColor: hexColor,
+    sunIntensity: nonNegative,
+    /** How dark the key light's shadows are (0 none, 1 no direct light at all in shadow). */
+    shadowIntensity: share,
+    hemiSky: hexColor,
+    hemiGround: hexColor,
+    hemiIntensity: nonNegative,
+    skyZenith: hexColor,
+    skyHorizon: hexColor,
+    /** Fog, background and the sky below the horizon. */
+    haze: hexColor,
+    fogNearM: positive,
+    fogFarM: positive,
+    /** The halo around the sun (or moon) in the sky. */
+    glowColor: hexColor,
+    glowStrength: nonNegative,
+    /** Share of windows lit, street lamps on (0..1), and how dark it is (nightAmount, 0..1). */
+    windowsLit: share,
+    lamps: share,
+    night: share,
+  })
+  .strict()
+  .refine((k) => k.fogFarM > k.fogNearM, 'fog must end after it starts');
+export type DaylightKey = z.infer<typeof daylightKeySchema>;
+
+export const daylightSchema = z
+  .object({
+    /** The sky eases to a new wave's hour over this long at the start of its prep (s). */
+    transitionS: positive,
+    /** If the wave is sent while the sky is still moving, it finishes within this (s). */
+    assaultCatchUpS: positive,
+    /** Per city: the hour of day for each wave. */
+    waveHours: z.record(z.string(), z.array(z.number().min(0).lt(24)).min(1)),
+    keys: z
+      .array(daylightKeySchema)
+      .min(2)
+      .refine(
+        (keys) => keys.every((k, i) => i === 0 || k.hour > keys[i - 1]!.hour),
+        'keys must be in increasing hour order',
+      ),
+    windows: z
+      .object({
+        warm: hexColor,
+        cool: hexColor,
+        /** Share of lit windows in the cool (fluorescent / LED) colour. */
+        coolShare: share,
+        /** Emissive strength of a lit window (multiplies the colour). */
+        intensity: positive,
+        /** Each facade style lights ± this share more or fewer windows than the hour says. */
+        styleSpread: share,
+        /** Shopfronts are this many times more likely to be lit (capped at all). */
+        shopBoost: positive,
+        /**
+         * Far away, where windows blur into their average, the lit ones glow this share of their
+         * average: a wall of unresolved lit windows otherwise reads as a lit wall, not a night city.
+         */
+        farShare: share,
+      })
+      .strict(),
+    lamps: z
+      .object({
+        /** A lamp every this many kerb tiles along a block face, at this phase (tiles). */
+        everyTiles: z.number().int().positive(),
+        phaseTiles: z.number().int().nonnegative(),
+        kerbOffsetM: nonNegative,
+        heightM: positive,
+        /** The arm reaches this far out over the street (m). */
+        armM: nonNegative,
+        color: hexColor,
+        headIntensity: positive,
+        /** The soft pool of light on the street: radius (m) and strength (additive). */
+        poolRadiusM: positive,
+        poolIntensity: positive,
+      })
+      .strict(),
+    shadow: z
+      .object({
+        mapSize: z.number().int().min(512).max(8192),
+        bias: z.number(),
+        normalBias: nonNegative,
+        radius: nonNegative,
+        /** The shadow camera covers the level's buildings plus this margin (m). */
+        paddingM: nonNegative,
+      })
+      .strict(),
+  })
+  .strict();
+export type DaylightTable = z.infer<typeof daylightSchema>;

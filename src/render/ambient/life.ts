@@ -1,5 +1,6 @@
 import { Tile, type TileMap } from '../../sim/map';
 import type { MapSlots } from '../../sim/slots';
+import daylightData from '../../data/daylight.json';
 import { tileToWorld, uvToWorld, type TileFrame } from '../coords';
 
 /**
@@ -47,6 +48,15 @@ const TREE_OFFSET_M = 0.6;
 
 /** Bugs are bucketed in cells this big (m) for the flee checks. */
 const BUG_CELL_M = 32;
+
+/** A street lamp (Pass 10b): its pole at the kerb, the head out over the street. */
+export interface Lamp {
+  x: number;
+  z: number;
+  /** Unit vector from the pole toward the street (where the arm reaches). */
+  dx: number;
+  dz: number;
+}
 
 export interface Tree {
   x: number;
@@ -103,6 +113,7 @@ export class StreetLife {
   readonly cars: Car[] = [];
   readonly people: Person[] = [];
   readonly trees: Tree[] = [];
+  readonly lamps: Lamp[] = [];
   private lanes: Lane[] = [];
   private nodeSegs = new Map<number, number[]>();
   private sidewalk: Uint8Array;
@@ -125,6 +136,7 @@ export class StreetLife {
     this.buildSidewalks();
     this.buildLanes();
     this.placeTrees();
+    this.placeLamps();
     for (let k = 0; k < CAR_COUNT; k++) this.spawnCar();
     for (let k = 0; k < PERSON_COUNT; k++) this.people.push(this.spawnPerson(null));
   }
@@ -250,6 +262,29 @@ export class StreetLife {
           scale: 0.8 + this.random() * 0.5,
           shade: 0.85 + this.random() * 0.3,
         });
+      });
+    }
+  }
+
+  /**
+   * Street lamps along straight block faces: every few kerb tiles, at a phase that never lands on a
+   * tree's tile, not on tower spots or manholes, and not at corners.
+   */
+  private placeLamps(): void {
+    const { map, slots } = this;
+    const { everyTiles, phaseTiles, kerbOffsetM } = daylightData.lamps;
+    for (const seg of slots.segments) {
+      seg.tiles.forEach((i) => {
+        const sx = this.sideX[i]!;
+        const sz = this.sideZ[i]!;
+        if (!this.sidewalk[i] || Math.abs(sx) + Math.abs(sz) !== 1) return;
+        if (slots.towerSlot[i] || slots.manholeAt[i]) return;
+        const tx = i % map.width;
+        const ty = (i - tx) / map.width;
+        const along = this.lanes[seg.id]!.alongY ? ty : tx;
+        if (along % everyTiles !== phaseTiles || along % TREE_EVERY_TILES === 0) return;
+        const [cx, cz] = tileToWorld(this.frame, tx, ty);
+        this.lamps.push({ x: cx + sx * kerbOffsetM, z: cz + sz * kerbOffsetM, dx: -sx, dz: -sz });
       });
     }
   }

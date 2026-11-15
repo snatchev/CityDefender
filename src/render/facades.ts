@@ -9,6 +9,8 @@ import {
 } from 'three';
 import type { FacadeHint, SolidRecord } from '../sim/cityFile';
 import { createRng, type Rng } from '../sim/rng';
+import { DAYLIGHT, type DaylightState } from './daylight';
+import { preLit } from './lighting';
 
 /**
  * Facades and roofs (Pass 10a, D046; varied styles D051). Each solid gets a facade preset and
@@ -413,10 +415,8 @@ const BLINDS = new Color('#cfc3a8');
 const BLINDS_SHARE = 0.18;
 /** Shopfront awnings. */
 const AWNINGS = ['#8c2f2f', '#2f5d3f', '#2f4a7a', '#7a5a2f', '#3a3a3a'].map((c) => new Color(c));
-/** Sky reflected in glass: haze at the horizon, blue overhead, dark street below (Scene's sky). */
-const SKY_HORIZON = new Color('#c9d3db');
-const SKY_ZENITH = new Color('#5b8fcc');
-const STREET = new Color('#3b3e44');
+/** The street reflected in glass (lit like the ground). */
+const STREET = '#3b3e44';
 /** How much the window colour replaces the wall. */
 const WIN_STRENGTH = 0.9;
 const WIN_ROUGHNESS = 0.25;
@@ -428,6 +428,49 @@ const glsl = (c: Color) => `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toF
 const f = (x: number) => x.toFixed(3);
 
 let sharedTexture: DataTexture | null = null;
+
+/**
+ * Time of day in the facades (Pass 10b): the sky and street the glass reflects, and lit windows.
+ * Shared by every patched material; `updateFacadeLight` sets them when the daylight changes.
+ */
+const light = {
+  uSkyHorizon: { value: new Color() },
+  uSkyZenith: { value: new Color() },
+  uSkyStreet: { value: new Color() },
+  /** Share of windows lit (before each style's spread). */
+  uWinLit: { value: 0 },
+  /** Lit window colours, already times their emissive strength. */
+  uWinWarm: { value: new Color() },
+  uWinCool: { value: new Color() },
+};
+const WIN = DAYLIGHT.windows;
+
+export function updateFacadeLight(d: Readonly<DaylightState>): void {
+  light.uSkyHorizon.value.copy(d.skyHorizon);
+  light.uSkyZenith.value.copy(d.skyZenith);
+  preLit(STREET, d, light.uSkyStreet.value);
+  light.uWinLit.value = d.windowsLit;
+  light.uWinWarm.value.set(WIN.warm).multiplyScalar(WIN.intensity);
+  light.uWinCool.value.set(WIN.cool).multiplyScalar(WIN.intensity);
+}
+
+/**
+ * GLSL shared by the window and glow patches: a style's share of lit windows (each style lights a
+ * little more or less than the hour says), and the average lit-window colour.
+ */
+const LIT_GLSL = `
+        uniform float uWinLit;
+        uniform vec3 uWinWarm;
+        uniform vec3 uWinCool;
+        float litHash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+        float styleLit(float style) {
+          return clamp(uWinLit * (1.0 + ${f(WIN.styleSpread)} * (litHash(vec2(style, 5.31)) * 2.0 - 1.0)), 0.0, 1.0);
+        }
+        vec3 litAverage() {
+          return mix(uWinWarm, uWinCool, ${f(WIN.coolShare)});
+        }`;
 
 /**
  * Patch a MeshStandardMaterial to draw facades from the `aFacade` attribute:
@@ -446,6 +489,7 @@ export function withWindows<M extends Material>(
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer) => {
     prev(shader, renderer);
     shader.uniforms.uFacadePresets = presetsUniform;
+    Object.assign(shader.uniforms, light);
     shader.vertexShader = shader.vertexShader
       .replace(
         'void main() {',
@@ -493,6 +537,10 @@ export function withWindows<M extends Material>(
         flat varying vec4 vP1;
         flat varying vec4 vP2;
         flat varying vec4 vP3;
+        uniform vec3 uSkyHorizon;
+        uniform vec3 uSkyZenith;
+        uniform vec3 uSkyStreet;
+        ${LIT_GLSL}
         float winHash(vec2 p) {
           return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
         }
@@ -510,7 +558,8 @@ export function withWindows<M extends Material>(
         void main() {
           float winMask = 0.0;
           float glassMask = 0.0;
-          float glassReflect = 0.0;`,
+          float glassReflect = 0.0;
+          vec3 litEmit = vec3(0.0);`,
       )
       .replace(
         '#include <color_fragment>',
@@ -542,6 +591,15 @@ export function withWindows<M extends Material>(
           }
 
           float rowsFrom = vFacade.y + ground;
+          vec2 cellId = floor(vec2(u / bay, (y - rowsFrom) / floorH));
+          // Lit windows: a stable random share of the windows, switching on one by one as the
+          // share rises; their colour and brightness vary a little per window.
+          float litFrac = styleLit(vFacade.w);
+          float lit = step(winHash(cellId + vec2(vFacade.w * 7.0 + 31.0, 17.0)), litFrac);
+          float litMask = 0.0;
+          float tintHash = winHash(cellId + vec2(53.0, vFacade.w * 3.0));
+          vec3 litTint = mix(uWinWarm, uWinCool, step(${f(1 - WIN.coolShare)}, tintHash))
+            * (0.7 + 0.6 * fract(tintHash * 7.13));
           if (ground > 0.0 && y > base && y < base + ground) {
             // Shopfront: big panes between thin piers, an awning band above.
             float cu = u / 6.0;
@@ -557,6 +615,9 @@ export function withWindows<M extends Material>(
             float awn = band(y - base, ground - 0.95, ground - 0.3, px) * lx;
             col = mix(col, aw, awn * detail);
             winMask = max(winMask, mix(shop, 0.6, far));
+            float shopFrac = min(1.0, litFrac * ${f(WIN.shopBoost)});
+            float shopLit = step(winHash(vec2(floor(cu), 11.0 + vFacade.w)), shopFrac);
+            litMask = mix(shop * shopLit, 0.6 * shopFrac, far);
           } else if (y > rowsFrom && y < vFacade.z) {
             vec2 cell = vec2(u / bay, (y - rowsFrom) / floorH);
             vec2 fr = fract(cell);
@@ -576,10 +637,12 @@ export function withWindows<M extends Material>(
             if (kind == ${f(Kind.Piers)}) col = mix(col, wall * 0.62, mx * (1.0 - my) * detail);
             float pane = win * glazing;
             winMask = max(winMask, mix(pane, ww * wh, far));
+            litMask = mix(pane * lit, ww * wh * litFrac, far);
           }
 
+          // Far away the lit windows fade to their average colour too, so they don't shimmer.
+          litEmit = mix(litTint, litAverage() * ${f(WIN.farShare)}, far) * litMask * ${f(WIN_STRENGTH)};
           // Glass: per-window tint, some blinds, fading to the average far away.
-          vec2 cellId = floor(vec2(u / bay, (y - rowsFrom) / floorH));
           float hsh = winHash(cellId + vec2(vFacade.w * 13.0, 0.0));
           vec3 glassHere = glassCol * mix(0.8, 1.3, hsh);
           if (kind != ${f(Kind.Parking)} && hsh > ${f(1 - BLINDS_SHARE)}) glassHere = mix(glassHere, ${glsl(BLINDS)}, 0.55 * detail);
@@ -604,14 +667,85 @@ export function withWindows<M extends Material>(
           vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
           float sky = dot(r, upV);
           vec3 env = sky > 0.0
-            ? mix(${glsl(SKY_HORIZON)}, ${glsl(SKY_ZENITH)}, clamp(sky * 1.6, 0.0, 1.0))
-            : mix(${glsl(SKY_HORIZON)}, ${glsl(STREET)}, clamp(-sky * 3.0, 0.0, 1.0));
+            ? mix(uSkyHorizon, uSkyZenith, clamp(sky * 1.6, 0.0, 1.0))
+            : mix(uSkyHorizon, uSkyStreet, clamp(-sky * 3.0, 0.0, 1.0));
           float fres = 0.15 + 0.85 * pow(1.0 - clamp(dot(v, n), 0.0, 1.0), 4.0);
           outgoingLight = mix(outgoingLight, env, glassMask * glassReflect * fres);
+          // Lit windows glow on top (emissive, for the bloom to catch).
+          outgoingLight += litEmit;
         }
         #include <opaque_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `${prevKey()}|facades-v2${instancedBoxes ? '-boxes' : ''}`;
+  material.customProgramCacheKey = () => `${prevKey()}|facades-v3${instancedBoxes ? '-boxes' : ''}`;
+  return material;
+}
+
+/**
+ * The far, windowless version of a facade (D053: low-detail chunks, far backdrop layers): its lit
+ * windows as an even glow over the window band, matching what `withWindows` fades to far away.
+ * Walls carry their preset like the detailed ones (`aFacade`, or `aStyle` on instanced boxes).
+ */
+export function withWindowGlow<M extends Material>(
+  material: M,
+  { instancedBoxes = false }: { instancedBoxes?: boolean } = {},
+): M {
+  sharedTexture ??= presetTexture();
+  const presetsUniform = { value: sharedTexture };
+  const prev = material.onBeforeCompile.bind(material);
+  const prevKey = material.customProgramCacheKey.bind(material);
+  material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer) => {
+    prev(shader, renderer);
+    shader.uniforms.uFacadePresets = presetsUniform;
+    Object.assign(shader.uniforms, light);
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        'void main() {',
+        `${instancedBoxes ? 'attribute float aStyle;' : 'attribute vec4 aFacade;'}
+        uniform sampler2D uFacadePresets;
+        ${LIT_GLSL}
+        flat varying vec3 vGlowBand;
+        varying float vGlowY;
+        flat varying float vGlow;
+        void main() {`,
+      )
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        {
+          ${
+            instancedBoxes
+              ? `vec4 w = modelMatrix * instanceMatrix * vec4(transformed, 1.0);
+          float style = objectNormal.y > 0.5 ? 0.0 : aStyle;
+          vec2 band = vec2(${f(WINDOWS_FROM_M)}, instanceMatrix[1][1] - ${f(WINDOWS_BELOW_EAVES_M)});`
+              : `vec4 w = modelMatrix * vec4(transformed, 1.0);
+          float style = aFacade.w;
+          vec2 band = aFacade.yz;`
+          }
+          vGlowY = w.y;
+          vGlowBand = vec3(band, style);
+          vec4 p0 = texelFetch(uFacadePresets, ivec2(0, int(style + 0.5)), 0);
+          vGlow = style > 0.5 ? p0.z * p0.w * ${f(WIN_STRENGTH)} * styleLit(style) : 0.0;
+        }`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        'void main() {',
+        `uniform vec3 uWinWarm;
+        uniform vec3 uWinCool;
+        flat varying vec3 vGlowBand;
+        varying float vGlowY;
+        flat varying float vGlow;
+        void main() {`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        if (vGlow > 0.0 && vGlowY > vGlowBand.x && vGlowY < vGlowBand.y)
+          totalEmissiveRadiance += mix(uWinWarm, uWinCool, ${f(WIN.coolShare)}) * (vGlow * ${f(WIN.farShare)});`,
+      );
+  };
+  material.customProgramCacheKey = () =>
+    `${prevKey()}|window-glow-v1${instancedBoxes ? '-boxes' : ''}`;
   return material;
 }
