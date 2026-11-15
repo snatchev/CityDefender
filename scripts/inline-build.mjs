@@ -1,7 +1,8 @@
 // Inline a Vite build's JS/CSS into one self-contained HTML file (for sharing previews
 // as a single file / artifact). Usage: node scripts/inline-build.mjs <outDir>
 // Also inlines the generated city files (<outDir>/cities/**/*.json) as window.__CD_INLINE__,
-// because the single-file preview has no server to fetch them from (see src/loadCity.ts).
+// because the single-file preview has no server to fetch them from (see src/loadCity.ts), and the
+// models (<outDir>/models/**/*.glb) as base64 strings (see src/render/models/library.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
@@ -25,11 +26,19 @@ if (existsSync(citiesDir)) {
     inline[relative(outDir, full).split('\\').join('/')] = JSON.parse(readFileSync(full, 'utf8'));
   }
 }
+const modelsDir = join(outDir, 'models');
+if (existsSync(modelsDir)) {
+  for (const f of readdirSync(modelsDir, { recursive: true })) {
+    if (!String(f).endsWith('.glb')) continue;
+    const full = join(modelsDir, String(f));
+    inline[relative(outDir, full).split('\\').join('/')] = readFileSync(full).toString('base64');
+  }
+}
 const inlineJson = JSON.stringify(inline).replace(/</g, '\\u003c');
 html = html.replace('<head>', `<head>\n<script>window.__CD_INLINE__ = ${inlineJson};</script>`);
 
 const file = join(outDir, 'city-defender-preview.html');
 writeFileSync(file, html);
 console.log(
-  `[inline-build] wrote ${file} (${(html.length / 1024).toFixed(0)} kB, inlined ${Object.keys(inline).length} data file(s))`,
+  `[inline-build] wrote ${file} (${(html.length / 1024).toFixed(0)} kB, inlined ${Object.keys(inline).length} data and model file(s))`,
 );
