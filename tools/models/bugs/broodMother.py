@@ -97,6 +97,9 @@ def abd_extra(i, a, x, z):
 
 
 abdomen = lathe("pulse_abdomen", [section(y, s) for y, s in prof], segments=14, extra=abd_extra, sharp=0, mat=skin)
+# A slow, shallow swell: the egg sacs sit on this surface and pulse on their own, so a full-size
+# pulse would sink them into the hide or lift them off it.
+props(abdomen, amp=0.25)
 paint(abdomen, under, lambda c: any(abs(c.y - g) < 0.25 for g in GROOVES))  # dark seams between the ribs
 paint(abdomen, under, lambda c: c.z < 1.6)  # the dragging belly
 ABD_C = Vector((0, 4.5, 7.0))
