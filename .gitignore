@@ -5,3 +5,6 @@ dist/
 tools/map/cache/
 .vite/
 dist-preview/
+tools/models/blend/
+tools/models/previews/.*
+tools/models/previews/_*.png
