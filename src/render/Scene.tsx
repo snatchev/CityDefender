@@ -20,7 +20,7 @@ import { CameraBridge } from './CameraBridge';
 import { Effects } from './Effects';
 import { displayHeights, TACTICAL_HEIGHT_SCALE } from './heights';
 import { HpBars } from './HpBars';
-import { Daylight } from './Daylight';
+import { Daylight } from './DaylightRig';
 import { MapDebug } from './MapDebug';
 import { Mobs } from './Mobs';
 import { PlanOverlay } from './PlanOverlay';
