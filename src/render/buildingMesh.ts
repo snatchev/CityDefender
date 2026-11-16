@@ -109,7 +109,8 @@ export function solidsGeometry(
     if (low) {
       const avg = facadeAverage(look.style);
       const wall = look.wall.clone().lerp(avg.glass, avg.coverage);
-      walls(out, rings, base, eave, planes, 0, wall, NO_WINDOWS, 0);
+      // Walls keep their preset: the far material lights their window band at night (withWindowGlow).
+      walls(out, rings, base, eave, planes, 0, wall, look.style, 0);
     } else {
       walls(out, rings, base, eave, planes, parapet, look.wall, look.style, alongFrom);
     }

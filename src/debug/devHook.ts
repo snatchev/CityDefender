@@ -10,6 +10,14 @@ import { usePlan, type Ghost, type Route } from '../ui/planStore';
 import { tickWorld, type World } from '../sim/world';
 import { rail } from '../render/RailCamera';
 import { seeThroughStats } from '../render/seeThrough';
+import { crowdStats } from '../render/Mobs';
+import {
+  daylight,
+  daylightMoving,
+  daylightOverride,
+  hourForWave,
+  setDaylightHour,
+} from '../render/daylight';
 
 /**
  * Dev-only console API so agents (via Chrome DevTools MCP) and humans can inspect and drive the game:
@@ -61,12 +69,29 @@ export interface DevHook {
   renderInfo(): { calls: number; triangles: number; geometries: number; textures: number } | null;
   /** See-through fade (D055): buildings faded or fading, and the last update's CPU time (ms). */
   seeThrough(): { fading: number; ms: number; ids: number[]; fades: number[] };
+  /** Crowd separation of drawn bugs (render/crowd.ts): bugs, and the last step's CPU time (ms). */
+  crowd(): { bugs: number; ms: number };
   /** The tile under the pointer, as picking sees it (through faded buildings), with its height. */
   hovered(): { tx: number; ty: number; heightM: number } | null;
   /** Advance exactly `n` ticks synchronously (works while paused). */
   step(n?: number): number;
   /** Show/hide every scene object with this name (perf bisecting); returns how many matched. */
   setVisible(name: string, visible: boolean): number;
+  /** Pin the time of day to hour `h` (0–24), or follow the waves again (null). Pass 10b. */
+  setHour(h: number | null): void;
+  /** The time of day: hour, whether it's pinned, the wave's own hour, and the lighting values. */
+  daylight(): {
+    hour: number;
+    pinned: boolean;
+    waveHour: number;
+    moving: boolean;
+    night: number;
+    windowsLit: number;
+    lamps: number;
+    sunDir: [number, number, number];
+    sunIntensity: number;
+    hemiIntensity: number;
+  };
 }
 
 declare global {
@@ -100,6 +125,23 @@ export function installDevHook(): void {
       return game.city;
     },
     seeThrough: seeThroughStats,
+    crowd: crowdStats,
+    setHour: setDaylightHour,
+    daylight() {
+      const d = daylight();
+      return {
+        hour: +d.hour.toFixed(2),
+        pinned: daylightOverride() !== null,
+        waveHour: hourForWave(game.city?.meta.city ?? null, game.world.wave),
+        moving: daylightMoving(),
+        night: +d.night.toFixed(3),
+        windowsLit: +d.windowsLit.toFixed(3),
+        lamps: +d.lamps.toFixed(3),
+        sunDir: [+d.sunDir.x.toFixed(3), +d.sunDir.y.toFixed(3), +d.sunDir.z.toFixed(3)],
+        sunIntensity: +d.sunIntensity.toFixed(3),
+        hemiIntensity: +d.hemiIntensity.toFixed(3),
+      };
+    },
     get rail() {
       return { station: rail.track?.station ?? null, s: rail.s, lead: rail.lead, bank: rail.bank };
     },

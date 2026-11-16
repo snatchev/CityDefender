@@ -2,6 +2,7 @@ import grantsData from './data/grants.json';
 import type { GrantDef } from './data/schema';
 import wavesData from './data/waves.json';
 import { loadBackdropFile, loadBuildingsFile, loadCityFile } from './loadCity';
+import { gameModelPaths, preloadModels } from './render/models/library';
 import {
   cityToTileMap,
   type BackdropFileV0,
@@ -169,6 +170,8 @@ export async function loadCity(name: string): Promise<void> {
     loadCityFile(name),
     loadBuildingsFile(name),
     loadBackdropFile(name),
+    // Bugs, towers and barricades load with the city, so nothing pops in later (D060).
+    preloadModels(gameModelPaths()),
   ]);
   game.city = city;
   game.buildings = buildings;

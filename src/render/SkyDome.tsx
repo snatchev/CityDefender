@@ -1,19 +1,18 @@
 import { useFrame } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
-import { BackSide, Color, ShaderMaterial, type Mesh } from 'three';
+import { useEffect, useMemo, useRef } from 'react';
+import { BackSide, Color, ShaderMaterial, Vector3, type Mesh } from 'three';
+import { daylight, daylightVersion } from './daylight';
 
 /**
- * A gradient sky dome: deep blue overhead fading to the horizon haze, which matches the fog colour
- * so the backdrop city melts into it. Follows the camera (so it never gets clipped or approached),
- * ignores fog and depth, and draws first.
+ * A gradient sky dome following the time of day (daylight.ts): the zenith colour overhead fading to
+ * the horizon colour, the haze below the horizon (it matches the fog, so the backdrop city melts
+ * into it), and a soft glow and disc around the sun or moon. Follows the camera (so it never gets
+ * clipped or approached), ignores fog and depth, and draws first. Dithered so the long, shallow
+ * gradients don't band.
  */
 export function SkyDome({
-  zenith,
-  horizon,
   radius,
 }: {
-  zenith: string;
-  horizon: string;
   /** Must fit inside the camera's far plane. */
   radius: number;
 }) {
@@ -26,8 +25,11 @@ export function SkyDome({
         depthTest: false,
         fog: false,
         uniforms: {
-          zenith: { value: new Color(zenith) },
-          horizon: { value: new Color(horizon) },
+          zenith: { value: new Color() },
+          horizon: { value: new Color() },
+          haze: { value: new Color() },
+          sunDir: { value: new Vector3(0, 1, 0) },
+          glow: { value: new Color() },
         },
         vertexShader: /* glsl */ `
           varying vec3 vDir;
@@ -38,22 +40,49 @@ export function SkyDome({
         fragmentShader: /* glsl */ `
           uniform vec3 zenith;
           uniform vec3 horizon;
+          uniform vec3 haze;
+          uniform vec3 sunDir;
+          uniform vec3 glow;
           varying vec3 vDir;
           void main() {
-            // 0 at and below the horizon, 1 straight up; eased so the haze band is wide.
-            float t = pow(clamp(vDir.y, 0.0, 1.0), 0.45);
-            gl_FragColor = vec4(mix(horizon, zenith, t), 1.0);
+            vec3 d = normalize(vDir);
+            // 0 at the horizon, 1 straight up; eased so the horizon band is wide.
+            float t = pow(clamp(d.y, 0.0, 1.0), 0.45);
+            vec3 col = mix(horizon, zenith, t);
+            // Below the horizon: the haze (what the fog fades the far city into).
+            col = mix(col, haze, smoothstep(0.0, -0.04, d.y));
+            // Sun or moon: a wide halo, a tighter glow and a small disc.
+            float c = max(dot(d, sunDir), 0.0);
+            col += glow * (0.25 * pow(c, 6.0) + 0.6 * pow(c, 90.0) + 3.0 * smoothstep(0.9993, 0.9996, c));
+            gl_FragColor = vec4(col, 1.0);
             #include <colorspace_fragment>
+            // Dither by half an 8-bit step against banding.
+            float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+            gl_FragColor.rgb += (n - 0.5) / 255.0;
           }`,
       }),
-    [zenith, horizon],
+    [],
   );
+  useEffect(() => () => material.dispose(), [material]);
+  const seen = useRef(-1);
 
-  useFrame(({ camera }) => ref.current?.position.copy(camera.position));
+  useFrame(({ camera }) => {
+    ref.current?.position.copy(camera.position);
+    const v = daylightVersion();
+    if (v === seen.current) return;
+    seen.current = v;
+    const d = daylight();
+    const u = material.uniforms;
+    (u.zenith!.value as Color).copy(d.skyZenith);
+    (u.horizon!.value as Color).copy(d.skyHorizon);
+    (u.haze!.value as Color).copy(d.haze);
+    (u.sunDir!.value as Vector3).copy(d.sunDir);
+    (u.glow!.value as Color).copy(d.glowColor).multiplyScalar(d.glowStrength);
+  });
 
   return (
     <mesh ref={ref} material={material} renderOrder={-1000} frustumCulled={false}>
-      <sphereGeometry args={[radius, 32, 16]} />
+      <sphereGeometry args={[radius, 48, 24]} />
     </mesh>
   );
 }

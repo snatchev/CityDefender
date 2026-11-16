@@ -1,10 +1,11 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
-import { Group, Mesh, MeshStandardMaterial, Sphere, Vector3 } from 'three';
+import { Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, Sphere, Vector3 } from 'three';
 import type { SolidRecord } from '../sim/cityFile';
 import { solidsGeometry } from './buildingMesh';
 import { uvToWorld, type TileFrame } from './coords';
-import { withWindows } from './facades';
+import { registerShadowCaster, SHADOW_LAYER } from './daylight';
+import { withWindowGlow, withWindows } from './facades';
 import {
   fadingOccluders,
   GHOST_COLOR_ORDER,
@@ -57,15 +58,18 @@ export function Buildings({
     const base = () => new MeshStandardMaterial({ vertexColors: true, roughness: ROUGHNESS });
     return {
       near: hideWhenFaded(withWindows(base())),
-      far: hideWhenFaded(base()),
+      far: hideWhenFaded(withWindowGlow(base())),
       ghostNear: ghostMaterials(withWindows(base())),
-      ghostFar: ghostMaterials(base()),
+      ghostFar: ghostMaterials(withWindowGlow(base())),
+      // Shadow casters draw nothing visible: they only matter in the shadow pass (Daylight.tsx).
+      caster: new MeshBasicMaterial({ colorWrite: false, depthWrite: false }),
     };
   }, []);
   useEffect(
     () => () => {
       mats.near.dispose();
       mats.far.dispose();
+      mats.caster.dispose();
       for (const g of [mats.ghostNear, mats.ghostFar]) {
         g.depth.dispose();
         g.color.dispose();
@@ -110,13 +114,21 @@ export function Buildings({
       };
       const nearGhost = ghostOf(near.geometry, mats.ghostNear);
       const farGhost = ghostOf(far.geometry, mats.ghostFar);
-      group.add(near, far, ...nearGhost, ...farGhost);
+      // Sun shadows (Daylight.tsx): both levels of detail and the ghosts receive; the low-detail
+      // shape casts, always (also while its building is a ghost, so shadows don't pop), from a
+      // copy on the shadow layer that the camera never draws.
+      for (const m of [near, far, ...nearGhost, ...farGhost]) m.receiveShadow = true;
+      const caster = new Mesh(far.geometry, mats.caster);
+      caster.castShadow = true;
+      caster.layers.set(SHADOW_LAYER);
+      group.add(near, far, ...nearGhost, ...farGhost, caster);
       const chunk = { near, far, nearGhost, farGhost, sphere, fading: false };
       chunks.push(chunk);
       for (const id of new Set(ids)) chunksOf.set(id, [...(chunksOf.get(id) ?? []), chunk]);
     }
     return { group, chunks, chunksOf };
   }, [solids, coordScale, frame, keepClear, mats]);
+  useEffect(() => registerShadowCaster(group), [group]);
   useEffect(
     () => () =>
       chunks.forEach((c) => {

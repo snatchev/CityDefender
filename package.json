@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "map:build": "tsx tools/map/build.ts"
+    "map:build": "tsx tools/map/build.ts",
+    "models:build": "bash tools/models/build.sh"
   },
   "engines": {
     "node": ">=22"

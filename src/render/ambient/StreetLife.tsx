@@ -1,15 +1,19 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
+  AdditiveBlending,
   BoxGeometry,
   BufferAttribute,
   Color,
   CylinderGeometry,
+  DataTexture,
   IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   OctahedronGeometry,
+  PlaneGeometry,
   Quaternion,
   Vector3,
   type BufferGeometry,
@@ -19,6 +23,7 @@ import { registerStreetLife } from '../../debug/devHook';
 import { game, renderAlpha } from '../../game';
 import { createRng } from '../../sim/rng';
 import type { TileFrame } from '../coords';
+import { DAYLIGHT, daylight, daylightVersion } from '../daylight';
 import { mobWorldXZ } from '../Mobs';
 import { orbitControls, zoomScale } from '../view';
 import { StreetLife } from './life';
@@ -91,6 +96,40 @@ function treeGeometry(): BufferGeometry {
   ]);
 }
 
+const LAMP = DAYLIGHT.lamps;
+/** A lamp head that is off: dark glass. */
+const LAMP_OFF = new Color('#34363a');
+const LAMP_POLE = '#3a3d42';
+
+/** Pole and arm, the arm reaching along +z (rotated toward the street per lamp). */
+function lampGeometry(): BufferGeometry {
+  return parts([
+    [
+      new CylinderGeometry(0.09, 0.13, LAMP.heightM, 5).translate(0, LAMP.heightM / 2, 0),
+      LAMP_POLE,
+    ],
+    [
+      new BoxGeometry(0.08, 0.08, LAMP.armM).translate(0, LAMP.heightM - 0.05, LAMP.armM / 2),
+      LAMP_POLE,
+    ],
+  ]);
+}
+
+/** The pool of light on the street under a lamp head: a flat quad with a soft radial falloff. */
+function poolTexture(): DataTexture {
+  const n = 64;
+  const data = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const r = Math.hypot((x + 0.5) / n - 0.5, (y + 0.5) / n - 0.5) * 2;
+      const v = Math.round(255 * Math.max(0, 1 - r * r) ** 2);
+      data.set([v, v, v, 255], (y * n + x) * 4);
+    }
+  const t = new DataTexture(data, n, n);
+  t.needsUpdate = true;
+  return t;
+}
+
 /**
  * Street life (D052): instanced cars, people (body + head) and trees driven by `StreetLife`. Moves in
  * real time while the game runs and freezes when it's paused. Never pickable (no pointer handlers).
@@ -111,12 +150,20 @@ export function StreetLifeLayer({ frame }: { frame: TileFrame }) {
   const bodies = useRef<InstancedMesh>(null);
   const heads = useRef<InstancedMesh>(null);
   const trees = useRef<InstancedMesh>(null);
+  const lamps = useRef<InstancedMesh>(null);
+  const lampHeads = useRef<InstancedMesh>(null);
+  const lampPools = useRef<InstancedMesh>(null);
   const geo = useMemo(
     () => ({
       car: carGeometry(),
       body: bodyGeometry(),
       head: new OctahedronGeometry(0.2, 1).translate(0, 1.62, 0),
       tree: treeGeometry(),
+      lamp: lampGeometry(),
+      lampHead: new BoxGeometry(0.35, 0.16, 0.7).translate(0, LAMP.heightM - 0.15, LAMP.armM),
+      lampPool: new PlaneGeometry(LAMP.poolRadiusM * 2, LAMP.poolRadiusM * 2)
+        .rotateX(-Math.PI / 2)
+        .translate(0, 0.1, LAMP.armM),
     }),
     [],
   );
@@ -124,12 +171,26 @@ export function StreetLifeLayer({ frame }: { frame: TileFrame }) {
     () => ({
       colored: new MeshLambertMaterial({ vertexColors: true }),
       skin: new MeshLambertMaterial({ color: SKIN }),
+      // Street lamps (Pass 10b): unlit heads that glow at night, and an additive pool of light on
+      // the street under each (no real lights). Both follow `daylight().lamps`.
+      lampHead: new MeshBasicMaterial({ color: LAMP_OFF }),
+      lampPool: new MeshBasicMaterial({
+        map: poolTexture(),
+        transparent: true,
+        blending: AdditiveBlending,
+        depthWrite: false,
+        fog: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      }),
     }),
     [],
   );
   useEffect(
     () => () => {
       Object.values(geo).forEach((g) => g.dispose());
+      mats.lampPool.map?.dispose();
       Object.values(mats).forEach((m) => m.dispose());
     },
     [geo, mats],
@@ -151,6 +212,17 @@ export function StreetLifeLayer({ frame }: { frame: TileFrame }) {
       trees.current?.setMatrixAt(i, m);
       trees.current?.setColorAt(i, c.setScalar(t.shade));
     });
+    life.lamps.forEach((l, i) => {
+      q.setFromAxisAngle(up, Math.atan2(l.dx, l.dz));
+      m.compose(new Vector3(l.x, 0, l.z), q, new Vector3(1, 1, 1));
+      for (const mesh of [lamps.current, lampHeads.current, lampPools.current])
+        mesh?.setMatrixAt(i, m);
+    });
+    for (const mesh of [lamps.current, lampHeads.current, lampPools.current]) {
+      if (!mesh) continue;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    }
     for (const mesh of [cars.current, bodies.current, trees.current]) {
       if (mesh?.instanceColor) mesh.instanceColor.needsUpdate = true;
       if (mesh) mesh.instanceMatrix.needsUpdate = true;
@@ -167,12 +239,23 @@ export function StreetLifeLayer({ frame }: { frame: TileFrame }) {
       up: new Vector3(0, 1, 0),
       bugs: [] as [number, number][],
       treeClock: 0,
+      daylight: -1,
     }),
     [],
   );
 
   useFrame(({ camera, controls }, delta) => {
     if (!life || !cars.current || !bodies.current || !heads.current || !trees.current) return;
+    if (tmp.daylight !== daylightVersion()) {
+      tmp.daylight = daylightVersion();
+      const on = daylight().lamps;
+      mats.lampHead.color
+        .set(LAMP.color)
+        .multiplyScalar(LAMP.headIntensity)
+        .lerp(LAMP_OFF, 1 - on);
+      mats.lampPool.color.set(LAMP.color).multiplyScalar(LAMP.poolIntensity * on);
+      if (lampPools.current) lampPools.current.visible = on > 0.01;
+    }
     const world = game.world;
     const running = game.stepper.timeScale > 0;
     if (running) {
@@ -230,11 +313,13 @@ export function StreetLifeLayer({ frame }: { frame: TileFrame }) {
       <instancedMesh
         ref={cars}
         args={[geo.car, mats.colored, life.cars.length]}
+        receiveShadow
         frustumCulled={false}
       />
       <instancedMesh
         ref={bodies}
         args={[geo.body, mats.colored, life.people.length]}
+        receiveShadow
         frustumCulled={false}
       />
       <instancedMesh
@@ -242,7 +327,14 @@ export function StreetLifeLayer({ frame }: { frame: TileFrame }) {
         args={[geo.head, mats.skin, life.people.length]}
         frustumCulled={false}
       />
-      <instancedMesh ref={trees} args={[geo.tree, mats.colored, life.trees.length]} />
+      <instancedMesh ref={trees} args={[geo.tree, mats.colored, life.trees.length]} receiveShadow />
+      <instancedMesh ref={lamps} args={[geo.lamp, mats.colored, life.lamps.length]} receiveShadow />
+      <instancedMesh ref={lampHeads} args={[geo.lampHead, mats.lampHead, life.lamps.length]} />
+      <instancedMesh
+        ref={lampPools}
+        args={[geo.lampPool, mats.lampPool, life.lamps.length]}
+        visible={false}
+      />
     </group>
   );
 }

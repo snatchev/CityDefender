@@ -4,6 +4,7 @@ import {
   BoxGeometry,
   Color,
   InstancedBufferAttribute,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   MeshStandardMaterial,
   Object3D,
@@ -12,7 +13,8 @@ import {
 import type { BackdropFileV0, BackdropLayer } from '../sim/cityFile';
 import { TILE_M } from '../sim/constants';
 import { uvToWorld, type TileFrame } from './coords';
-import { backdropLook, facadeAverage, withWindows } from './facades';
+import { daylightVersion } from './daylight';
+import { backdropLook, facadeAverage, withWindowGlow, withWindows } from './facades';
 import { preLit } from './lighting';
 import { createRng } from '../sim/rng';
 import {
@@ -59,13 +61,21 @@ export function Backdrop({
   const [x0, z0] = uvToWorld(frame, outer.u0, outer.v0);
   const w = outer.width * outer.cellTiles * TILE_M;
   const d = outer.height * outer.cellTiles * TILE_M;
-  const groundColor = useMemo(() => preLit(GROUND), []);
+  // Unlit (D053), in the colour the lights give it at this time of day.
+  const groundMat = useRef<MeshBasicMaterial>(null);
+  const seen = useRef(-1);
+  useFrame(() => {
+    const v = daylightVersion();
+    if (v === seen.current || !groundMat.current) return;
+    seen.current = v;
+    preLit(GROUND, undefined, groundMat.current.color);
+  });
   return (
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[x0 + w / 2, GROUND_Y, z0 + d / 2]}>
         <planeGeometry args={[GROUND_SIZE_M, GROUND_SIZE_M]} />
         <meshBasicMaterial
-          color={groundColor}
+          ref={groundMat}
           polygonOffset
           polygonOffsetFactor={4}
           polygonOffsetUnits={4}
@@ -118,7 +128,8 @@ function LayerBoxes({
               instancedBoxes: true,
             }),
           )
-        : new MeshLambertMaterial(),
+        : // Their lit windows glow evenly at night (withWindowGlow).
+          withWindowGlow(new MeshLambertMaterial(), { instancedBoxes: true }),
     [detailed],
   );
   const ghost = useMemo(

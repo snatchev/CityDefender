@@ -1,10 +1,11 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import { Color, MeshStandardMaterial, type Group } from 'three';
+import { Color, Mesh, MeshBasicMaterial, MeshStandardMaterial, type Group } from 'three';
 import { game, renderAlpha } from '../game';
 import type { SolidRecord } from '../sim/cityFile';
 import { TICK_DT } from '../sim/constants';
 import { solidsGeometry } from './buildingMesh';
+import { registerShadowCaster, SHADOW_LAYER } from './daylight';
 import type { TileFrame } from './coords';
 import { withWindows } from './facades';
 import {
@@ -76,6 +77,15 @@ export function CityHall({
     [ghost],
   );
   const ghostRef = useRef<Group>(null);
+  const caster = useMemo(() => {
+    const m = new Mesh(geometry, new MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+    m.castShadow = true;
+    m.layers.set(SHADOW_LAYER);
+    return m;
+  }, [geometry]);
+  useEffect(() => () => (caster.material as MeshBasicMaterial).dispose(), [caster]);
+  const groupRef = useRef<Group>(null);
+  useEffect(() => (groupRef.current ? registerShadowCaster(groupRef.current) : undefined), []);
 
   useFrame(() => {
     const world = game.world;
@@ -86,12 +96,19 @@ export function CityHall({
   });
 
   return (
-    <group name="cityHall" scale-y={heightScale}>
-      <mesh geometry={geometry} material={material} />
+    <group ref={groupRef} name="cityHall" scale-y={heightScale}>
+      <mesh geometry={geometry} material={material} receiveShadow />
       <group ref={ghostRef} visible={false}>
         <mesh geometry={geometry} material={ghost.depth} renderOrder={GHOST_DEPTH_ORDER} />
-        <mesh geometry={geometry} material={ghost.color} renderOrder={GHOST_COLOR_ORDER} />
+        <mesh
+          geometry={geometry}
+          material={ghost.color}
+          renderOrder={GHOST_COLOR_ORDER}
+          receiveShadow
+        />
       </group>
+      {/* Casts the sun's shadow, from the shadow layer only (Daylight.tsx), even while a ghost. */}
+      <primitive object={caster} />
     </group>
   );
 }
